@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+
+# ORM e Migrações
+sqlalchemy
+alembic
+
+# Driver assíncrono para SQLite (Se for usar SQLite)
+aiosqlite
+
+# Gerenciamento de variáveis de ambiente (.env)
+python-dotenv

@@ -1,0 +1,417 @@
+.container {
+  box-shadow: var(--shadow-drop);
+  border-radius: var(--br-30);
+  background-color: var(--light5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--padding-24);
+  text-align: right;
+  font-size: var(--fs-14);
+  color: var(--brand-dark-blue);
+  font-family: var(--font-neue-haas-grotesk-display-pro);
+}
+.container2 {
+  width: var(--width-941);
+  height: 397px;
+  position: relative;
+}
+.container3,
+.container4 {
+  display: flex;
+  align-items: flex-start;
+}
+.container3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--width-941);
+  height: 295px;
+  flex-direction: column;
+  gap: var(--gap-30);
+}
+.container4 {
+  align-self: stretch;
+  justify-content: space-between;
+  gap: var(--gap-20);
+}
+.container5,
+.divrechartsWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.container5 {
+  width: var(--width-941);
+  height: 181px;
+}
+.divrechartsWrapper {
+  width: 100%;
+  height: 209px;
+  justify-content: center;
+  max-width: var(--width-886);
+  max-height: var(--height-260);
+  flex-shrink: 0;
+}
+.component1 {
+  align-self: stretch;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+.group,
+.groupIcon {
+  position: absolute;
+  flex-shrink: 0;
+}
+.groupIcon {
+  height: 75.41%;
+  width: 82.62%;
+  top: 3.06%;
+  right: 1.81%;
+  bottom: 21.53%;
+  left: 15.58%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.group {
+  height: 6.41%;
+  width: 85.25%;
+  top: 80.19%;
+  right: -0.28%;
+  bottom: 13.4%;
+  left: 15.03%;
+  text-align: center;
+  font-size: var(--fs-12);
+  color: var(--dark2);
+}
+.group2,
+.group3 {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+.group3 {
+  height: 97.76%;
+  width: 1.17%;
+  top: 2.24%;
+  right: 98.83%;
+}
+.group4,
+.horizontalAxisLabel {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group4 {
+  height: 97.76%;
+  width: 5.49%;
+  right: 72.49%;
+  bottom: 2.24%;
+  left: 22.02%;
+}
+.group5,
+.horizontalAxisLabel2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group5 {
+  height: 97.76%;
+  width: 5.49%;
+  right: 48.15%;
+  bottom: 2.24%;
+  left: 46.35%;
+}
+.group6,
+.horizontalAxisLabel3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group6 {
+  height: 97.76%;
+  width: 4.83%;
+  right: 24.49%;
+  bottom: 2.24%;
+  left: 70.67%;
+}
+.group7,
+.horizontalAxisLabel4 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group7 {
+  height: 97.76%;
+  width: 7%;
+  right: -0.01%;
+  bottom: 2.24%;
+  left: 93.01%;
+}
+.container6,
+.horizontalAxisLabel5 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.container6 {
+  height: 11.91%;
+  width: 77.9%;
+  top: 64.88%;
+  right: 14.85%;
+  bottom: 23.21%;
+  left: 7.25%;
+  flex-shrink: 0;
+}
+.group8 {
+  position: absolute;
+  height: 60.64%;
+  width: 9.48%;
+  top: 17.67%;
+  right: 90.52%;
+  bottom: 21.69%;
+  left: 0;
+}
+.groupIcon2,
+.status {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.groupIcon2 {
+  height: 100%;
+  width: 89.29%;
+  right: 0.01%;
+  bottom: 0;
+  left: 10.69%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.container7 {
+  position: absolute;
+  height: 11.91%;
+  width: 25.8%;
+  top: 19.86%;
+  right: 73.52%;
+  bottom: 68.23%;
+  left: 0.68%;
+  flex-shrink: 0;
+}
+.group9,
+.status2 {
+  position: absolute;
+  left: 0;
+}
+.group9 {
+  height: 60.24%;
+  width: 54.24%;
+  top: 14.06%;
+  right: 45.76%;
+  bottom: 25.7%;
+}
+.status2 {
+  top: 0;
+}
+.dataLabelsIcon,
+.vectorIcon {
+  position: absolute;
+  height: 100%;
+  width: 39.72%;
+  top: 0;
+  right: 2.54%;
+  bottom: 0;
+  left: 57.74%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.dataLabelsIcon {
+  width: 2.58%;
+  right: -0.04%;
+  left: 97.46%;
+}
+.container8 {
+  position: absolute;
+  height: 11.91%;
+  width: 18.04%;
+  top: 4.59%;
+  right: 75.96%;
+  bottom: 83.49%;
+  left: 6%;
+  flex-shrink: 0;
+}
+.group10,
+.status3 {
+  position: absolute;
+  left: 0;
+}
+.group10 {
+  height: 60.24%;
+  width: 47.93%;
+  top: 19.68%;
+  right: 52.07%;
+  bottom: 20.08%;
+}
+.status3 {
+  top: 0;
+}
+.groupIcon3,
+.groupIcon4 {
+  position: absolute;
+  height: 100%;
+  width: 44.87%;
+  top: 0;
+  right: 2.07%;
+  bottom: 0;
+  left: 53.07%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.groupIcon4 {
+  width: 2.07%;
+  right: 0;
+  left: 97.93%;
+}
+.container9 {
+  position: absolute;
+  height: 11.91%;
+  width: 26.48%;
+  top: 50%;
+  right: 68.4%;
+  bottom: 38.09%;
+  left: 5.12%;
+  flex-shrink: 0;
+}
+.group11,
+.status4 {
+  position: absolute;
+  left: 0;
+}
+.group11 {
+  height: 60.64%;
+  width: 35.93%;
+  top: 17.67%;
+  right: 64.07%;
+  bottom: 21.69%;
+}
+.status4 {
+  top: 0;
+}
+.groupIcon5,
+.groupIcon6 {
+  position: absolute;
+  height: 100%;
+  width: 50.55%;
+  top: 0;
+  right: 9.97%;
+  bottom: 0;
+  left: 39.47%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.groupIcon6 {
+  width: 9.97%;
+  right: 0;
+  left: 90.03%;
+}
+.container10 {
+  position: absolute;
+  height: 11.91%;
+  width: 19.48%;
+  top: 34.74%;
+  right: 78.23%;
+  bottom: 53.35%;
+  left: 2.29%;
+  flex-shrink: 0;
+}
+.group12,
+.status5 {
+  position: absolute;
+  left: 0;
+}
+.group12 {
+  height: 60.64%;
+  width: 63.44%;
+  top: 19.68%;
+  right: 36.56%;
+  bottom: 19.68%;
+}
+.status5 {
+  top: 0;
+}
+.groupIcon7,
+.groupIcon8 {
+  position: absolute;
+  height: 100%;
+  width: 22.89%;
+  top: 0;
+  right: 8.92%;
+  bottom: 0;
+  left: 68.19%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.groupIcon8 {
+  width: 8.92%;
+  right: 0;
+  left: 91.08%;
+}
+.container11 {
+  align-self: stretch;
+  height: var(--height-14);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+.container12 {
+  position: absolute;
+  top: 305px;
+  left: 0;
+  width: var(--width-941);
+  height: 34px;
+  flex-direction: column;
+  isolation: isolate;
+}
+.container12,
+.container13,
+.container14 {
+  display: flex;
+  align-items: flex-start;
+}
+.container13 {
+  margin: 0 !important;
+  position: absolute;
+  top: 0;
+  left: calc(50% - 109.5px);
+  flex-direction: column;
+  padding: var(--padding-10);
+  z-index: 0;
+}
+.container14 {
+  gap: var(--gap-10);
+}
+.container15,
+.container16 {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.container16 {
+  position: absolute;
+  top: 349px;
+  left: 0;
+  width: var(--width-941);
+  height: var(--height-48);
+  isolation: isolate;
+}

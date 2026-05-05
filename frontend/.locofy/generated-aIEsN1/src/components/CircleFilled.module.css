@@ -1,0 +1,20 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--item-spacing-xxs1);
+  text-align: left;
+  font-size: var(--fs-12);
+  color: var(--state-success);
+  font-family: var(--font-neue-haas-grotesk-display-pro);
+}
+.root[data-property1="fora do prazo"] .dentroDoPrazo {
+  color: var(--state-error);
+}
+.circleFilledIcon {
+  width: var(--width-12);
+  position: relative;
+  max-height: 100%;
+}
+.dentroDoPrazo {
+  position: relative;
+}

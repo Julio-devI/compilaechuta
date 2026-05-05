@@ -1,0 +1,9 @@
+.frameWrapper {
+  display: flex;
+  align-items: flex-start;
+}
+.buttonSmallParent {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-10);
+}

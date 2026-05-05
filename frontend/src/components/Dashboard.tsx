@@ -3,6 +3,8 @@ import { FilterTabs } from './FilterTabs'
 import { KPICard } from './KPICard'
 import { RevenueChart } from './RevenueChart'
 import { SatisfactionChart } from './SatisfactionChart'
+import { OperationsChart } from './OperationsChart'
+import { QuickActions } from './QuickActions' // Import the new component
 
 const kpiData = [
   {
@@ -51,7 +53,7 @@ export function Dashboard() {
   return (
     <div className="p-6">
       {/* Title */}
-      <h1 className="text-2xl font-bold text-foreground mb-6">Dashboard</h1>
+      <h1 className="text-5xl font-bold text-[#020854] mb-6">Dashboard</h1>
 
       {/* Filter Tabs */}
       <FilterTabs />
@@ -71,9 +73,15 @@ export function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <RevenueChart />
         <SatisfactionChart />
+      </div>
+
+      {/* Operations Chart and Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <OperationsChart />
+        <QuickActions /> {/* Added the new QuickActions component here */}
       </div>
     </div>
   )

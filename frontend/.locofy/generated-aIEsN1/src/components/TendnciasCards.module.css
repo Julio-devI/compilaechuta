@@ -1,0 +1,318 @@
+.tendnciasCards {
+  height: 366px;
+  width: 762px;
+  box-shadow: var(--shadow-drop);
+  border-radius: var(--br-30);
+  background-color: var(--light5);
+  padding: var(--padding-24);
+  box-sizing: border-box;
+  text-align: center;
+  font-size: var(--fs-12);
+  color: var(--dark2);
+  font-family: var(--font-neue-haas-grotesk-display-pro);
+}
+.card,
+.div,
+.tendnciasCards {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.card {
+  gap: var(--gap-30);
+  flex-shrink: 0;
+}
+.div {
+  height: 210px;
+  justify-content: center;
+}
+.component1 {
+  width: 718px;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+.group,
+.groupIcon {
+  position: absolute;
+  flex-shrink: 0;
+}
+.groupIcon {
+  height: 85.38%;
+  width: 94.58%;
+  top: 3.1%;
+  right: 0.91%;
+  bottom: 11.52%;
+  left: 4.51%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.group {
+  height: 7.14%;
+  width: 89.79%;
+  top: 90.19%;
+  right: 3.22%;
+  bottom: 2.67%;
+  left: 6.99%;
+}
+.group2,
+.group3 {
+  height: 100%;
+  bottom: 0;
+}
+.group2 {
+  position: absolute;
+  width: 100%;
+  top: 0;
+  right: 0;
+  left: 0;
+}
+.group3 {
+  width: 3.26%;
+  right: 96.74%;
+}
+.group3,
+.group4,
+.xAxisLabel {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group4 {
+  height: 100%;
+  width: 3.26%;
+  right: 87.96%;
+  bottom: 0;
+  left: 8.78%;
+}
+.group5,
+.xAxisLabel2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group5 {
+  height: 100%;
+  width: 3.41%;
+  right: 79.25%;
+  bottom: 0;
+  left: 17.34%;
+}
+.group6,
+.xAxisLabel3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group6 {
+  height: 100%;
+  width: 3.26%;
+  right: 70.4%;
+  bottom: 0;
+  left: 26.34%;
+}
+.group7,
+.xAxisLabel4 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group7 {
+  height: 100%;
+  width: 3.26%;
+  right: 61.63%;
+  bottom: 0;
+  left: 35.12%;
+}
+.group8,
+.xAxisLabel5 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group8 {
+  height: 100%;
+  width: 3.26%;
+  right: 52.85%;
+  bottom: 0;
+  left: 43.9%;
+}
+.group9,
+.xAxisLabel6 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group9 {
+  height: 100%;
+  width: 2.64%;
+  right: 44.44%;
+  bottom: 0;
+  left: 52.92%;
+}
+.group10,
+.xAxisLabel7 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group10 {
+  height: 100%;
+  width: 3.57%;
+  right: 35.12%;
+  bottom: 0;
+  left: 61.32%;
+}
+.group11,
+.xAxisLabel8 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group11 {
+  height: 100%;
+  width: 2.95%;
+  right: 26.71%;
+  bottom: 0;
+  left: 70.34%;
+}
+.group12,
+.xAxisLabel9 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group12 {
+  height: 100%;
+  width: 3.26%;
+  right: 17.74%;
+  bottom: 0;
+  left: 79%;
+}
+.group13,
+.xAxisLabel10 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group13 {
+  height: 100%;
+  width: 3.57%;
+  right: 8.78%;
+  bottom: 0;
+  left: 87.65%;
+}
+.group14,
+.xAxisLabel11 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group14 {
+  height: 100%;
+  width: 3.57%;
+  right: 0;
+  bottom: 0;
+  left: 96.43%;
+}
+.group15,
+.xAxisLabel12 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group15 {
+  height: 92.14%;
+  width: 4.21%;
+  top: 0.48%;
+  right: 96.41%;
+  bottom: 7.38%;
+  left: -0.61%;
+  flex-shrink: 0;
+  text-align: right;
+}
+.group16,
+.group17 {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+.group17 {
+  height: 7.75%;
+  width: 49.67%;
+  top: 92.25%;
+  left: 50.33%;
+}
+.group18,
+.yAxisLabel {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group18 {
+  height: 7.75%;
+  width: 96.03%;
+  top: 66.51%;
+  right: 1.32%;
+  bottom: 25.74%;
+  left: 2.65%;
+}
+.group19,
+.yAxisLabel2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group19 {
+  height: 7.75%;
+  width: 99.34%;
+  top: 40.78%;
+  right: 0.66%;
+  bottom: 51.47%;
+}
+.group20,
+.yAxisLabel3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.group20 {
+  height: 7.75%;
+  width: 96.03%;
+  right: 1.32%;
+  bottom: 92.25%;
+  left: 2.65%;
+}
+.groupIcon2,
+.yAxisLabel4 {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.groupIcon2 {
+  height: 85.38%;
+  width: 92.91%;
+  top: 3.1%;
+  right: 1.78%;
+  bottom: 11.52%;
+  left: 5.31%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+  flex-shrink: 0;
+}
+@media screen and (max-width: 1350px) {
+  .tendnciasCards {
+    flex: 1;
+  }
+}
+@media screen and (max-width: 1150px) {
+  .tendnciasCards {
+    min-width: 100%;
+  }
+}

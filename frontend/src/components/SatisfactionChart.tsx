@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Users } from 'lucide-react'
 
 const data = [
@@ -7,49 +7,60 @@ const data = [
   { name: 'Detratores', value: 12, color: '#FF4757' },
 ]
 
+// Transform data for stacked bar chart
+const barChartData = [
+  {
+    category: 'Satisfação',
+    Promotores: data[0].value,
+    Neutros: data[1].value,
+    Detratores: data[2].value,
+  },
+];
+
 export function SatisfactionChart() {
   return (
-    <div className="bg-white rounded-2xl p-6 border border-border shadow-sm">
+    <div
+      className="flex flex-col items-start p-6 gap-[10px] rounded-[30px] bg-white" // Updated classes
+      style={{
+        boxShadow: '0 4px 24px -8px rgba(2, 2, 85, 0.08)', // Custom box-shadow
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center gap-2 mb-1">
-        <Users className="w-4 h-4 text-[#1E5EFF]" />
-        <span className="text-xs font-medium text-[#1E5EFF] uppercase tracking-wider">Clientes</span>
+      <div className="flex items-center gap-2"> {/* Removed mb-1 to align with gap: 10px */}
+        <Users className="w-4 h-4 text-[#6B7588]" />
+        <span className="text-sm font-medium text-[#6B7588] uppercase tracking-wider">Clientes</span>
       </div>
-      <h3 className="text-lg font-semibold text-foreground mb-1">Taxa de Satisfação</h3>
-      <p className="text-sm text-muted mb-6">Exibição de dados média — clique para detalhar</p>
+      <h3 className="text-2xl font-semibold text-[#020854]">Taxa de Satisfação</h3> {/* Removed mb-1 */}
+      <p className="text-sm text-muted">Exibição de dados média — clique para detalhar</p> {/* Removed mb-6 */}
 
-      <div className="flex items-center gap-8">
-        {/* Chart */}
-        <div className="w-[180px] h-[180px] relative">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={2}
-                dataKey="value"
-                startAngle={90}
-                endAngle={-270}
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          {/* Center text */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-2xl font-bold text-foreground">70%</span>
-          </div>
-        </div>
+      <div className="h-[200px] w-full"> {/* Adjust height as needed, added w-full */}
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={barChartData}
+            layout="vertical" // For a horizontal stacked bar chart
+            margin={{
+              top: 20,
+              right: 30,
+              left: 20,
+              bottom: 10,
+            }}
+          >
+            <XAxis type="number" tickFormatter={(value) => `${value}%`} domain={[0, 100]} hide /> {/* Added hide prop */}
+            <YAxis type="category" dataKey="category" hide /> {/* Hide YAxis as there's only one category */}
+            <Tooltip formatter={(value) => `${value}%`} />
+            {/* The default Legend component from recharts is not used here as we have a custom one below */}
+            {/* <Legend /> */}
+            <Bar dataKey="Promotores" stackId="a" fill={data[0].color} radius={[12, 0, 0, 12]} /> {/* Added radius */}
+            <Bar dataKey="Neutros" stackId="a" fill={data[1].color} />
+            <Bar dataKey="Detratores" stackId="a" fill={data[2].color} radius={[0, 12, 12, 0]} /> {/* Added radius */}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-        {/* Legend */}
-        <div className="flex flex-col gap-4">
+      {/* Legend - Reusing the existing legend structure for consistency */}
+      <div className="flex flex-row gap-4 justify-center w-full"> {/* Removed mt-6, added w-full */}
           {data.map((item) => (
-            <div key={item.name} className="flex items-center gap-3">
+            <div key={item.name} className="flex items-center gap-3 p-2 rounded-lg bg-[#E3EDFF]"> {/* Added padding, rounded corners, and background color */}
               <div 
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: item.color }}
@@ -61,7 +72,6 @@ export function SatisfactionChart() {
             </div>
           ))}
         </div>
-      </div>
     </div>
   )
 }

@@ -78,13 +78,14 @@ export function Sidebar() {
         <button
           onClick={handleLogout}
           className={cn(
-            "h-12 rounded-xl flex items-center transition-all duration-200 hover:bg-white/20 bg-transparent",
-            isHovered ? "w-full px-4 justify-start" : "w-12 justify-center"
+            "h-12 rounded-xl flex items-center transition-all duration-200 group", // Added group for hover state
+            isHovered ? "w-full px-4 justify-start" : "w-12 justify-center",
+            "hover:bg-[#ADE9FF] bg-transparent"
           )}
           title="Sair"
         >
-          <LogOut className={cn("w-5 h-5", isHovered && "mr-3")} style={{ color: '#0070DB' }} />
-          {isHovered && <span className="text-sm font-medium" style={{ color: '#0070DB' }}>Sair</span>}
+          <LogOut className={cn("w-5 h-5", isHovered && "mr-3", "group-hover:text-[#020854]")} style={{ color: '#0070DB' }} />
+          {isHovered && <span className="text-sm font-medium group-hover:text-[#020854]" style={{ color: '#0070DB' }}>Sair</span>}
         </button>
       </div>
     </aside>
@@ -98,15 +99,36 @@ function NavButton({ item, isSidebarHovered }: { item: NavItem, isSidebarHovered
     <NavLink
       to={item.path}
       className={({ isActive }) => cn(
-        "h-12 rounded-xl flex items-center transition-all duration-200",
+        "h-12 rounded-xl flex items-center transition-all duration-200 group", // Added group for hover state
         isSidebarHovered ? "w-full px-4 justify-start" : "w-12 justify-center", // Dynamic width, padding, and alignment
-        "hover:bg-white/20",
-        isActive ? "bg-white/20" : "bg-transparent"
+        "hover:bg-[#ADE9FF]", // Changed hover background color to #ADE9FF
+        isActive ? "bg-[#0070DB]" : "bg-transparent" // Active background color
       )}
       title={item.label}
     >
-      <Icon className={cn("w-5 h-5", isSidebarHovered && "mr-3")} style={{ color: '#0070DB' }} />
-      {isSidebarHovered && <span className="text-sm font-medium" style={{ color: '#0070DB' }}>{item.label}</span>} {/* Show label on hover */}
+      {({ isActive }) => (
+        <>
+          <Icon
+            className={cn(
+              "w-5 h-5",
+              isSidebarHovered && "mr-3",
+              isActive ? "text-white" : "text-[#0070DB] group-hover:text-[#020854]" // Conditional icon color using classes instead of inline style
+            )}
+            style={isActive ? undefined : { color: '#0070DB' }} // Fallback inline style if classes don't override correctly, but disabled when active
+          />
+          {isSidebarHovered && (
+            <span
+              className={cn(
+                "text-sm font-medium",
+                isActive ? "text-white" : "text-[#0070DB] group-hover:text-[#020854]" // Conditional text color using classes
+              )}
+              style={isActive ? undefined : { color: '#0070DB' }} // Fallback inline style, disabled when active
+            >
+              {item.label}
+            </span>
+          )}
+        </>
+      )}
     </NavLink>
   )
 }

@@ -41,7 +41,6 @@ def _validate_syntax(sql: str) -> None:
 
     Regras:
         - Deve começar com SELECT ou WITH (ignorando espaços e parênteses iniciais).
-        - Não pode conter ponto-e-vírgula no meio (múltiplos statements).
 
     Raises:
         ValueError: Se o SQL não passar na validação.
@@ -57,13 +56,6 @@ def _validate_syntax(sql: str) -> None:
         raise ValueError(
             "A query gerada não parece ser um SELECT válido. "
             "Apenas consultas de leitura são permitidas."
-        )
-
-    # Detecta múltiplos statements (ponto-e-vírgula antes do final)
-    body = cleaned[:-1] if cleaned.endswith(";") else cleaned
-    if ";" in body:
-        raise ValueError(
-            "Múltiplos statements SQL detectados. Apenas uma query SELECT por vez é permitida."
         )
 
 

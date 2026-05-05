@@ -18,19 +18,28 @@ from src import config
 class Database:
     """Conexão assíncrona com o banco SQLite para execução de queries de leitura."""
 
-    def __init__(self, db_path: str) -> None:
+    def __init__(self, db_path: str | None) -> None:
         """
         Inicializa a conexão com o caminho do banco.
 
         Args:
             db_path: Caminho absoluto ou relativo para o arquivo `.db`.
-
-        Raises:
-            ValueError: Se o caminho do banco for vazio ou None.
+                     Se vazio ou None, a conexão será tratada como não configurada
+                     e uma mensagem amigável será retornada na primeira tentativa
+                     de uso, sem interromper a aplicação.
         """
-        if not db_path or not db_path.strip():
-            raise ValueError("Caminho do banco de dados não pode ser vazio.")
-        self._db_path = db_path
+        self._db_path = db_path.strip() if db_path else None
+
+    def _get_connection_uri(self) -> str:
+        """Monta a URI de conexão com read-only para arquivos em disco."""
+        if not self._db_path:
+            raise RuntimeError(
+                "Caminho do banco de dados não configurado. "
+                "Verifique a variável de ambiente DB_PATH."
+            )
+        if self._db_path == ":memory:":
+            return ":memory:"
+        return f"file:{self._db_path}?mode=ro"
 
     async def execute_query(self, sql: str) -> tuple[list[dict[str, Any]], bool]:
         """
@@ -50,7 +59,7 @@ class Database:
         """
 
         async def _run() -> tuple[list[dict[str, Any]], bool]:
-            async with aiosqlite.connect(self._db_path) as conn:
+            async with aiosqlite.connect(self._get_connection_uri(), uri=True) as conn:
                 conn.row_factory = aiosqlite.Row
                 cursor = await conn.execute(sql)
                 rows = await cursor.fetchmany(config.MAX_ROWS + 1)
@@ -104,7 +113,7 @@ class Database:
         schema: dict[str, Any] = {"tables": {}}
 
         try:
-            async with aiosqlite.connect(self._db_path) as conn:
+            async with aiosqlite.connect(self._get_connection_uri(), uri=True) as conn:
                 # Lista todas as tabelas do schema principal (exceto sqlite_)
                 async with conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"

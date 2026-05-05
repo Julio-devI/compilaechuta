@@ -1,0 +1,5 @@
+﻿.venv/
+banco_local.db
+.env
+env.py
+__pycache__/

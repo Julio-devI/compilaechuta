@@ -26,7 +26,7 @@ LIMIT 10;
 
 Pergunta: "Quais clientes do Nordeste compraram mais de R$500 no último trimestre?"
 ```sql
-SELECT c.nome_cliente AS cliente, c.regiao, SUM(v.valor_total_linha) AS total_gasto
+SELECT c.nome_cliente AS cliente, c.regiao, SUM(v.valor_total_venda) AS total_gasto
 FROM dim_cliente c
 JOIN fato_vendas v ON c.id_cliente = v.id_cliente
 JOIN dim_tempo t ON v.id_data = t.id_data
@@ -41,8 +41,8 @@ ORDER BY total_gasto DESC;
 Pergunta: "Qual região teve o maior crescimento de receita?"
 ```sql
 SELECT c.regiao,
-  SUM(CASE WHEN t.mes = (SELECT mes FROM dim_tempo WHERE data_completa = date('now')) THEN v.valor_total_linha ELSE 0 END) AS receita_mes_atual,
-  SUM(CASE WHEN t.mes = (SELECT mes FROM dim_tempo WHERE data_completa = date('now', '-1 month')) THEN v.valor_total_linha ELSE 0 END) AS receita_mes_anterior
+  SUM(CASE WHEN t.mes = (SELECT mes FROM dim_tempo WHERE data_completa = date('now')) THEN v.valor_total_venda ELSE 0 END) AS receita_mes_atual,
+  SUM(CASE WHEN t.mes = (SELECT mes FROM dim_tempo WHERE data_completa = date('now', '-1 month')) THEN v.valor_total_venda ELSE 0 END) AS receita_mes_anterior
 FROM fato_vendas v
 JOIN dim_cliente c ON v.id_cliente = c.id_cliente
 JOIN dim_tempo t ON v.id_data = t.id_data
@@ -62,7 +62,7 @@ LIMIT 10;
 
 Pergunta: "Qual o NPS médio por categoria de produto?"
 ```sql
-SELECT p.categoria, ROUND(AVG(a.nota_estrelas), 1) AS nota_media
+SELECT p.categoria, ROUND(AVG(a.nota_produto), 1) AS nota_media
 FROM fato_avaliacoes_pedido a
 JOIN dim_produto p ON a.id_produto = p.id_produto
 GROUP BY p.categoria

@@ -82,3 +82,16 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes glass-float {
+  0%   { transform: rotate(15deg)   translate(0px,    0px);   }
+  25%  { transform: rotate(5deg)    translate(160px, -120px); }
+  50%  { transform: rotate(-10deg)  translate(220px,  100px); }
+  75%  { transform: rotate(10deg)   translate(60px,   200px); }
+  100% { transform: rotate(15deg)   translate(0px,    0px);   }
+}

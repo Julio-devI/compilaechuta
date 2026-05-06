@@ -115,8 +115,7 @@ class VCommerceAgent:
                 out_of_scope=False,
                 truncated=False,
             )
-        except LLMError:
-            raise
+        # Nota: LLMError propaga diretamente para o backend tratar
 
         # Etapa 3: detectar fora do escopo
         if sql.strip().upper().startswith("FORA_DO_ESCOPO"):
@@ -145,15 +144,22 @@ class VCommerceAgent:
             )
 
         # Etapa 5: gerar insight
-        try:
-            insight = await generate_insight(question, rows, sql)
-        except LLMError:
-            raise
+        # Nota: LLMError propaga diretamente para o backend tratar
+        insight = await generate_insight(question, rows, sql)
 
         # Etapa 6: montar resposta
         chart = None
         if insight.get("chart"):
-            chart = ChartSuggestion(**insight["chart"])
+            chart_data = insight["chart"]
+            try:
+                chart = ChartSuggestion(
+                    type=chart_data.get("type", "bar"),
+                    x_axis=chart_data.get("x_axis"),
+                    y_axis=chart_data.get("y_axis"),
+                    title=chart_data.get("title", ""),
+                )
+            except (TypeError, KeyError):
+                chart = None
 
         return AgentResponse(
             text=insight["text"],

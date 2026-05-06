@@ -25,10 +25,14 @@ def _load_system_prompt(question: str, data: list[dict[str, Any]], sql: str) -> 
         raise FileNotFoundError(f"Prompt não encontrado: {_PROMPT_PATH}")
 
     template = _PROMPT_PATH.read_text(encoding="utf-8")
-    template = template.replace("{question}", question)
-    template = template.replace("{sql}", sql)
-    # Serializa os dados como JSON indentado para o prompt
-    template = template.replace("{data}", json.dumps(data, ensure_ascii=False, indent=2))
+    # Substituição simultânea para evitar colisão de placeholders (ex: question contendo "{sql}")
+    replacements = {
+        "{question}": question,
+        "{sql}": sql,
+        "{data}": json.dumps(data, ensure_ascii=False, indent=2),
+    }
+    pattern = re.compile("|".join(re.escape(k) for k in replacements))
+    template = pattern.sub(lambda m: replacements[m.group(0)], template)
     return template
 
 
@@ -46,7 +50,7 @@ def _parse_json(raw: str) -> dict[str, Any]:
     text_to_parse = match.group(1).strip() if match else raw.strip()
 
     try:
-        return json.loads(text_to_parse)  # type: ignore[no-any-return]
+        parsed = json.loads(text_to_parse)
     except json.JSONDecodeError:
         # Fallback gracioso: retorna o texto bruto como insight
         return {
@@ -54,6 +58,16 @@ def _parse_json(raw: str) -> dict[str, Any]:
             "data": None,
             "chart": None,
         }
+
+    # Garante presença da chave obrigatória; se ausente, retorna fallback
+    if "text" not in parsed:
+        return {
+            "text": raw.strip(),
+            "data": None,
+            "chart": None,
+        }
+
+    return parsed
 
 
 def _validate_chart(insight: dict[str, Any], data: list[dict[str, Any]]) -> None:
@@ -90,6 +104,10 @@ def _validate_chart(insight: dict[str, Any], data: list[dict[str, Any]]) -> None
         insight["chart"] = None
 
 
+_MAX_ROWS_FOR_INSIGHT_PROMPT = 100
+"""Número máximo de linhas enviadas ao prompt da Chamada 2 para evitar estouro de context window."""
+
+
 async def generate_insight(
     question: str, data: list[dict[str, Any]], sql: str
 ) -> dict[str, Any]:
@@ -116,29 +134,16 @@ async def generate_insight(
             "chart": None,
         }
 
-    # Edge case: valor único escalar (1 linha × 1 coluna)
-    if len(data) == 1 and len(data[0]) == 1:
-        system_prompt = _load_system_prompt(question, data, sql)
-        agent = LLMAgent(
-            system_prompt=system_prompt,
-            temperature=config.LLM_TEMPERATURE_INSIGHT,
-        )
-        try:
-            raw_output = await agent.run(question)
-        except RuntimeError as exc:
-            raise LLMError(f"Falha na geração do insight: {exc}") from exc
+    is_scalar = len(data) == 1 and len(data[0]) == 1
 
-        insight = _parse_json(raw_output)
-        # Força data e chart como None para valor escalar
-        insight["data"] = None
-        insight["chart"] = None
-        return insight
+    # Trunca dados para o prompt a fim de preservar context window (P4)
+    data_for_prompt = data[:_MAX_ROWS_FOR_INSIGHT_PROMPT]
+    system_prompt = _load_system_prompt(question, data_for_prompt, sql)
 
-    # Caso geral: dados tabulares
-    system_prompt = _load_system_prompt(question, data, sql)
     agent = LLMAgent(
         system_prompt=system_prompt,
         temperature=config.LLM_TEMPERATURE_INSIGHT,
+        max_tokens=config.MAX_TOKENS_INSIGHT,
     )
 
     try:
@@ -148,10 +153,13 @@ async def generate_insight(
 
     insight = _parse_json(raw_output)
 
-    # Garante que o campo data do insight seja consistente com os dados brutos
-    # (se o LLM retornou data=None mas temos dados, mantemos os dados brutos)
-    if insight.get("data") is None and data:
-        insight["data"] = data
+    if is_scalar:
+        insight["data"] = None
+        insight["chart"] = None
+    else:
+        # Garante que o campo data do insight seja consistente com os dados brutos
+        if insight.get("data") is None and data:
+            insight["data"] = data
+        _validate_chart(insight, insight.get("data") or [])
 
-    _validate_chart(insight, data)
     return insight

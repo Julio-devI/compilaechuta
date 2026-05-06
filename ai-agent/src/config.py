@@ -34,6 +34,9 @@ QUERY_TIMEOUT_SECONDS: int = int(os.getenv("QUERY_TIMEOUT_SECONDS", "10"))
 MAX_TOKENS_SQL: int = 1024
 """Limite de tokens para a Chamada 1 (geração de SQL)."""
 
+MAX_TOKENS_INSIGHT: int = 4096
+"""Limite de tokens para a Chamada 2 (geração de insight)."""
+
 MAX_ROWS: int = int(os.getenv("MAX_ROWS", "1000"))
 """Número máximo de linhas retornadas por query para evitar sobrecarga."""
 

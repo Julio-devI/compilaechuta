@@ -6,6 +6,8 @@ módulos (sql_generator, insight_generator) reutilizem a infraestrutura
 com configurações distintas.
 """
 
+from typing import Any
+
 from pydantic_ai import Agent
 from pydantic_ai.models.gemini import GeminiModel
 from pydantic_ai.settings import ModelSettings
@@ -32,14 +34,12 @@ class LLMAgent:
         """
         config.assert_gemini_key()
 
-        model = GeminiModel(
-            config.LLM_MODEL,
-            api_key=config.GEMINI_API_KEY,
-        )
+        model = GeminiModel(config.LLM_MODEL)
 
-        settings = ModelSettings(temperature=temperature)
+        settings_kwargs: dict[str, Any] = {"temperature": temperature}
         if max_tokens is not None:
-            settings.max_tokens = max_tokens
+            settings_kwargs["max_tokens"] = max_tokens
+        settings = ModelSettings(**settings_kwargs)
 
         self._agent = Agent(
             model,
@@ -62,7 +62,7 @@ class LLMAgent:
         """
         try:
             result = await self._agent.run(question)
-            return result.data
+            return result.output
         except Exception as exc:
             raise RuntimeError(
                 f"Falha na comunicação com o modelo Gemini: {exc}"

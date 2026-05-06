@@ -16,8 +16,9 @@ import asyncio
 import argparse
 import csv
 import os
+import random
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -125,6 +126,39 @@ def carregar_metricas_avaliacoes() -> dict:
     return {cid: round(sum(ns) / len(ns), 2) for cid, ns in notas.items() if ns}
 
 
+def gerar_tickets_ficticicios(clientes: list[Cliente]) -> list[Ticket]:
+    """Gera tickets fictícios para clientes com qtd_tickets_suporte > 0."""
+    tickets = []
+    tipos = ["Dúvida", "Reclamação", "Sugestão", "Problema técnico", "Pedido de informação"]
+    sentimentos = ["positivo", "neutro", "negativo"]
+    
+    for cliente in clientes:
+        qtd = cliente.qtd_tickets_suporte
+        if qtd == 0:
+            continue
+        
+        # Distribui entre aberto e fechado: ~30% aberto, ~70% fechado
+        qtd_aberto = max(1, int(qtd * 0.3)) if qtd > 0 else 0
+        
+        for i in range(qtd):
+            status = "aberto" if i < qtd_aberto else "fechado"
+            data_abertura = cliente.data_ultima_compra - timedelta(days=random.randint(1, 60)) if cliente.data_ultima_compra else datetime.utcnow() - timedelta(days=random.randint(1, 60))
+            
+            ticket = Ticket(
+                cliente_id=cliente.id_cliente,
+                tipo=random.choice(tipos),
+                status=status,
+                descricao=f"Ticket de suporte para {cliente.nome_cliente}",
+                sentimento=random.choice(sentimentos),
+                tempo_resolucao=random.randint(15, 480) if status == "fechado" else None,
+                data_abertura=data_abertura,
+                data_fechamento=data_abertura + timedelta(hours=random.randint(1, 24)) if status == "fechado" else None,
+            )
+            tickets.append(ticket)
+    
+    return tickets
+
+
 async def seed(limit: int | None = None):
     print("🔧 Criando tabelas...")
     async with engine.begin() as conn:
@@ -176,7 +210,21 @@ async def seed(limit: int | None = None):
             await session.commit()
             print(f"   ✅ {min(i + batch_size, len(clientes))}/{len(clientes)}")
 
-    print("🎉 Seed concluído!")
+    print("� Gerando tickets fictícios...")
+    tickets = gerar_tickets_ficticicios(clientes)
+    
+    print(f"💾 Inserindo {len(tickets)} tickets no banco...")
+    async with AsyncSessionLocal() as session:
+        await session.execute(text("DELETE FROM tickets"))
+        await session.commit()
+
+        batch_size = 1000
+        for i in range(0, len(tickets), batch_size):
+            session.add_all(tickets[i:i + batch_size])
+            await session.commit()
+            print(f"   ✅ {min(i + batch_size, len(tickets))}/{len(tickets)}")
+
+    print("�🎉 Seed concluído!")
 
 
 if __name__ == "__main__":

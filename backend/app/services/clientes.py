@@ -11,7 +11,7 @@ from app.schemas.clientes import ClienteCreate, ClienteListOut, ClienteOut
 
 async def listar_clientes(
     db: AsyncSession,
-    regiao: Optional[str],
+    cidade: Optional[str],
     valor_minimo: Optional[float],
     frequencia_minima: Optional[int],
     status_ticket: Optional[str],
@@ -19,7 +19,7 @@ async def listar_clientes(
     limit: int,
 ) -> ClienteListOut:
     total, data = await crud.get_all(
-        db, regiao, valor_minimo, frequencia_minima, status_ticket, skip, limit
+        db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit
     )
     return ClienteListOut(total=total, skip=skip, limit=limit, data=data)
 

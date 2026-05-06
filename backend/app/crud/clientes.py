@@ -9,7 +9,7 @@ from app.schemas.clientes import ClienteCreate
 
 async def get_all(
     db: AsyncSession,
-    regiao: Optional[str] = None,
+    cidade: Optional[str] = None,
     valor_minimo: Optional[float] = None,
     frequencia_minima: Optional[int] = None,
     status_ticket: Optional[str] = None,
@@ -18,8 +18,8 @@ async def get_all(
 ) -> tuple[int, list[Cliente]]:
     query = select(Cliente)
 
-    if regiao:
-        query = query.where(Cliente.regiao == regiao)
+    if cidade:
+        query = query.where(Cliente.cidade == cidade)
     if valor_minimo is not None:
         query = query.where(Cliente.total_gasto_brl >= valor_minimo)
     if frequencia_minima is not None:

@@ -1,3 +1,4 @@
+from enum import Enum
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,20 +8,26 @@ from app.api.deps import get_db
 from app.services import clientes as service
 from app.schemas.clientes import ClienteListOut, ClienteOut
 
+
+class StatusTicket(str, Enum):
+    ABERTO = "aberto"
+    FECHADO = "fechado"
+
+
 router = APIRouter()
 
 
 @router.get("/", response_model=ClienteListOut)
 async def listar(
-    regiao:            Optional[str]   = Query(None, description="Filtrar por região"),
-    valor_minimo:      Optional[float] = Query(None, description="Total gasto mínimo (R$)"),
-    frequencia_minima: Optional[int]   = Query(None, description="Frequência mínima de compras"),
-    status_ticket:     Optional[str]   = Query(None, description="Filtrar por status de ticket: aberto | fechado"),
+    cidade:            Optional[str]   = Query(None, description="Filtrar por cidade"),
+    valor_minimo:      Optional[float] = Query(None, ge=0, description="Total gasto mínimo (R$)"),
+    frequencia_minima: Optional[int]   = Query(None, ge=0, description="Frequência mínima de compras"),
+    status_ticket:     Optional[StatusTicket] = Query(None, description="Filtrar por status de ticket: aberto | fechado"),
     skip:              int             = Query(0,   ge=0),
     limit:             int             = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.listar_clientes(db, regiao, valor_minimo, frequencia_minima, status_ticket, skip, limit)
+    return await service.listar_clientes(db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit)
 
 
 @router.get("/exportar")
@@ -41,7 +48,7 @@ async def buscar(cliente_id: str, db: AsyncSession = Depends(get_db)):
 @router.get("/{cliente_id}/tickets")
 async def tickets(
     cliente_id: str,
-    status: str = Query(..., description="Status dos tickets: aberto | fechado"),
+    status: StatusTicket = Query(..., description="Status dos tickets: aberto | fechado"),
     db: AsyncSession = Depends(get_db),
 ):
     return await service.listar_tickets_cliente(db, cliente_id, status)

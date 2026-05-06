@@ -95,9 +95,3 @@ pytest tests/ -v
 - **Justificativa:**
 - **Implicações:**
 
----
-
-## Documentação
-
-- `docs/PRD_AI_Agent_Text_to_SQL.md` — Especificação completa
-- `docs/TODO.md` — Todo-list de implementação

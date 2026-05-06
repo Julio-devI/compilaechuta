@@ -8,11 +8,13 @@ com configurações distintas.
 
 from typing import Any
 
+from google.api_core import exceptions as google_exceptions
 from pydantic_ai import Agent
 from pydantic_ai.models.gemini import GeminiModel
 from pydantic_ai.settings import ModelSettings
 
 from src import config
+from src.exceptions import LLMError, LLMUnknownError, map_google_error
 
 
 class LLMAgent:
@@ -58,12 +60,22 @@ class LLMAgent:
             Texto bruto retornado pelo modelo.
 
         Raises:
-            RuntimeError: Se a comunicação com a API falhar.
+            LLMError: Se a comunicação com a API falhar, incluindo subtipos
+                específicos (LLMAuthenticationError, LLMQuotaError, etc.).
         """
         try:
             result = await self._agent.run(question)
             return result.output
+        except google_exceptions.GoogleAPIError as exc:
+            raise map_google_error(exc) from exc
+        except TimeoutError as exc:
+            raise LLMUnknownError(
+                "A API Gemini demorou demais para responder. "
+                "Tente novamente ou simplifique a pergunta.",
+                original_error=exc,
+            ) from exc
         except Exception as exc:
-            raise RuntimeError(
-                f"Falha na comunicação com o modelo Gemini: {exc}"
+            raise LLMUnknownError(
+                f"Falha inesperada na comunicação com o modelo Gemini: {exc}",
+                original_error=exc,
             ) from exc

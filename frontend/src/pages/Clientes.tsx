@@ -57,6 +57,7 @@ export function Clientes() {
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // --- Lógica de Ordenação e Filtro ---
 
@@ -66,6 +67,17 @@ export function Clientes() {
       direction = 'descending';
     }
     setSortConfig({ key, direction });
+  };
+
+  const handleViewChange = (mode: string) => {
+    if (viewMode === mode) return;
+
+    setIsLoading(true);
+    setViewMode(mode);
+
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
   };
 
   const sortedClientes = [...clientes].sort((a, b) => {
@@ -96,6 +108,26 @@ export function Clientes() {
       ? <ArrowUp className="w-6 h-6 text-white ml-auto" />
       : <ArrowDown className="w-6 h-6 text-white ml-auto" />;
   };
+
+  const ClienteCardSkeleton = () => (
+    <div className="bg-white p-6 rounded-2xl border border-gray-200 animate-pulse">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-16 h-16 rounded-full bg-gray-200"></div>
+        <div className="flex-1 space-y-3">
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      </div>
+      <div className="space-y-4">
+        <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+        <div className="h-3 bg-gray-200 rounded w-4/6"></div>
+        <div className="h-3 bg-gray-200 rounded w-3/6"></div>
+      </div>
+      <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+        <div className="h-8 w-24 bg-gray-200 rounded-full"></div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-8 bg-[#F8FAFC] min-h-screen">
@@ -130,13 +162,13 @@ export function Clientes() {
             <span className="text-sm font-medium text-[#020854]">Visualizar por:</span>
             <div className="flex bg-white rounded-lg p-1 border border-[#E2E8F0]">
               <button
-                onClick={() => setViewMode('tabela')}
+                onClick={() => handleViewChange('tabela')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'tabela' ? 'bg-[#1E5EFF] text-white shadow-sm' : 'text-[#64748B] hover:bg-[#F8FAFC]'}`}
               >
                 <Table className="w-4 h-4" /> Tabela
               </button>
               <button
-                onClick={() => setViewMode('grade')}
+                onClick={() => handleViewChange('grade')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'grade' ? 'bg-[#1E5EFF] text-white shadow-sm' : 'text-[#64748B] hover:bg-[#F8FAFC]'}`}
               >
                 <Grid className="w-4 h-4" /> Grade
@@ -150,7 +182,7 @@ export function Clientes() {
         </button>
       </div>
 
-      {/* PAINEL DE FILTROS EXPANSÍVEL (Estilo image_84758e.png) */}
+      {/* PAINEL DE FILTROS EXPANSÍVEL */}
       <div className="bg-white rounded-3xl border border-[#E2E8F0] shadow-sm mb-8 overflow-hidden transition-all">
         <div
           className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-[#F8FAFC]"
@@ -248,71 +280,115 @@ export function Clientes() {
 
       {/* Main Content Area */}
       <div className="bg-white rounded-3xl border border-[#E2E8F0] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto p-4">
-          <table className="w-full border-separate border-spacing-y-0">
-          <thead>
-            <tr className="bg-[#020854] first:rounded-l-xl last:rounded-r-xl">
-              <th className="py-4 px-4 text-left rounded-l-xl">
-                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
-              </th>
-              <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('nome')}>
-                <div className="flex items-center gap-2">Cliente <SortIcon columnKey="nome" /></div>
-              </th>
-              <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('status')}>
-                <div className="flex items-center justify-center gap-2">Tipo de Cliente <SortIcon columnKey="status" /></div>
-              </th>
-              <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('lvtTotal')}>
-                <div className="flex items-center justify-center gap-2">LVT Total <SortIcon columnKey="lvtTotal" /></div>
-              </th>
-              <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('ultimoPedido')}>
-                <div className="flex items-center justify-center gap-2">Último Pedido <SortIcon columnKey="ultimoPedido" /></div>
-              </th>
-              <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('ticketMedio')}>
-                <div className="flex items-center justify-center gap-2">Ticket médio <SortIcon columnKey="ticketMedio" /></div>
-              </th>
-              <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('segmento')}>
-                <div className="flex items-center justify-center gap-2">Segmento <SortIcon columnKey="segmento" /></div>
-              </th>
-              <th className="py-4 px-4 text-white font-medium text-sm text-right rounded-r-xl">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
+        {isLoading ? (
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <ClienteCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : viewMode === 'tabela' ? (
+          <div className="overflow-x-auto p-4">
+            <table className="w-full border-separate border-spacing-y-0">
+              <thead>
+                <tr className="bg-[#020854] first:rounded-l-xl last:rounded-r-xl">
+                  <th className="py-4 px-4 text-left rounded-l-xl">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
+                  </th>
+                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('nome')}>
+                    <div className="flex items-center gap-2">Cliente <SortIcon columnKey="nome" /></div>
+                  </th>
+                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('status')}>
+                    <div className="flex items-center justify-center gap-2">Tipo de Cliente <SortIcon columnKey="status" /></div>
+                  </th>
+                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('lvtTotal')}>
+                    <div className="flex items-center justify-center gap-2">LVT Total <SortIcon columnKey="lvtTotal" /></div>
+                  </th>
+                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('ultimoPedido')}>
+                    <div className="flex items-center justify-center gap-2">Último Pedido <SortIcon columnKey="ultimoPedido" /></div>
+                  </th>
+                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('ticketMedio')}>
+                    <div className="flex items-center justify-center gap-2">Ticket médio <SortIcon columnKey="ticketMedio" /></div>
+                  </th>
+                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('segmento')}>
+                    <div className="flex items-center justify-center gap-2">Segmento <SortIcon columnKey="segmento" /></div>
+                  </th>
+                  <th className="py-4 px-4 text-white font-medium text-sm text-right rounded-r-xl">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredClientes.map((cliente) => (
+                  <tr key={cliente.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <td className="py-4 px-4">
+                      <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
+                    </td>
+                    <td className="py-4 px-2">
+                      <div className="flex items-center gap-3">
+                        <img src={cliente.avatar} alt={cliente.nome} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
+                        <span className="font-medium text-[#1E293B] text-sm">{cliente.nome}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-2 text-center">
+                      <span className={`inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusStyles[cliente.status]}`}>
+                        {cliente.status === 'VIP' && <Crown className="w-3 h-3" />}
+                        {cliente.status === 'Recorrente' && <RotateCcw className="w-3 h-3" />}
+                        {cliente.status === '1ª Compra' && <Sparkles className="w-3 h-3" />}
+                        {cliente.status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-2 text-center text-sm font-medium text-[#1E293B]">{cliente.lvtTotal}</td>
+                    <td className="py-4 px-2 text-center text-sm font-medium text-[#1E293B]">{cliente.ultimoPedido}</td>
+                    <td className="py-4 px-2 text-center text-sm font-medium text-[#1E293B]">{cliente.ticketMedio}</td>
+                    <td className="py-4 px-2 text-center">
+                      <span className={`px-4 py-1 rounded-full text-xs font-bold border ${cliente.segmento === 'Moda' ? 'border-[#38BDF8] text-[#0369A1]' : 'border-[#3B82F6] text-[#1E40AF]'}`}>{cliente.segmento}</span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <button 
+                        className="text-sm font-medium text-[#1E293B] hover:underline cursor-pointer"
+                        onClick={() => {
+                          setSelectedCliente(cliente)
+                          setShowModal(true)
+                        }}
+                      >
+                        Ver detalhes
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClientes.map((cliente) => (
-              <tr key={cliente.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                <td className="py-4 px-4">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
-                </td>
-                <td className="py-4 px-2">
-                  <div className="flex items-center gap-3">
-                    <img src={cliente.avatar} alt={cliente.nome} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
-                    <span className="font-medium text-[#1E293B] text-sm">{cliente.nome}</span>
+              <div key={cliente.id} className="bg-white p-6 rounded-2xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow">
+                <div>
+                  <div className="flex items-center gap-4 mb-4">
+                    <img src={cliente.avatar} alt={cliente.nome} className="w-16 h-16 rounded-full object-cover" />
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-[#020854]">{cliente.nome}</h3>
+                      <p className="text-sm text-gray-500">{cliente.cidade}</p>
+                    </div>
                   </div>
-                </td>
-                <td className="py-4 px-2 text-center">
-                  <span className={`inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusStyles[cliente.status]}`}>
-                    {cliente.status === 'VIP' && <Crown className="w-3 h-3" />}
-                    {cliente.status === 'Recorrente' && <RotateCcw className="w-3 h-3" />}
-                    {cliente.status === '1ª Compra' && <Sparkles className="w-3 h-3" />}
-                    {cliente.status}
-                  </span>
-                </td>
-                <td className="py-4 px-2 text-center text-sm font-medium text-[#1E293B]">
-                  {cliente.lvtTotal}
-                </td>
-                <td className="py-4 px-2 text-center text-sm font-medium text-[#1E293B]">
-                  {cliente.ultimoPedido}
-                </td>
-                <td className="py-4 px-2 text-center text-sm font-medium text-[#1E293B]">
-                  {cliente.ticketMedio}
-                </td>
-                <td className="py-4 px-2 text-center">
-                  <span className={`px-4 py-1 rounded-full text-xs font-bold border ${cliente.segmento === 'Moda' ? 'border-[#38BDF8] text-[#0369A1]' : 'border-[#3B82F6] text-[#1E40AF]'}`}>
-                    {cliente.segmento}
-                  </span>
-                </td>
-                <td className="py-4 px-4 text-right">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">LVT Total</span>
+                      <span className="font-medium text-[#1E293B]">{cliente.lvtTotal}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Ticket Médio</span>
+                      <span className="font-medium text-[#1E293B]">{cliente.ticketMedio}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Status</span>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusStyles[cliente.status]}`}>
+                        {cliente.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
                   <button 
-                    className="text-sm font-medium text-[#1E293B] hover:underline cursor-pointer"
+                    className="text-sm font-medium text-[#1E293B] hover:underline"
                     onClick={() => {
                       setSelectedCliente(cliente)
                       setShowModal(true)
@@ -320,12 +396,11 @@ export function Clientes() {
                   >
                     Ver detalhes
                   </button>
-                </td>
-              </tr>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-        </div>
+          </div>
+        )}
 
         {/* Pagination */}
         <div className="p-6 flex items-center justify-between border-t border-[#E2E8F0] bg-[#F8FAFC]">

@@ -1,0 +1,34 @@
+.shortcutItemWrapper {
+  border-radius: var(--br-15);
+  background-color: var(--light5);
+  display: flex;
+  align-items: flex-start;
+  padding: var(--padding-10);
+  text-align: left;
+  font-size: var(--fs-16);
+  color: var(--color-darkslategray);
+  font-family: var(--font-figtree);
+}
+.popoverTitleParent,
+.shortcutItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-10);
+}
+.popoverTitleParent {
+  width: var(--width-144);
+  flex-direction: column;
+  gap: var(--gap-2);
+}
+.infoExplainingMore,
+.popoverTitle {
+  align-self: stretch;
+  position: relative;
+}
+.popoverTitle {
+  font-weight: 500;
+}
+.infoExplainingMore {
+  font-size: var(--fs-14);
+  color: var(--dark2);
+}

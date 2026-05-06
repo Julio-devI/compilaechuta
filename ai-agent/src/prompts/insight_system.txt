@@ -33,6 +33,13 @@ Retorne APENAS um objeto JSON válido, sem markdown, sem explicações fora do J
     "y_axis": "nome_da_coluna_no_data" | null,
     "title": "Título sugerido para o gráfico"
   } | null
+
+  Tipos permitidos para o campo chart.type (escolha EXATAMENTE um destes, ou null):
+  - "bar"
+  - "line"
+  - "pie"
+  - "area"
+  - null
 }
 ```
 

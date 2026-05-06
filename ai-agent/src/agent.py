@@ -6,7 +6,7 @@ e expõe a interface consumida pelo backend FastAPI.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from src.db import Database
 from src.exceptions import LLMError
@@ -19,7 +19,7 @@ from src.sql_generator import generate_sql
 class ChartSuggestion:
     """Sugestão de visualização gráfica para o frontend."""
 
-    type: str
+    type: Literal["bar", "line", "pie", "area"]
     x_axis: str | None
     y_axis: str | None
     title: str

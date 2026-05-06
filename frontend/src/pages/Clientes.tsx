@@ -91,7 +91,7 @@ export function Clientes() {
   })
 
   const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortConfig.key !== columnKey) return <ArrowUp className="w-6 h-6 text-white opacity-50 ml-auto" />;
+    if (sortConfig.key !== columnKey) return <ArrowUp className="w-6 h-6 text-white ml-auto" />;
     return sortConfig.direction === 'ascending'
       ? <ArrowUp className="w-6 h-6 text-white ml-auto" />
       : <ArrowDown className="w-6 h-6 text-white ml-auto" />;

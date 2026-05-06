@@ -6,6 +6,7 @@ módulos (sql_generator, insight_generator) reutilizem a infraestrutura
 com configurações distintas.
 """
 
+import asyncio
 from typing import Any
 
 from google.api_core import exceptions as google_exceptions
@@ -92,6 +93,16 @@ def _map_http_error(exc: ModelHTTPError) -> LLMError:
     )
 
 
+_MAX_RETRIES = 3
+"""Número máximo de tentativas para chamadas ao LLM em caso de instabilidade."""
+
+_BACKOFF_BASE_SECONDS = 1.0
+"""Tempo base (em segundos) para backoff exponencial: 1s, 2s, 4s."""
+
+_RETRYABLE_ERRORS = (LLMUnavailableError, LLMInternalError, LLMTimeoutError)
+"""Exceções de domínio que merecem retry automático (instabilidade temporária)."""
+
+
 class LLMAgent:
     """Wrapper reutilizável para execução de prompts via Gemini."""
 
@@ -133,6 +144,9 @@ class LLMAgent:
         """
         Executa o prompt contra o LLM e retorna o texto da resposta.
 
+        Em caso de erros transientes de instabilidade (503, 500, 502, timeout),
+        aplica retry automático com backoff exponencial (1s, 2s, 4s).
+
         Args:
             question: Pergunta ou instrução do usuário.
 
@@ -143,21 +157,36 @@ class LLMAgent:
             LLMError: Se a comunicação com a API falhar, incluindo subtipos
                 específicos (LLMAuthenticationError, LLMQuotaError, etc.).
         """
-        try:
-            result = await self._agent.run(question)
-            return result.output
-        except google_exceptions.GoogleAPIError as exc:
-            raise map_google_error(exc) from exc
-        except ModelHTTPError as exc:
-            raise _map_http_error(exc) from exc
-        except TimeoutError as exc:
-            raise LLMTimeoutError(
-                "A API Gemini demorou demais para responder. "
-                "Tente novamente ou simplifique a pergunta.",
-                original_error=exc,
-            ) from exc
-        except Exception as exc:
-            raise LLMUnknownError(
-                f"Falha inesperada na comunicação com o modelo Gemini: {exc}",
-                original_error=exc,
-            ) from exc
+        last_error: LLMError | None = None
+
+        for attempt in range(_MAX_RETRIES):
+            try:
+                result = await self._agent.run(question)
+                return result.output
+            except google_exceptions.GoogleAPIError as exc:
+                mapped = map_google_error(exc)
+                if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
+                    raise mapped from exc
+                last_error = mapped
+            except ModelHTTPError as exc:
+                mapped = _map_http_error(exc)
+                if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
+                    raise mapped from exc
+                last_error = mapped
+            except TimeoutError as exc:
+                mapped = LLMTimeoutError(
+                    "A API Gemini demorou demais para responder. "
+                    "Tente novamente ou simplifique a pergunta.",
+                    original_error=exc,
+                )
+                if attempt == _MAX_RETRIES - 1:
+                    raise mapped from exc
+                last_error = mapped
+
+            # Backoff exponencial: 1s, 2s, 4s
+            await asyncio.sleep(_BACKOFF_BASE_SECONDS * (2 ** attempt))
+
+        # Fallback — nunca deveria chegar aqui, mas garante tipagem segura
+        if last_error is not None:
+            raise last_error
+        raise LLMUnknownError("Falha inesperada após múltiplas tentativas.")

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Search, Download, Table, Grid, ArrowUp,
   ArrowDown, Box, Calendar, ChevronDown, ChevronUp, Maximize2,
-  ShoppingCart, Crown, RotateCcw, Sparkles
+  ShoppingCart, Crown, RotateCcw, Sparkles, X, Mail, Phone, Flame
 } from 'lucide-react'
 
 // --- Interfaces e Tipagens ---
@@ -55,6 +55,8 @@ export function Clientes() {
   const [viewMode, setViewMode] = useState<string>('tabela')
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'ascending' });
   const [showFilters, setShowFilters] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
 
   // --- Lógica de Ordenação e Filtro ---
 
@@ -97,6 +99,15 @@ export function Clientes() {
 
   return (
     <div className="p-8 bg-[#F8FAFC] min-h-screen">
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-5xl font-bold text-[#020854]">Clientes</h1>
       </div>
@@ -300,7 +311,13 @@ export function Clientes() {
                   </span>
                 </td>
                 <td className="py-4 px-4 text-right">
-                  <button className="text-sm font-medium text-[#1E293B] hover:underline">
+                  <button 
+                    className="text-sm font-medium text-[#1E293B] hover:underline cursor-pointer"
+                    onClick={() => {
+                      setSelectedCliente(cliente)
+                      setShowModal(true)
+                    }}
+                  >
                     Ver detalhes
                   </button>
                 </td>
@@ -321,6 +338,119 @@ export function Clientes() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Detalhes do Cliente */}
+      {showModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+    {/* Container Principal com Scroll e Altura Máxima */}
+    <div className="w-[800px] max-h-[95vh] bg-white rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto">
+
+      {/* O conteúdo interno precisa de um wrapper para o padding não bugar com o scroll */}
+      <div className="p-5">
+
+        {/* Botão Fechar e Stack de Avatares (Topo Direito) */}
+        <div className="absolute top-6 right-8 flex flex-col items-end gap-4">
+          <button
+            onClick={() => setShowModal(false)}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-8 h-8 text-black" />
+          </button>
+        </div>
+
+        <h2 className="text-[40px] font-bold text-[#020854] mb-2">Detalhes do Cliente</h2>
+
+        {/* Card de Perfil Azul Claro */}
+        <div className="border border-[#BAE6FD] rounded-[35px] p-5 mb-2 relative bg-white">
+          <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] text-3xl font-medium mb-1">
+            {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <h3 className="text-2xl font-bold text-[#020854]">
+              {selectedCliente?.nome || 'Marina Albuquerque'}
+            </h3>
+            <span className="bg-[#020854] text-[#BAE6FD] px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+              <Crown className="w-3 h-3" /> VIP
+            </span>
+          </div>
+
+          <div className="space-y-1 text-[#64748B] text-base">
+            <p>{selectedCliente ? `${selectedCliente.totalPedidos} pedidos no total` : '38 pedidos no total'}</p>
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4" /> {selectedCliente?.email || 'marina.alb@email.com'}
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4" /> {selectedCliente?.telefone || '(11) 98821-4477'}
+            </div>
+            <p>{selectedCliente?.cidade || 'São Paulo, SP'}</p>
+          </div>
+        </div>
+
+        {/* Seção Produtos & Performance */}
+        <div className="border border-gray-100 rounded-[35px] p-5 shadow-sm bg-white">
+          <span className="text-[#1E5EFF] text-xs font-bold tracking-widest uppercase mb-2 block">
+            Informações Gerais
+          </span>
+          <h4 className="text-2xl font-bold text-[#020854] mb-6">Produtos & Performance</h4>
+
+          <div className="space-y-4">
+            {/* Produto 1 */}
+            <div className="bg-[#F8FAFC] rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-gray-100">
+                <Box className="w-6 h-6 text-black" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-[#020854] text-sm">Smart TV 55" QLED 4K Vivara</p>
+                <p className="text-[10px] text-[#94A3B8] font-bold uppercase">SKU ELE-9921 · qtd 1</p>
+                <div className="flex gap-2 mt-2">
+                  <span className="bg-[#DCFCE7] text-[#15803D] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
+                    <Flame className="w-3 h-3" /> Mais vendido
+                  </span>
+                  <span className="bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
+                    <RotateCcw className="w-3 h-3" /> Alta devolução
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-[#020854] text-sm">R$ 3.499,00</p>
+                <p className="text-[10px] text-[#94A3B8]">R$ 3.499,00 un</p>
+              </div>
+            </div>
+
+            {/* Produto 2 */}
+            <div className="bg-[#F8FAFC] rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-gray-100">
+                <Box className="w-6 h-6 text-black" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-[#020854] text-sm">Soundbar Bluetooth 2.1 Atmos</p>
+                <p className="text-[10px] text-[#94A3B8] font-bold uppercase">SKU LAR-2210 · qtd 1</p>
+                <div className="flex gap-2 mt-2">
+                  <span className="bg-[#E0F2FE] text-[#0369A1] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Novo
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-[#020854] text-sm">R$ 790,90</p>
+                <p className="text-[10px] text-[#94A3B8]">R$ 790,90 un</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Botão Ver Perfil Completo */}
+          <div className="flex justify-end mt-2">
+            <button className="bg-[#BAE6FD] text-[#020854] px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-[#7DD3FC] transition-colors text-sm">
+              Ver perfil completo
+              <ArrowUp className="w-4 h-4 rotate-45" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   )
 }

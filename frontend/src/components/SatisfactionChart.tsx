@@ -20,17 +20,17 @@ const barChartData = [
 export function SatisfactionChart() {
   return (
     <div
-      className="flex flex-col items-start p-6 gap-[10px] rounded-[30px] bg-white" // Updated classes
+      className="flex flex-col items-start p-6 gap-[10px] rounded-[30px] bg-card border border-border"
       style={{
-        boxShadow: '0 4px 24px -8px rgba(2, 2, 85, 0.08)', // Custom box-shadow
+        boxShadow: '0 4px 24px -8px rgba(2, 2, 85, 0.08)',
       }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2"> {/* Removed mb-1 to align with gap: 10px */}
-        <Users className="w-4 h-4 text-[#6B7588]" />
-        <span className="text-sm font-medium text-[#6B7588] uppercase tracking-wider">Clientes</span>
+      <div className="flex items-center gap-2">
+        <Users className="w-4 h-4 text-muted" />
+        <span className="text-sm font-medium text-muted uppercase tracking-wider">Clientes</span>
       </div>
-      <h3 className="text-2xl font-semibold text-[#020854]">Taxa de Satisfação</h3> {/* Removed mb-1 */}
+      <h3 className="text-2xl font-semibold text-[#020854] dark:text-foreground">Taxa de Satisfação</h3> {/* Removed mb-1 */}
       <p className="text-sm text-muted">Exibição de dados média — clique para detalhar</p> {/* Removed mb-6 */}
 
       <div className="h-[200px] w-full"> {/* Adjust height as needed, added w-full */}
@@ -60,7 +60,7 @@ export function SatisfactionChart() {
       {/* Legend - Reusing the existing legend structure for consistency */}
       <div className="flex flex-row gap-4 justify-center w-full"> {/* Removed mt-6, added w-full */}
           {data.map((item) => (
-            <div key={item.name} className="flex items-center gap-3 p-2 rounded-lg bg-[#E3EDFF]"> {/* Added padding, rounded corners, and background color */}
+            <div key={item.name} className="flex items-center gap-3 p-2 rounded-lg bg-primary-light">
               <div 
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: item.color }}

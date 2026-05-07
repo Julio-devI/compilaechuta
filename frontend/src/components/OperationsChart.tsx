@@ -11,13 +11,13 @@ const data = [
 
 export function OperationsChart() {
   return (
-    <div className="bg-white rounded-2xl p-6 border lg:col-span-2 border-border shadow-sm flex flex-col"> {/* Added flex flex-col to parent */}
+    <div className="bg-card rounded-2xl p-6 border lg:col-span-2 border-border shadow-sm flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <Truck className="w-4 h-4 text-[#6B7588]" /> {/* Using a relevant icon and color */}
-        <span className="text-xs font-medium text-[#6B7588] uppercase tracking-wider">Operações</span>
+        <Truck className="w-4 h-4 text-muted" />
+        <span className="text-xs font-medium text-muted uppercase tracking-wider">Operações</span>
       </div>
-      <h3 className="text-2xl font-semibold text-[#020854] mb-1">Distribuição de pedidos</h3> {/* Changed title here */}
+      <h3 className="text-2xl font-semibold text-[#020854] dark:text-foreground mb-1">Distribuição de pedidos</h3>
       <p>Status x indicador de entrega</p>
       <div className="h-[300px]"> 
         <ResponsiveContainer width="100%" height="90%">
@@ -44,7 +44,7 @@ export function OperationsChart() {
               width={120}
               tickLine={false}
               axisLine={false}
-              tick={{ textAnchor: 'end', fill: '#020854' }}
+              tick={{ textAnchor: 'end', fill: '#64748B' }}
             />
             <Tooltip formatter={(value) => `${value}`} /> {/* Removed % from tooltip */}
             {/* The default Legend component from recharts is not used here as we have a custom one below */}
@@ -57,7 +57,7 @@ export function OperationsChart() {
 
       {/* Custom Legend */}
       <div className="flex flex-row gap-4 mt-3 justify-center">
-          <div className="flex items-center gap-3 p-2 rounded-lg bg-[#E3EDFF]">
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-primary-light">
               <div 
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: '#00C48C' }}
@@ -66,7 +66,7 @@ export function OperationsChart() {
                 <p className="text-sm text-muted">Dentro do prazo</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-2 rounded-lg bg-[#E3EDFF]">
+            <div className="flex items-center gap-3 p-2 rounded-lg bg-primary-light">
               <div 
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: '#FF4757' }}

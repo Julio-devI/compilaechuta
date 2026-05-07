@@ -18,13 +18,13 @@ const data = [
 
 export function RevenueChart() {
   return (
-    <div className="bg-white rounded-2xl p-6 border border-border shadow-sm">
+    <div className="bg-card rounded-2xl p-6 border border-border shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <TrendingUp className="w-4 h-4 text-[#6B7588]" />
-        <span className="text-sm font-medium text-[#6B7588] uppercase tracking-wider">Tendências</span>
+        <TrendingUp className="w-4 h-4 text-muted" />
+        <span className="text-sm font-medium text-muted uppercase tracking-wider">Tendências</span>
       </div>
-      <h3 className="text-2xl font-semibold text-[#020854] mb-1">Média de Receita por Mês</h3>
+      <h3 className="text-2xl font-semibold text-[#020854] dark:text-foreground mb-1">Média de Receita por Mês</h3>
       <p className="text-sm text-muted mb-6">Evolução de Faturamento — clique para detalhar</p>
 
       {/* Chart */}

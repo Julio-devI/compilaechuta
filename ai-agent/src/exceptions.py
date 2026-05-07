@@ -24,8 +24,14 @@ class LLMAuthenticationError(LLMError):
     pass
 
 
+class LLMRateLimitError(LLMError):
+    """Rate limit por minuto da API excedido — recuperável aguardando."""
+
+    pass
+
+
 class LLMQuotaError(LLMError):
-    """Quota ou rate limit da API excedido."""
+    """Quota diária ou de plano da API excedida."""
 
     pass
 
@@ -60,6 +66,45 @@ class LLMUnknownError(LLMError):
     pass
 
 
+def _is_rate_limit_per_minute(exc: Exception) -> bool:
+    """
+    Inspeciona o corpo da resposta de erro 429 para diferenciar
+    rate limit por minuto (recuperável) de quota diária (não recuperável).
+
+    Retorna True se o erro for de rate limit por minuto.
+    """
+    import json
+
+    raw_body = ""
+    # Tenta extrair o body de diferentes tipos de exceção
+    if hasattr(exc, "body"):
+        raw_body = str(exc.body) if exc.body else ""
+    elif hasattr(exc, "_body"):
+        raw_body = str(exc._body) if exc._body else ""
+    elif hasattr(exc, "response") and hasattr(exc.response, "text"):
+        raw_body = exc.response.text or ""
+
+    if not raw_body:
+        return False
+
+    try:
+        payload = json.loads(raw_body)
+        details = payload.get("error", {}).get("details", [])
+        for detail in details:
+            if detail.get("@type", "").endswith("QuotaFailure"):
+                for violation in detail.get("violations", []):
+                    quota_id = violation.get("quotaId", "")
+                    if "PerMinute" in quota_id:
+                        return True
+                    if "PerDay" in quota_id:
+                        return False
+    except (json.JSONDecodeError, AttributeError):
+        pass
+
+    # Fallback: se não conseguir parsear, assume rate limit por minuto
+    return True
+
+
 def map_google_error(exc: google_exceptions.GoogleAPIError) -> LLMError:
     """
     Converte uma exceção do Google API Core em exceção de domínio do ai-agent.
@@ -91,9 +136,15 @@ def map_google_error(exc: google_exceptions.GoogleAPIError) -> LLMError:
         )
 
     if isinstance(exc, google_exceptions.ResourceExhausted):
+        if _is_rate_limit_per_minute(exc):
+            return LLMRateLimitError(
+                "Limite de requisições por minuto atingido. "
+                "Aguarde alguns instantes antes de tentar novamente.",
+                original_error=exc,
+            )
         return LLMQuotaError(
-            "Limite de requisições da API Gemini atingido. "
-            "Aguarde alguns instantes antes de tentar novamente.",
+            "Limite diário de requisições da API Gemini atingido. "
+            "Tente novamente amanhã ou verifique seu plano de uso.",
             original_error=exc,
         )
 

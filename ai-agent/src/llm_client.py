@@ -22,11 +22,34 @@ from src.exceptions import (
     LLMInternalError,
     LLMInvalidRequestError,
     LLMQuotaError,
+    LLMRateLimitError,
     LLMTimeoutError,
     LLMUnavailableError,
     LLMUnknownError,
     map_google_error,
 )
+
+
+def _is_rate_limit_per_minute_from_body(body: str) -> bool:
+    """Parseia o body JSON do erro 429 para detectar rate limit por minuto."""
+    import json
+
+    if not body:
+        return True  # fallback seguro
+    try:
+        payload = json.loads(body)
+        details = payload.get("error", {}).get("details", [])
+        for detail in details:
+            if detail.get("@type", "").endswith("QuotaFailure"):
+                for violation in detail.get("violations", []):
+                    quota_id = violation.get("quotaId", "")
+                    if "PerMinute" in quota_id:
+                        return True
+                    if "PerDay" in quota_id:
+                        return False
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    return True
 
 
 def _map_http_error(exc: ModelHTTPError) -> LLMError:
@@ -46,9 +69,15 @@ def _map_http_error(exc: ModelHTTPError) -> LLMError:
         )
 
     if status == 429:
+        if _is_rate_limit_per_minute_from_body(exc.body or ""):
+            return LLMRateLimitError(
+                "Limite de requisições por minuto atingido. "
+                "Aguarde alguns instantes antes de tentar novamente.",
+                original_error=exc,
+            )
         return LLMQuotaError(
-            "Limite de requisições da API Gemini atingido. "
-            "Aguarde alguns instantes antes de tentar novamente.",
+            "Limite diário de requisições da API Gemini atingido. "
+            "Tente novamente amanhã ou verifique seu plano de uso.",
             original_error=exc,
         )
 

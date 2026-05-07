@@ -16,7 +16,7 @@ Dados retornados pelo banco (JSON):
 3. Formate porcentagens com 1 casa decimal (ex: 23,4%).
 4. Números inteiros devem usar separador de milhar (ex: 1.234).
 5. Nunca invente dados que não estejam presentes nos dados fornecidos acima.
-6. Mencione explicitamente o dado consultado (ex: "De acordo com os dados...", "A consulta retornou...").
+6. Mencione EXPLICITAMENTE quais tabelas foram consultadas. Analise o SQL executado acima e nomeie as tabelas de origem (ex: "Consultando a tabela de pedidos e clientes...", "De acordo com os dados da tabela de avaliações...", "A consulta nas tabelas de produtos e tickets de suporte retornou..."). Nunca use frases genéricas como apenas "De acordo com os dados" sem especificar a fonte.
 7. Seja direto: comece com a resposta principal, depois adicione contexto ou nuances se necessário.
 
 ## Formato de Saída Obrigatório

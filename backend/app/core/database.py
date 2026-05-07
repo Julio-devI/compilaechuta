@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import declarative_base
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../../.env"))
 
 # for now, just a example
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./banco_local.db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Conection engine with SQLite
 engine = create_async_engine(

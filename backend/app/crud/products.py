@@ -25,7 +25,7 @@ async def get_productById(db: AsyncSession, product_id: int) -> Optional[Produto
     result = await db.execute(select(Produto).filter(Produto.id_produto == product_id))
     return result.scalars().first()
 
-async def get_products(
+async def get_all_products(
     db: AsyncSession, 
     skip: int = 0, 
     limit: int = 100,

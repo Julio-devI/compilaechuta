@@ -24,10 +24,10 @@ async def get_productById(db: AsyncSession, product_id: int) -> Produto:
         )
     return product
 
-async def get_products(
+async def get_all_products(
     db: AsyncSession, skip: int = 0, limit: int = 100, categoria: Optional[str] = None
 ) -> List[Produto]:
-    return await crud_products.get_products(db=db, skip=skip, limit=limit, categoria=categoria)
+    return await crud_products.get_all_products(db=db, skip=skip, limit=limit, categoria=categoria)
 
 async def update_product(db: AsyncSession, product_id: int, product_in: ProductUpdate) -> Produto:
     updated_product = await crud_products.update_product(

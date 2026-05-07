@@ -17,13 +17,13 @@ async def create_product(
 
 
 @router.get("/", response_model=List[ProductResponse])
-async def get_products(
+async def get_all_products(
     skip: int = 0,
     limit: int = 100,
     categoria: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    return await product_service.get_products(db=db, skip=skip, limit=limit, categoria=categoria)
+    return await product_service.get_all_products(db=db, skip=skip, limit=limit, categoria=categoria)
 
 
 @router.get("/{product_id}", response_model=ProductResponse)

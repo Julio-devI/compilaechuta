@@ -60,6 +60,12 @@ class LLMInternalError(LLMError):
     pass
 
 
+class LLMParseError(LLMError):
+    """O LLM retornou uma resposta que não pôde ser parseada corretamente."""
+
+    pass
+
+
 class LLMUnknownError(LLMError):
     """Erro não categorizado na comunicação com o LLM."""
 

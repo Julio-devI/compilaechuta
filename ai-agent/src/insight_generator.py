@@ -43,14 +43,27 @@ def _parse_json(raw: str) -> dict[str, Any]:
     caso contrário, faz parsing do texto completo.
     Se ambos falharem, retorna um fallback com o texto bruto.
     """
-    # Tenta bloco markdown
-    pattern = r"```json\s*(.*?)\s*```"
-    match = re.search(pattern, raw, re.DOTALL | re.IGNORECASE)
+    # Tenta bloco markdown com tag json
+    match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL | re.IGNORECASE)
+    if not match:
+        # Tenta bloco markdown sem tag de linguagem
+        match = re.search(r"```\s*(.*?)\s*```", raw, re.DOTALL)
     text_to_parse = match.group(1).strip() if match else raw.strip()
 
+    # Se ainda não for JSON válido, tenta extrair entre primeira '{' e última '}'
     try:
         parsed = json.loads(text_to_parse)
     except json.JSONDecodeError:
+        json_match = re.search(r"(\{.*\})", text_to_parse, re.DOTALL)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                parsed = None
+        else:
+            parsed = None
+
+    if parsed is None:
         # Fallback gracioso: retorna o texto bruto como insight
         return {
             "text": raw.strip(),

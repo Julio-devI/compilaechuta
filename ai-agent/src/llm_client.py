@@ -7,6 +7,7 @@ com configurações distintas.
 """
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
 
 from google.api_core import exceptions as google_exceptions
@@ -21,6 +22,7 @@ from src.exceptions import (
     LLMError,
     LLMInternalError,
     LLMInvalidRequestError,
+    LLMParseError,
     LLMQuotaError,
     LLMRateLimitError,
     LLMTimeoutError,
@@ -128,8 +130,8 @@ _MAX_RETRIES = 3
 _BACKOFF_BASE_SECONDS = 1.0
 """Tempo base (em segundos) para backoff exponencial: 1s, 2s, 4s."""
 
-_RETRYABLE_ERRORS = (LLMUnavailableError, LLMInternalError, LLMTimeoutError)
-"""Exceções de domínio que merecem retry automático (instabilidade temporária)."""
+_RETRYABLE_ERRORS = (LLMUnavailableError, LLMInternalError, LLMTimeoutError, LLMParseError)
+"""Exceções de domínio que merecem retry automático (instabilidade temporária ou resposta malformada)."""
 
 
 class LLMAgent:
@@ -169,18 +171,28 @@ class LLMAgent:
             model_settings=settings,
         )
 
-    async def run(self, question: str) -> str:
+    async def run(
+        self,
+        question: str,
+        validator: Callable[[str], None] | None = None,
+    ) -> str:
         """
         Executa o prompt contra o LLM e retorna o texto da resposta.
 
-        Em caso de erros transientes de instabilidade (503, 500, 502, timeout),
+        Em caso de erros transientes de instabilidade (503, 500, 502, timeout)
+        ou de resposta malformada que falhe na validação do `validator`,
         aplica retry automático com backoff exponencial (1s, 2s, 4s).
 
         Args:
             question: Pergunta ou instrução do usuário.
+            validator: Função opcional que recebe o texto bruto da resposta e
+                levanta `LLMParseError` caso o conteúdo esteja malformado.
+                Quando fornecida, é executada dentro do loop de retry,
+                permitindo que o LLM seja reinvocado automaticamente.
 
         Returns:
-            Texto bruto retornado pelo modelo.
+            Texto bruto retornado pelo modelo (já validado, se `validator` foi
+            fornecido).
 
         Raises:
             LLMError: Se a comunicação com a API falhar, incluindo subtipos
@@ -191,7 +203,10 @@ class LLMAgent:
         for attempt in range(_MAX_RETRIES):
             try:
                 result = await self._agent.run(question)
-                return result.output
+                output = result.output
+                if validator is not None:
+                    validator(output)
+                return output
             except google_exceptions.GoogleAPIError as exc:
                 mapped = map_google_error(exc)
                 if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
@@ -211,6 +226,10 @@ class LLMAgent:
                 if attempt == _MAX_RETRIES - 1:
                     raise mapped from exc
                 last_error = mapped
+            except LLMError as exc:
+                if not isinstance(exc, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
+                    raise
+                last_error = exc
 
             # Backoff exponencial: 1s, 2s, 4s
             await asyncio.sleep(_BACKOFF_BASE_SECONDS * (2 ** attempt))

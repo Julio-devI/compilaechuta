@@ -149,8 +149,8 @@ class VCommerceAgent:
 
         # Etapa 6: montar resposta
         chart = None
-        if insight.get("chart"):
-            chart_data = insight["chart"]
+        chart_data = insight.get("chart")
+        if isinstance(chart_data, dict):
             try:
                 chart = ChartSuggestion(
                     type=chart_data.get("type", "bar"),

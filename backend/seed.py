@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 from sqlalchemy import text
 
 from app.core.database import AsyncSessionLocal, engine, Base
-from backend.app.models.clients import Cliente
+from app.models.clients import Cliente
 from app.models.tickets import Ticket
 
 load_dotenv()

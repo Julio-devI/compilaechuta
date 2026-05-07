@@ -1,0 +1,11 @@
+.buttonIa {
+  position: absolute;
+  top: 638px;
+  left: 1127px;
+  width: 152px;
+  height: var(--height-46);
+  display: flex;
+  align-items: flex-start;
+  isolation: isolate;
+  flex-shrink: 0;
+}

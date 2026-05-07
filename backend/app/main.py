@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.core.config import settings
+
 from app.api.v1.clients import router as clientes_router
 from app.api.v1.tickets import router as tickets_router
 
 import app.models.clients  # noqa: F401
-import app.models.tickets   # noqa: F401
+import app.models.tickets  # noqa: F401
 
 app = FastAPI(
     title="V-Commerce CRM 360",
@@ -24,10 +24,6 @@ app.add_middleware(
 
 app.include_router(clientes_router, prefix="/clientes", tags=["Clientes"])
 app.include_router(tickets_router,  prefix="/tickets",  tags=["Tickets"])
-# app.include_router(pedidos_router,    prefix="/pedidos",    tags=["Pedidos"])
-# app.include_router(produtos_router,   prefix="/produtos",   tags=["Produtos"])
-# app.include_router(dashboard_router,  prefix="/dashboard",  tags=["Dashboard"])
-# app.include_router(chat_router,       prefix="/chat",       tags=["Agente IA"])
 
 
 @app.get("/", tags=["Health"])

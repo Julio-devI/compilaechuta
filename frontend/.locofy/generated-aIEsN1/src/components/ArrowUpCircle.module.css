@@ -1,0 +1,32 @@
+.buttonMedium {
+  margin: 0 !important;
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-radius: var(--br-30);
+  background-color: var(--brand-deep-blue);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--padding-12);
+  gap: var(--gap-10);
+  z-index: 0;
+  text-align: left;
+  font-size: var(--fs-20);
+  color: var(--light5);
+  font-family: var(--font-neue-haas-grotesk-display-pro);
+}
+.arrowUpCircleIcon {
+  width: var(--width-24);
+  position: relative;
+  max-height: 100%;
+}
+.medium {
+  position: relative;
+}
+.arrowUpRightIcon {
+  height: var(--height-24);
+  width: var(--width-24);
+  position: relative;
+}

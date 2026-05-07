@@ -1,0 +1,36 @@
+.lightChipIconFilled {
+  height: var(--height-40);
+  border-radius: var(--br-30);
+  background-color: var(--color-tomato-200);
+  justify-content: center;
+  padding: var(--padding-10);
+  box-sizing: border-box;
+  text-align: left;
+  font-size: var(--fs-14);
+  color: var(--state-error);
+  font-family: var(--font-figtree);
+}
+.alertTriangleParent,
+.lightChipIconFilled {
+  display: flex;
+  align-items: center;
+}
+.alertTriangleIcon {
+  height: var(--height-20);
+  width: var(--width-20);
+  position: relative;
+}
+.chipContent {
+  display: flex;
+  align-items: center;
+  padding: var(--padding-0) var(--padding-6);
+}
+.chipTitle {
+  position: relative;
+}
+.featherIconsShoppingBag {
+  height: var(--height-20);
+  width: var(--width-20);
+  position: relative;
+  display: none;
+}

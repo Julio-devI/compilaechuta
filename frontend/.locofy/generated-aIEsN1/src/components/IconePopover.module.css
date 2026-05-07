@@ -1,0 +1,28 @@
+.iconePopover {
+  height: var(--height-28);
+  width: var(--width-28);
+  position: relative;
+}
+.iconBackground {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: var(--br-30);
+  background-color: var(--color-tomato-100);
+}
+.latePackageIcon {
+  position: absolute;
+  height: 60%;
+  width: 60%;
+  top: 20%;
+  right: 20%;
+  bottom: 20%;
+  left: 20%;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}

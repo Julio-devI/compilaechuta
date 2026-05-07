@@ -1,0 +1,357 @@
+{
+  "tables": {
+    "fato_vendas": {
+      "description": "Tabela fato que registra cada linha de item em um pedido. Contém as métricas de venda (quantidade, valores unitário e total) e chaves para dimensões cliente, produto e tempo.",
+      "columns": {
+        "id_pedido": {
+          "description": "Identificador único do pedido ao qual a linha pertence.",
+          "examples": ["PED-2024-0001", "10001", "55023"]
+        },
+        "id_cliente": {
+          "description": "Chave estrangeira para o cliente que realizou a compra.",
+          "examples": ["CLI-4521", "2103", "99887"]
+        },
+        "id_produto": {
+          "description": "Chave estrangeira para o produto vendido na linha.",
+          "examples": ["PRD-88", "SKU-1029", "50011"]
+        },
+        "id_data": {
+          "description": "Chave estrangeira para a data da venda na dimensão tempo.",
+          "examples": ["20240115", "20241201", "20240630"]
+        },
+        "quantidade_vendas": {
+          "description": "Quantidade de unidades do produto vendidas na linha.",
+          "examples": [1, 2, 5]
+        },
+        "valor_unitario": {
+          "description": "Preço unitário do produto no momento da venda (em BRL).",
+          "examples": [129.9, 45.0, 1999.0]
+        },
+        "valor_total_venda": {
+          "description": "Valor total da linha após aplicação de quantidade e desconto (em BRL).",
+          "examples": [259.8, 45.0, 999.5]
+        },
+        "status": {
+          "description": "Status atual do pedido (ex: entregue, cancelado, em separação, enviado).",
+          "examples": ["Entregue", "Cancelado", "Em separação"]
+        },
+        "metodo_pagamento": {
+          "description": "Método de pagamento utilizado na compra (ex: cartão de crédito, boleto, pix).",
+          "examples": ["Cartão de crédito", "Boleto", "Pix"]
+        }
+      }
+    },
+    "fato_suporte_tickets": {
+      "description": "Tabela fato com o histórico de tickets de atendimento ao cliente. Permite analisar volume, tempo de resolução e satisfação por tipo de problema, produto e agente.",
+      "columns": {
+        "id_ticket": {
+          "description": "Identificador único do ticket de suporte.",
+          "examples": ["TCK-10001", "5523", "89001"]
+        },
+        "id_cliente": {
+          "description": "Cliente que abriu o ticket.",
+          "examples": ["CLI-4521", "2103", "99887"]
+        },
+        "id_pedido": {
+          "description": "Pedido relacionado ao ticket (quando aplicável).",
+          "examples": ["PED-2024-0001", "10001", "55023"]
+        },
+        "id_produto": {
+          "description": "Produto relacionado ao ticket.",
+          "examples": ["PRD-88", "SKU-1029", "50011"]
+        },
+        "id_data_abertura": {
+          "description": "Data de abertura do ticket (chave para dim_tempo).",
+          "examples": ["20240115", "20241201", "20240630"]
+        },
+        "tipo_problema": {
+          "description": "Categoria do problema relatado (ex: defeito, envio errado, dúvida).",
+          "examples": ["Defeito", "Envio errado", "Dúvida sobre produto"]
+        },
+        "agente_suporte": {
+          "description": "Nome ou identificador do agente que atendeu o ticket.",
+          "examples": ["Ana Silva", "CARLOS_M", "Suporte Nível 2"]
+        },
+        "nota_avaliacao": {
+          "description": "Nota de satisfação dada pelo cliente após a resolução (escala 1–5 ou 1–10).",
+          "examples": [5, 4, 2]
+        },
+        "tempo_resolucao_horas": {
+          "description": "Tempo decorrido entre abertura e resolução do ticket, em horas.",
+          "examples": [2.5, 48.0, 120.0]
+        },
+        "status": {
+          "description": "Status atual do ticket (ex: aberto, resolvido, em andamento, fechado).",
+          "examples": ["Resolvido", "Em andamento", "Aberto"]
+        }
+      }
+    },
+    "fato_avaliacoes_pedido": {
+      "description": "Tabela fato que registra cada avaliação pós-compra feita pelo cliente sobre um pedido/produto.",
+      "columns": {
+        "id_avaliacao": {
+          "description": "Identificador único da avaliação.",
+          "examples": ["AVL-1001", "55231", "99001"]
+        },
+        "id_pedido": {
+          "description": "Pedido avaliado.",
+          "examples": ["PED-2024-0001", "10001", "55023"]
+        },
+        "id_cliente": {
+          "description": "Cliente que realizou a avaliação.",
+          "examples": ["CLI-4521", "2103", "99887"]
+        },
+        "id_produto": {
+          "description": "Produto avaliado dentro do pedido.",
+          "examples": ["PRD-88", "SKU-1029", "50011"]
+        },
+        "nota_produto": {
+          "description": "Nota atribuída ao produto (geralmente escala 1–5).",
+          "examples": [5, 3, 1]
+        },
+        "nota_nps": {
+          "description": "Nota NPS (Net Promoter Score) de 0 a 10 indicando propensão a recomendar.",
+          "examples": [9, 7, 10]
+        },
+        "comentario_texto": {
+          "description": "Texto livre do comentário do cliente.",
+          "examples": ["Produto excelente!", "Veio com defeito", "Entrega rápida"]
+        },
+        "data_avaliacao": {
+          "description": "Data em que a avaliação foi registrada.",
+          "examples": ["2024-01-20", "2024-12-05", "2024-06-10"]
+        },
+        "pct_recomendacoes_sim": {
+          "description": "Percentual de clientes que recomendariam o produto (0–100).",
+          "examples": [92.5, 45.0, 100.0]
+        }
+      }
+    },
+    "fato_clickstream_navegacao": {
+      "description": "Tabela fato agregada com métricas de navegação e comportamento digital dos usuários no site/app.",
+      "columns": {
+        "id_cliente": {
+          "description": "Cliente ao qual as métricas agregadas pertencem.",
+          "examples": ["CLI-4521", "2103", "99887"]
+        },
+        "total_sessoes": {
+          "description": "Total de sessões de navegação do cliente.",
+          "examples": [12, 1, 150]
+        },
+        "total_eventos": {
+          "description": "Total de eventos (cliques, visualizações, etc.) registrados para o cliente.",
+          "examples": [340, 12, 5000]
+        },
+        "canal_mais_usado": {
+          "description": "Canal de origem de tráfego mais utilizado pelo cliente (ex: organic, paid, direct, social).",
+          "examples": ["organic", "paid", "direct"]
+        },
+        "dispositivo_mais_usado": {
+          "description": "Tipo de dispositivo mais utilizado pelo cliente (ex: mobile, desktop, tablet).",
+          "examples": ["mobile", "desktop", "tablet"]
+        },
+        "qtd_visualizacao_produto": {
+          "description": "Quantidade de visualizações de páginas de produto.",
+          "examples": [45, 0, 120]
+        },
+        "qtd_adicoes_carrinho": {
+          "description": "Quantidade de adições de produtos ao carrinho.",
+          "examples": [8, 0, 25]
+        },
+        "qtd_abandonos_carrinho": {
+          "description": "Quantidade de abandonos de carrinho.",
+          "examples": [3, 0, 10]
+        },
+        "taxa_conversao": {
+          "description": "Taxa de conversão do cliente (compras / sessões), valor entre 0 e 1.",
+          "examples": [0.15, 0.05, 0.80]
+        },
+        "data_ultima_sessao": {
+          "description": "Data da última sessão de navegação registrada.",
+          "examples": ["2024-12-01", "2024-11-15", "2023-08-20"]
+        }
+      }
+    },
+    "dim_cliente": {
+      "description": "Dimensão de clientes com atributos cadastrais, geográficos e métricas agregadas de compra e suporte.",
+      "columns": {
+        "id_cliente": {
+          "description": "Identificador único do cliente.",
+          "examples": ["CLI-4521", "2103", "99887"]
+        },
+        "nome_cliente": {
+          "description": "Nome completo ou razão social do cliente.",
+          "examples": ["João da Silva", "Maria Souza", "Empresa XYZ Ltda"]
+        },
+        "cidade": {
+          "description": "Cidade de cadastro ou entrega principal do cliente.",
+          "examples": ["São Paulo", "Recife", "Porto Alegre"]
+        },
+        "estado": {
+          "description": "Unidade federativa do cliente (sigla de 2 letras).",
+          "examples": ["SP", "PE", "RS"]
+        },
+        "regiao": {
+          "description": "Região geográfica do Brasil (Norte, Nordeste, Centro-Oeste, Sudeste, Sul).",
+          "examples": ["Sudeste", "Nordeste", "Sul"]
+        },
+        "qtd_pedidos_realizados": {
+          "description": "Total acumulado de pedidos efetuados pelo cliente.",
+          "examples": [12, 1, 150]
+        },
+        "total_gasto_brl": {
+          "description": "Valor total gasto pelo cliente em todas as compras (em BRL).",
+          "examples": [5230.5, 129.9, 45000.0]
+        },
+        "qtd_tickets_suporte": {
+          "description": "Quantidade total de tickets de suporte abertos pelo cliente.",
+          "examples": [0, 3, 10]
+        },
+        "data_ultima_compra": {
+          "description": "Data da última compra realizada pelo cliente.",
+          "examples": ["2024-12-01", "2024-11-15", "2023-08-20"]
+        },
+        "media_estrelas_dadas": {
+          "description": "Média das notas (estrelas) que o cliente atribuiu em avaliações de pedidos.",
+          "examples": [4.5, 5.0, 2.0]
+        },
+        "segmento_rfm": {
+          "description": "Segmento RFM do cliente (ex: Campeões, Leais em Risco, Perdidos, Novos).",
+          "examples": ["Campeões", "Leais em Risco", "Perdidos"]
+        }
+      }
+    },
+    "dim_produto": {
+      "description": "Dimensão de produtos com atributos de catálogo, estoque e métricas agregadas de desempenho e satisfação.",
+      "columns": {
+        "id_produto": {
+          "description": "Identificador único do produto.",
+          "examples": ["PRD-88", "SKU-1029", "50011"]
+        },
+        "nome_produto": {
+          "description": "Nome comercial do produto.",
+          "examples": ["Fone de Ouvido Bluetooth", "Smartphone X Pro", "Cadeira Ergonômica"]
+        },
+        "fornecedor": {
+          "description": "Nome do fornecedor ou marca do produto.",
+          "examples": ["TechBrand", "MoveisBrasil", "Importados LTDA"]
+        },
+        "data_cadastro_produto": {
+          "description": "Data em que o produto foi cadastrado no catálogo.",
+          "examples": ["2023-01-10", "2024-05-20", "2022-11-03"]
+        },
+        "preco": {
+          "description": "Preço de venda atual do produto (em BRL).",
+          "examples": [129.9, 1999.0, 45.0]
+        },
+        "categoria": {
+          "description": "Categoria hierárquica do produto (ex: Eletrônicos, Móveis, Vestuário).",
+          "examples": ["Eletrônicos", "Móveis", "Vestuário"]
+        },
+        "ativo": {
+          "description": "Indica se o produto está ativo no catálogo (1 = ativo, 0 = inativo).",
+          "examples": [1, 0]
+        },
+        "peso_kg": {
+          "description": "Peso do produto em quilogramas.",
+          "examples": [0.3, 1.5, 15.0]
+        },
+        "estoque_disponivel": {
+          "description": "Quantidade atual em estoque disponível para venda.",
+          "examples": [150, 0, 42]
+        },
+        "tem_estoque": {
+          "description": "Flag indicando se há unidades disponíveis (1 = sim, 0 = não).",
+          "examples": [1, 0]
+        },
+        "precisa_revisao": {
+          "description": "Flag indicando se o produto precisa de revisão de descrição/preço (1 = sim).",
+          "examples": [0, 1]
+        },
+        "qtd_total_vendas": {
+          "description": "Quantidade total acumulada de unidades vendidas do produto.",
+          "examples": [5000, 12, 890]
+        },
+        "receita_total": {
+          "description": "Receita total acumulada gerada pelo produto (em BRL).",
+          "examples": [645000.0, 540.0, 178010.0]
+        },
+        "qtd_tickets_gerados": {
+          "description": "Quantidade total de tickets de suporte relacionados ao produto.",
+          "examples": [45, 0, 12]
+        },
+        "nota_media_produto": {
+          "description": "Nota média de avaliação do produto em estrelas.",
+          "examples": [4.7, 3.2, 5.0]
+        },
+        "pct_recomendacoes_sim": {
+          "description": "Percentual de clientes que recomendariam o produto (0–100).",
+          "examples": [92.5, 45.0, 100.0]
+        }
+      }
+    },
+    "dim_tempo": {
+      "description": "Dimensão de tempo para análise temporal (dia, mês, ano, trimestre).",
+      "columns": {
+        "id_data": {
+          "description": "Chave surrogate da data (ex: AAAAMMDD).",
+          "examples": ["20240115", "20241201", "20240630"]
+        },
+        "data_completa": {
+          "description": "Data no formato ISO (YYYY-MM-DD).",
+          "examples": ["2024-01-15", "2024-12-01", "2024-06-30"]
+        },
+        "mes": {
+          "description": "Número do mês (1–12).",
+          "examples": [1, 12, 6]
+        },
+        "ano": {
+          "description": "Ano da data.",
+          "examples": [2024, 2023, 2025]
+        },
+        "trimestre": {
+          "description": "Trimestre do ano (1, 2, 3, 4).",
+          "examples": [1, 4, 2]
+        }
+      }
+    },
+    "gold_satisfacao_agente": {
+      "description": "Tabela agregada (gold) com métricas de satisfação por agente de suporte.",
+      "columns": {
+        "agente_suporte": {
+          "description": "Nome ou identificador do agente de suporte.",
+          "examples": ["Ana Silva", "CARLOS_M", "Suporte Nível 2"]
+        },
+        "qtd_tickets_resolvidos": {
+          "description": "Quantidade total de tickets resolvidos pelo agente.",
+          "examples": [150, 42, 890]
+        },
+        "nota_media_satisfacao": {
+          "description": "Média das notas de satisfação dos tickets atendidos pelo agente.",
+          "examples": [4.5, 3.8, 5.0]
+        },
+        "tempo_medio_resolucao": {
+          "description": "Tempo médio de resolução dos tickets do agente (em horas).",
+          "examples": [12.5, 48.0, 2.0]
+        }
+      }
+    },
+    "gold_satisfacao_problema": {
+      "description": "Tabela agregada (gold) com métricas de satisfação por tipo de problema.",
+      "columns": {
+        "tipo_problema": {
+          "description": "Categoria do problema relatado nos tickets.",
+          "examples": ["Defeito", "Envio errado", "Dúvida sobre produto"]
+        },
+        "volume_tickets": {
+          "description": "Quantidade total de tickets registrados para esse tipo de problema.",
+          "examples": [230, 45, 12]
+        },
+        "nota_media_satisfacao": {
+          "description": "Média das notas de satisfação dos clientes para esse tipo de problema.",
+          "examples": [3.5, 4.2, 4.8]
+        }
+      }
+    }
+  }
+}

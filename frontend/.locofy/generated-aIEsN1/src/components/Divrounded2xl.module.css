@@ -1,0 +1,60 @@
+.divrounded2xl {
+  border-radius: var(--br-16);
+  background-color: var(--brand-cian-shade-blue);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--padding-12);
+  gap: var(--item-spacing-xxs);
+  grid-column: 1;
+  grid-row: 1;
+  text-align: left;
+  font-size: var(--font-size-12);
+  color: var(--dark2);
+  font-family: var(--font-family-Font-1);
+}
+.divflex {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--item-spacing-xs);
+}
+.spanh2 {
+  height: var(--height-8);
+  width: var(--width-8);
+  position: relative;
+  border-radius: 9999px;
+  background-color: var(--state-error);
+}
+.ptextXs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.detratores {
+  position: relative;
+  line-height: var(--line-height-16);
+}
+.pfontDisplay {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: var(--line-height-24);
+  color: var(--color-midnightblue);
+  font-family: var(--font-family-Font-3);
+}
+.trendValue {
+  width: 43.3px;
+  position: relative;
+  line-height: var(--line-height-32);
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+}
+@media screen and (max-width: 450px) {
+  .trendValue {
+    font-size: var(--fs-19);
+    line-height: var(--lh-26);
+  }
+}

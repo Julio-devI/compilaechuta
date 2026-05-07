@@ -1,0 +1,11 @@
+.sparkleIconG {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+.component1Icon {
+  width: var(--width-24);
+  height: var(--height-24);
+  position: relative;
+}

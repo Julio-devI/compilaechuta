@@ -1,0 +1,323 @@
+.desktop {
+  width: 100%;
+  position: relative;
+  background-color: var(--light4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: var(--padding-0) 58px;
+  box-sizing: border-box;
+  gap: 40px;
+  line-height: normal;
+  letter-spacing: normal;
+  text-align: left;
+  font-size: 48px;
+  color: var(--brand-dark-blue);
+  font-family: var(--font-neue-haas-grotesk-display-pro);
+}
+.dashboardParent,
+.desktopInner {
+  display: flex;
+  align-items: flex-start;
+  max-width: 100%;
+}
+.desktopInner {
+  align-self: stretch;
+  justify-content: center;
+  padding: var(--padding-0) var(--padding-0) var(--padding-0) var(--padding-3);
+  box-sizing: border-box;
+}
+.dashboardParent {
+  width: 1297px;
+  flex-direction: column;
+  gap: var(--gap-30);
+}
+.dashboard {
+  width: 230px;
+  position: relative;
+  line-height: 58px;
+  display: inline-block;
+}
+.frameParent {
+  align-self: stretch;
+  height: 1151px;
+  position: relative;
+  max-width: 100%;
+  font-size: var(--fs-16);
+  color: var(--dark2);
+}
+.frameGroup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1262px;
+  flex-direction: column;
+  gap: var(--gap-30);
+  max-width: 100%;
+  flex-shrink: 0;
+}
+.frameGroup,
+.frameWrapper {
+  display: flex;
+  align-items: flex-start;
+}
+.buttonSmallParent {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-10);
+}
+.instanceParent,
+.tendnciasCardsParent {
+  align-self: stretch;
+  display: flex;
+  gap: var(--gap-20);
+  max-width: 100%;
+}
+.instanceParent {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.tendnciasCardsParent {
+  align-items: center;
+}
+.frameContainer,
+.frameDiv {
+  display: flex;
+  align-items: flex-start;
+}
+.frameContainer {
+  height: 366px;
+  width: 515px;
+  box-shadow: var(--shadow-drop);
+  border-radius: var(--br-30);
+  background-color: var(--light4);
+  flex-direction: column;
+  padding: var(--padding-24);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+.frameDiv {
+  gap: var(--gap-20);
+}
+.frameDiv,
+.frameParent2,
+.frameWrapper2 {
+  align-self: stretch;
+  flex-direction: column;
+}
+.frameWrapper2 {
+  display: flex;
+  align-items: flex-start;
+}
+.frameParent2 {
+  gap: var(--gap-5);
+}
+.frameParent2,
+.frameParent3,
+.frameWrapper3 {
+  display: flex;
+  align-items: flex-start;
+}
+.frameWrapper3 {
+  width: 106px;
+  flex-direction: column;
+}
+.frameParent3 {
+  align-self: stretch;
+  height: var(--height-22);
+  position: relative;
+  isolation: isolate;
+  gap: var(--gap-5);
+}
+.trendingUpWrapper {
+  width: 21px;
+  margin: 0 !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  z-index: 0;
+  flex-shrink: 0;
+}
+.trendingUpIcon {
+  width: var(--width-22);
+  position: relative;
+  max-height: 100%;
+}
+.cliente,
+.taxaDeSatisfao {
+  display: flex;
+  align-items: center;
+}
+.cliente {
+  height: var(--height-19);
+  width: 100px;
+  position: absolute;
+  margin: 0 !important;
+  top: 2px;
+  left: 26px;
+  z-index: 1;
+  flex-shrink: 0;
+}
+.taxaDeSatisfao {
+  width: 335px;
+  position: relative;
+  font-size: var(--fs-24);
+  color: var(--brand-dark-blue);
+}
+.evoluoDeFaturamento {
+  align-self: stretch;
+  position: relative;
+  white-space: pre-wrap;
+}
+.component1Parent {
+  align-self: stretch;
+  height: 192px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.component1Icon {
+  align-self: stretch;
+  flex: 1;
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  max-height: 100%;
+}
+.divgrid {
+  align-self: stretch;
+  height: 76px;
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  grid-template-rows: 76px;
+  gap: 12px;
+}
+.reportContainer,
+.reportContainerParent {
+  display: flex;
+  align-items: flex-start;
+  max-width: 100%;
+}
+.reportContainerParent {
+  align-self: stretch;
+  gap: var(--gap-20);
+}
+.reportContainer {
+  height: 475px;
+  width: 989px;
+  padding: var(--padding-0) var(--padding-0) 30px;
+  box-sizing: border-box;
+}
+.actionHeaderWrapper,
+.actionTitles,
+.frameWrapper4 {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.frameWrapper4 {
+  height: 404px;
+  box-shadow: var(--shadow-drop);
+  border-radius: var(--br-30);
+  background-color: var(--light5);
+  padding: var(--padding-24);
+  box-sizing: border-box;
+}
+.actionHeaderWrapper,
+.actionTitles {
+  width: 240px;
+}
+.actionHeaderWrapper {
+  width: 106px;
+  flex-shrink: 0;
+}
+.actionHeader {
+  align-self: stretch;
+  height: var(--height-22);
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+  isolation: isolate;
+}
+.aesRpidas,
+.atalhosContextuais {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.aesRpidas {
+  height: var(--height-19);
+  width: var(--width-144);
+  position: absolute;
+  margin: 0 !important;
+  top: 2px;
+  left: 0;
+  z-index: 0;
+}
+.atalhosContextuais {
+  width: 335px;
+  position: relative;
+  font-size: var(--fs-24);
+  color: var(--brand-dark-blue);
+}
+.shortcutGrid {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--gap-2);
+}
+@media screen and (max-width: 1350px) {
+  .tendnciasCardsParent {
+    flex-wrap: wrap;
+  }
+  .frameContainer {
+    flex: 1;
+  }
+  .reportContainerParent {
+    flex-wrap: wrap;
+  }
+}
+@media screen and (max-width: 1150px) {
+  .desktop {
+    padding-left: 29px;
+    padding-right: 29px;
+    box-sizing: border-box;
+  }
+}
+@media screen and (max-width: 800px) {
+  .dashboard {
+    font-size: 38px;
+  }
+  .frameParent {
+    height: auto;
+    min-height: 1151px;
+  }
+  .frameGroup {
+    height: auto;
+  }
+  .buttonSmallParent {
+    flex-wrap: wrap;
+  }
+  .frameContainer {
+    min-width: 100%;
+  }
+}
+@media screen and (max-width: 450px) {
+  .desktop {
+    gap: var(--gap-20);
+  }
+  .dashboard {
+    font-size: 29px;
+  }
+  .atalhosContextuais,
+  .taxaDeSatisfao {
+    font-size: var(--fs-19);
+  }
+}

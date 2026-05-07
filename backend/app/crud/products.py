@@ -21,7 +21,7 @@ async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto
     await db.refresh(db_product)
     return db_product
 
-async def get_product(db: AsyncSession, product_id: int) -> Optional[Produto]:
+async def get_productById(db: AsyncSession, product_id: int) -> Optional[Produto]:
     result = await db.execute(select(Produto).filter(Produto.id_produto == product_id))
     return result.scalars().first()
 
@@ -42,7 +42,7 @@ async def get_products(
     return list(result.scalars().all())
 
 async def update_product(db: AsyncSession, product_id: int, product_in: ProductUpdate) -> Optional[Produto]:
-    db_product = await get_product(db, product_id)
+    db_product = await get_productById(db, product_id)
     if not db_product:
         return None
     
@@ -56,10 +56,11 @@ async def update_product(db: AsyncSession, product_id: int, product_in: ProductU
         
     await db.commit()
     await db.refresh(db_product)
+    
     return db_product
 
 async def delete_product(db: AsyncSession, product_id: int) -> bool:
-    db_product = await get_product(db, product_id)
+    db_product = await get_productById(db, product_id)
     if not db_product:
         return False
         

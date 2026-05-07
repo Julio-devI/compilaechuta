@@ -1,19 +1,27 @@
-# main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# Inicializa a aplicação
+from app.api.v1.api import api_router
+
 app = FastAPI(
-    title="Minha API",
-    description="Um boilerplate básico de FastAPI",
-    version="1.0.0"
+    title="Compila e Chuta API",
+    description="API do backend para o projeto Compila e Chuta",
+    version="1.0.0",
 )
 
-# Rota básica (Health check)
-@app.get("/")
-async def root():
-    return {"message": "Olá, FastAPI!"}
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Exemplo de rota com parâmetro
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}
+@app.get("/", tags=["Health"])
+async def root():
+    return {
+        "status": "ok",
+        "message": "Bem-vindo à API do Compila e Chuta! Acesse /docs para ver a documentação."
+    }
+
+app.include_router(api_router, prefix="/api/v1")

@@ -22,8 +22,8 @@ export function FilterTabs() {
           className={cn(
             "px-4 py-2 rounded-4xl text-sm font-medium transition-all duration-200",
             activeTab === tab.id
-              ? "bg-[#1E5EFF] text-white shadow-md"
-              : "bg-[#E3EDFF] text-[#0070DB] hover:bg-[#D6E4FF]"
+              ? "bg-primary text-white shadow-md"
+              : "bg-primary-light text-[#0070DB] hover:bg-primary-light/80"
           )}
         >
           {tab.label}

@@ -13,39 +13,39 @@ const kpiData = [
     change: 3.14,
     changeLabel: 'mês passado',
     icon: <DollarSign className="w-6 h-6 text-[#1E5EFF]" />,
-    iconBgColor: 'bg-[#EBF1FF]',
+    iconBgColor: 'bg-primary-light',
   },
   {
     title: 'Pedidos',
     value: '310.000',
     change: 0.14,
     changeLabel: 'mês passado',
-    icon: <ShoppingBag className="w-6 h-6 text-[#00C48C]" />,
-    iconBgColor: 'bg-[#E6F9F3]',
+    icon: <ShoppingBag className="w-6 h-6 text-success" />,
+    iconBgColor: 'bg-success-light',
   },
   {
     title: 'CSTA Promotores',
     value: '70%',
     change: -0.21,
     changeLabel: 'mês passado',
-    icon: <ThumbsUp className="w-6 h-6 text-[#FFD60A]" />,
-    iconBgColor: 'bg-[#FFF9E6]',
+    icon: <ThumbsUp className="w-6 h-6 text-warning" />,
+    iconBgColor: 'bg-warning-light',
   },
   {
     title: 'Clientes Ativos',
     value: '50.859',
     change: 0.21,
     changeLabel: 'mês passado',
-    icon: <Users className="w-6 h-6 text-[#1E5EFF]" />,
-    iconBgColor: 'bg-[#EBF1FF]',
+    icon: <Users className="w-6 h-6 text-primary" />,
+    iconBgColor: 'bg-primary-light',
   },
   {
     title: 'Entregas no Prazo',
     value: '87,6%',
     change: -0.2,
     changeLabel: 'mês passado',
-    icon: <Truck className="w-6 h-6 text-[#FF4757]" />,
-    iconBgColor: 'bg-[#FFE8EA]',
+    icon: <Truck className="w-6 h-6 text-danger" />,
+    iconBgColor: 'bg-danger-light',
   },
 ]
 
@@ -53,7 +53,7 @@ export function Dashboard() {
   return (
     <div className="p-6">
       {/* Title */}
-      <h1 className="text-5xl font-bold text-[#020854] mb-6">Dashboard</h1>
+      <h1 className="text-5xl font-bold text-[#020854] dark:text-foreground mb-6">Dashboard</h1>
 
       {/* Filter Tabs */}
       <FilterTabs />

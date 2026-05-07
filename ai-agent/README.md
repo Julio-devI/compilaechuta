@@ -49,64 +49,35 @@ pytest tests/ -v
 
 ## Smoke Test
 
-O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real, usando um banco SQLite temporário com dados sintéticos.
+O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real. Ele é **autocontido**: cria um banco SQLite temporário com schema mínimo e dados sintéticos, executa 10 perguntas variadas e remove o banco ao final.
+
+### Pré-requisitos
+
+1. Ambiente virtual ativado e dependências instaladas (`pip install -r requirements.txt`).
+2. Arquivo `.env` na raiz do projeto com a chave da API:
+   ```bash
+   GEMINI_API_KEY=sua-chave-aqui
+   ```
 
 ### Como executar
 
-1. Certifique-se de que o ambiente virtual está ativado e as dependências instaladas.
-2. Exporte a chave da API Gemini:
-   ```bash
-   export GEMINI_API_KEY='sua-chave-aqui'
-   ```
-3. Execute o script:
-   ```bash
-   python tests/smoke_test.py
-   ```
+```bash
+python tests/smoke_test.py
+```
 
 ### O que o script faz
 
-- Cria um banco SQLite temporário com 5 tabelas (`clientes`, `produtos`, `pedidos`, `tickets_suporte`, `avaliacoes`) e dados sintéticos mínimos.
-- Instancia `VCommerceAgent` apontando para esse banco.
-- Envia 3 perguntas sequenciais:
-  1. **"Quais os produtos mais vendidos?"** — valida geração de SQL SELECT + ranking + sugestão de gráfico.
-  2. **"Qual o NPS médio por categoria de produto?"** — valida JOIN + agregação + insight com dados tabulares.
-  3. **"Me conte uma piada"** — valida detecção de pergunta fora do escopo (`out_of_scope=True`).
-- Remove o banco temporário ao final.
+1. **Cria um banco SQLite temporário** com 5 tabelas (`clientes`, `produtos`, `pedidos`, `tickets_suporte`, `avaliacoes`) e dados sintéticos mínimos para os 3 domínios.
+2. **Instancia `VCommerceAgent`** apontando para esse banco.
+3. **Executa 10 perguntas em lotes de 2**, com intervalo de 60 segundos entre lotes para respeitar o rate limit do free tier da Gemini:
+   - **Vendas:** Receita por região, ticket médio
+   - **Suporte:** Produtos com mais tickets, tempo médio de resolução
+   - **Avaliações:** NPS por categoria, melhores avaliações
+   - **Clientes:** Distribuição por segmento, filtro por região
+   - **Edge cases:** Pergunta fora do escopo (piada), pergunta ambígua ("Qual a receita?")
+4. **Remove o banco temporário** automaticamente ao final (bloco `try/finally`).
 
-### Resultado esperado
-
-```
-Criando banco de teste temporário...
-Banco criado em: /tmp/...
-
-============================================================
-Pergunta: Quais os produtos mais vendidos?
-============================================================
-✅ SUCESSO (4.12s)
-   SQL  : SELECT p.nome AS produto, COUNT(ped.id) AS total_vendas ...
-   Texto: Consultando a tabela de pedidos, os produtos mais vendidos são...
-   Dados: 5 linha(s)
-   Gráfico: bar (x=produto, y=total_vendas)
-
-============================================================
-Pergunta: Qual o NPS médio por categoria de produto?
-============================================================
-✅ SUCESSO (3.85s)
-   SQL  : SELECT p.categoria, ROUND(AVG(a.nps), 1) AS nps_medio ...
-   Texto: Analisando as avaliações pós-compra por categoria...
-   Dados: 2 linha(s)
-   Gráfico: bar (x=categoria, y=nps_medio)
-
-============================================================
-Pergunta: Me conte uma piada
-============================================================
-⛔ FORA DO ESCOPO (1.23s)
-   Texto: FORA_DO_ESCOPO: Esta pergunta não está relacionada a dados...
-
-Banco temporário removido.
-```
-
-> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Se alguma chamada falhar com erro de autenticação ou quota, o script exibirá `❌ ERRO` com a mensagem correspondente.
+> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Cada pergunta dispara **2 chamadas ao LLM** (geração de SQL + geração de insight), totalizando 20 chamadas no teste completo. O script respeita automaticamente o limite de 5 requisições/minuto do free tier. Se o limite diário for atingido, o script exibirá `[ERRO]` com a mensagem de `RESOURCE_EXHAUSTED`.
 
 ## Variáveis de Ambiente
 

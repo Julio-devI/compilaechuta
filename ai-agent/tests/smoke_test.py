@@ -1,11 +1,14 @@
 """
 Smoke test manual do agente V-Commerce (Branch 2).
 
-Cria um banco SQLite temporário com schema mínimo das tabelas Gold,
-instancia VCommerceAgent e executa 2–3 perguntas de ponta a ponta
+Cria um banco SQLite temporario com schema minimo das tabelas Gold,
+instancia VCommerceAgent e executa 10 perguntas de ponta a ponta
 contra a API Gemini real.
 
-Pré-requisito: variável de ambiente GEMINI_API_KEY configurada.
+As perguntas sao executadas em lotes de 2 (limite do free tier: 5 req/min),
+com intervalo de 60s entre lotes.
+
+Pré-requisito: variavel de ambiente GEMINI_API_KEY configurada no .env
 """
 
 import asyncio
@@ -21,11 +24,11 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 # ---------------------------------------------------------------------------
-# 1. Criação do banco de teste temporário
+# 1. Criacao do banco de teste temporario
 # ---------------------------------------------------------------------------
 
 def _create_test_db(path: str) -> None:
-    """Popula um banco SQLite temporário com schema mínimo e dados sintéticos."""
+    """Popula um banco SQLite temporario com schema minimo e dados sinteticos."""
     conn = sqlite3.connect(path)
     cur = conn.cursor()
 
@@ -69,7 +72,7 @@ def _create_test_db(path: str) -> None:
         """
     )
 
-    # Dados sintéticos mínimos
+    # Dados sinteticos minimos
     cur.executemany(
         "INSERT INTO clientes (id, nome, regiao, segmento) VALUES (?, ?, ?, ?)",
         [
@@ -84,11 +87,11 @@ def _create_test_db(path: str) -> None:
     cur.executemany(
         "INSERT INTO produtos (id, nome, categoria, preco) VALUES (?, ?, ?, ?)",
         [
-            (1, "Notebook X1", "Eletrônicos", 4500.00),
-            (2, "Mouse Sem Fio", "Eletrônicos", 120.00),
-            (3, "Cadeira Ergonômica", "Móveis", 850.00),
-            (4, "Monitor 27\"", "Eletrônicos", 1400.00),
-            (5, "Mesa Escritório", "Móveis", 600.00),
+            (1, "Notebook X1", "Eletronicos", 4500.00),
+            (2, "Mouse Sem Fio", "Eletronicos", 120.00),
+            (3, "Cadeira Ergonomica", "Moveis", 850.00),
+            (4, "Monitor 27\"", "Eletronicos", 1400.00),
+            (5, "Mesa Escritorio", "Moveis", 600.00),
         ],
     )
 
@@ -138,7 +141,7 @@ def _create_test_db(path: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. Execução do smoke test
+# 2. Execucao do smoke test
 # ---------------------------------------------------------------------------
 
 async def _run_smoke_test(db_path: str) -> None:
@@ -146,53 +149,167 @@ async def _run_smoke_test(db_path: str) -> None:
 
     agent = VCommerceAgent(db_path=db_path)
 
+    # 10 perguntas cobrindo diferentes cenarios e domínios
     questions = [
-        "Quais os produtos mais vendidos?",
-        "Qual o NPS médio por categoria de produto?",
+        # 1. Vendas - Receita por regiao (ranking/comparacao)
+        "Qual a receita total por regiao?",
+        # 2. Vendas - Ticket medio (valor escalar)
+        "Qual o ticket medio dos pedidos?",
+        # 3. Suporte - Produtos com mais tickets
+        "Quais produtos geram mais tickets de suporte?",
+        # 4. Suporte - Tempo medio de resolucao (escalar)
+        "Qual o tempo medio de resolucao dos tickets?",
+        # 5. Avaliacoes - NPS por categoria
+        "Qual o NPS medio por categoria de produto?",
+        # 6. Avaliacoes - Ranking de notas
+        "Quais produtos tem a melhor avaliacao dos clientes?",
+        # 7. Clientes - Segmentacao
+        "Quantos clientes existem em cada segmento?",
+        # 8. Clientes - Filtro por regiao
+        "Quais clientes sao da regiao Sudeste?",
+        # 9. Fora do escopo
         "Me conte uma piada",
+        # 10. Ambigua (deveria pedir esclarecimento ou assumir algo razoavel)
+        "Qual a receita?",
     ]
 
-    for question in questions:
+    total_start = time.perf_counter()
+    max_duration = 300  # 5 minutos
+    batch_size = 2
+    delay_between_batches = 75  # 1 minuto e 15 segundos
+
+    results = []
+
+    for i in range(0, len(questions), batch_size):
+        batch = questions[i:i + batch_size]
+        batch_num = (i // batch_size) + 1
+        total_batches = (len(questions) + batch_size - 1) // batch_size
+
         print(f"\n{'=' * 60}")
-        print(f"Pergunta: {question}")
-        print("=" * 60)
+        print(f"LOTE {batch_num}/{total_batches}")
+        print(f"{'=' * 60}")
 
-        start = time.perf_counter()
-        try:
-            response = await agent.ask(question)
-        except Exception as exc:
+        for question in batch:
+            # Verifica timeout global
+            elapsed_total = time.perf_counter() - total_start
+            if elapsed_total >= max_duration:
+                print(f"\n[TIMEOUT] Limite de 5 minutos atingido. Encerrando teste.")
+                _print_summary(results, questions)
+                return
+
+            print(f"\nPergunta: {question}")
+            print("-" * 60)
+
+            start = time.perf_counter()
+            try:
+                response = await agent.ask(question)
+            except Exception as exc:
+                elapsed = time.perf_counter() - start
+                print(f"[ERRO] ({elapsed:.2f}s): {exc}")
+                results.append({
+                    "question": question,
+                    "status": "ERRO",
+                    "elapsed": elapsed,
+                    "error": str(exc),
+                })
+                continue
+
             elapsed = time.perf_counter() - start
-            print(f"❌ ERRO ({elapsed:.2f}s): {exc}")
-            continue
 
-        elapsed = time.perf_counter() - start
+            if response.out_of_scope:
+                print(f"[FORA DO ESCOPO] ({elapsed:.2f}s)")
+                print(f"   Texto: {response.text[:200]}")
+                results.append({
+                    "question": question,
+                    "status": "FORA_DO_ESCOPO",
+                    "elapsed": elapsed,
+                    "sql": "",
+                })
+            elif response.error:
+                print(f"[ERRO] ({elapsed:.2f}s)")
+                print(f"   Texto: {response.text[:200]}")
+                print(f"   SQL  : {response.sql[:100] if response.sql else ''}")
+                results.append({
+                    "question": question,
+                    "status": "ERRO",
+                    "elapsed": elapsed,
+                    "error": response.text,
+                    "sql": response.sql,
+                })
+            else:
+                print(f"[SUCESSO] ({elapsed:.2f}s)")
+                print(f"   SQL  : {response.sql[:120]}...")
+                print(f"   Texto: {response.text[:200]}...")
+                if response.data:
+                    print(f"   Dados: {len(response.data)} linha(s)")
+                if response.chart:
+                    print(
+                        f"   Grafico: {response.chart.type} "
+                        f"(x={response.chart.x_axis}, y={response.chart.y_axis})"
+                    )
+                results.append({
+                    "question": question,
+                    "status": "SUCESSO",
+                    "elapsed": elapsed,
+                    "sql": response.sql,
+                    "data_rows": len(response.data) if response.data else 0,
+                    "chart_type": response.chart.type if response.chart else None,
+                })
 
-        if response.out_of_scope:
-            print(f"⛔ FORA DO ESCOPO ({elapsed:.2f}s)")
-            print(f"   Texto: {response.text}")
-        elif response.error:
-            print(f"❌ ERRO ({elapsed:.2f}s)")
-            print(f"   Texto: {response.text}")
-            print(f"   SQL  : {response.sql}")
-        else:
-            print(f"✅ SUCESSO ({elapsed:.2f}s)")
-            print(f"   SQL  : {response.sql}")
-            print(f"   Texto: {response.text[:200]}...")
-            if response.data:
-                print(f"   Dados: {len(response.data)} linha(s)")
-            if response.chart:
-                print(
-                    f"   Gráfico: {response.chart.type} "
-                    f"(x={response.chart.x_axis}, y={response.chart.y_axis})"
-                )
+        # Aguarda 60s entre lotes (exceto apos o ultimo)
+        if i + batch_size < len(questions):
+            elapsed_total = time.perf_counter() - total_start
+            remaining = max_duration - elapsed_total
+            wait_time = min(delay_between_batches, remaining)
+
+            if wait_time > 0:
+                print(f"\n[AGUARDANDO] {wait_time:.0f}s para respeitar o rate limit...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"\n[TIMEOUT] Tempo restante insuficiente. Encerrando.")
+                break
+
+    total_elapsed = time.perf_counter() - total_start
+    print(f"\n{'=' * 60}")
+    print(f"TESTE FINALIZADO em {total_elapsed:.2f}s")
+    print(f"{'=' * 60}")
+    _print_summary(results, questions)
+
+
+def _print_summary(results: list, all_questions: list) -> None:
+    """Imprime resumo dos resultados."""
+    print("\n--- RESUMO ---")
+    success_count = sum(1 for r in results if r["status"] == "SUCESSO")
+    oos_count = sum(1 for r in results if r["status"] == "FORA_DO_ESCOPO")
+    error_count = sum(1 for r in results if r["status"] == "ERRO")
+    skipped = len(all_questions) - len(results)
+
+    print(f"Total de perguntas: {len(all_questions)}")
+    print(f"Respondidas: {len(results)}")
+    print(f"  - Sucesso: {success_count}")
+    print(f"  - Fora do escopo: {oos_count}")
+    print(f"  - Erro: {error_count}")
+    if skipped:
+        print(f"  - Nao executadas (timeout): {skipped}")
+
+    if results:
+        avg_time = sum(r["elapsed"] for r in results) / len(results)
+        print(f"\nTempo medio por pergunta: {avg_time:.2f}s")
+
+    for i, r in enumerate(results, 1):
+        status_icon = "[OK]" if r["status"] == "SUCESSO" else f"[{r['status']}]"
+        chart_info = f" | grafico={r.get('chart_type', 'n/a')}" if r.get("chart_type") else ""
+        print(f"  {i}. {status_icon} ({r['elapsed']:.2f}s){chart_info} - {r['question'][:50]}...")
 
 
 def main() -> None:
-    if not os.getenv("GEMINI_API_KEY"):
+    # Forca o carregamento do .env (src.config ja faz isso no import)
+    from src import config
+
+    if not config.GEMINI_API_KEY:
         print(
-            "Erro: GEMINI_API_KEY não está definida.\n"
-            "Exporte a variável antes de executar:\n"
-            "  export GEMINI_API_KEY='sua-chave-aqui'"
+            "Erro: GEMINI_API_KEY nao esta definida.\n"
+            "Verifique o arquivo .env na raiz do projeto."
         )
         raise SystemExit(1)
 
@@ -200,14 +317,14 @@ def main() -> None:
         db_path = tmp.name
 
     try:
-        print("Criando banco de teste temporário...")
+        print("Criando banco de teste temporario...")
         _create_test_db(db_path)
         print(f"Banco criado em: {db_path}\n")
 
         asyncio.run(_run_smoke_test(db_path))
     finally:
         Path(db_path).unlink(missing_ok=True)
-        print(f"\nBanco temporário removido.")
+        print(f"\nBanco temporario removido.")
 
 
 if __name__ == "__main__":

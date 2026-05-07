@@ -3,8 +3,8 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.clients import Cliente
-from backend.app.schemas.clients import ClienteCreate
+from app.models.clients import Cliente
+from app.schemas.clients import ClienteCreate
 
 
 async def get_clients(

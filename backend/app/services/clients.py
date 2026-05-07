@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.crud import clients as crud
-from backend.app.schemas.clients import ClienteCreate, ClienteListOut, ClienteOut
+from app.crud import clients as crud
+from app.schemas.clients import ClienteCreate, ClienteListOut, ClienteOut
 
 
 async def listar_clientes(

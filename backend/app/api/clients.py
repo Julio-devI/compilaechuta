@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from app.api.deps import get_db
-from app.services import clientes as service
-from app.schemas.clientes import ClienteListOut, ClienteOut
+from backend.app.services import clients as service
+from backend.app.schemas.clients import ClienteListOut, ClienteOut
 
 
 class StatusTicket(str, Enum):

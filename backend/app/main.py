@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api.clientes import router as clientes_router
+from backend.app.api.clients import router as clientes_router
 
 # registra todos os models para o create_all funcionar
-import app.models.clientes  # noqa: F401
+import backend.app.models.clients  # noqa: F401
 import app.models.tickets  # noqa: F401
 
 app = FastAPI(

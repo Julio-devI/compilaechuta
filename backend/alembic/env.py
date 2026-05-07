@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.core.database import Base
-from app.models.clientes import Cliente  # noqa: F401
+from app.models.clients import Cliente  # noqa: F401
 from app.models.tickets import Ticket  # noqa: F401
 
 # this is the Alembic Config object, which provides

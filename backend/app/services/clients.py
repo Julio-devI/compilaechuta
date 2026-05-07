@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud import clientes as crud
-from app.schemas.clientes import ClienteCreate, ClienteListOut, ClienteOut
+from backend.app.crud import clients as crud
+from backend.app.schemas.clients import ClienteCreate, ClienteListOut, ClienteOut
 
 
 async def listar_clientes(
@@ -18,14 +18,14 @@ async def listar_clientes(
     skip: int,
     limit: int,
 ) -> ClienteListOut:
-    total, data = await crud.get_all(
+    total, data = await crud.get_clients(
         db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit
     )
     return ClienteListOut(total=total, skip=skip, limit=limit, data=data)
 
 
 async def buscar_cliente(db: AsyncSession, cliente_id: str) -> ClienteOut:
-    cliente = await crud.get_by_id(db, cliente_id)
+    cliente = await crud.get_client_by_id(db, cliente_id)
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     return cliente
@@ -37,7 +37,7 @@ async def listar_tickets_cliente(db: AsyncSession, cliente_id: str, status: str)
 
 
 async def exportar_clientes_csv(db: AsyncSession) -> io.StringIO:
-    clientes = await crud.get_all_for_export(db)
+    clientes = await crud.get_all_clients_for_export(db)
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([

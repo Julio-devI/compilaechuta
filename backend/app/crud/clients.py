@@ -3,11 +3,11 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.clientes import Cliente
-from app.schemas.clientes import ClienteCreate
+from backend.app.models.clients import Cliente
+from backend.app.schemas.clients import ClienteCreate
 
 
-async def get_all(
+async def get_clients(
     db: AsyncSession,
     cidade: Optional[str] = None,
     valor_minimo: Optional[float] = None,
@@ -41,7 +41,7 @@ async def get_all(
     return total, data
 
 
-async def get_by_id(db: AsyncSession, cliente_id: str) -> Optional[Cliente]:
+async def get_client_by_id(db: AsyncSession, cliente_id: str) -> Optional[Cliente]:
     result = await db.execute(select(Cliente).where(Cliente.id_cliente == cliente_id))
     return result.scalar_one_or_none()
 
@@ -54,12 +54,12 @@ async def get_tickets_by_status(db: AsyncSession, cliente_id: str, status: str) 
     return result.scalars().all()
 
 
-async def get_all_for_export(db: AsyncSession) -> list[Cliente]:
+async def get_all_clients_for_export(db: AsyncSession) -> list[Cliente]:
     result = await db.execute(select(Cliente))
     return result.scalars().all()
 
 
-async def create(db: AsyncSession, payload: ClienteCreate) -> Cliente:
+async def create_client(db: AsyncSession, payload: ClienteCreate) -> Cliente:
     cliente = Cliente(**payload.model_dump())
     db.add(cliente)
     await db.commit()

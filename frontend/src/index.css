@@ -7,19 +7,19 @@
   --primary: #1E5EFF;
   --primary-light: #EBF1FF;
   --primary-dark: #0D47A1;
-  
+
   /* Success Green */
   --success: #00C48C;
   --success-light: #E6F9F3;
-  
+
   /* Warning Yellow */
   --warning: #FFD60A;
   --warning-light: #FFF9E6;
-  
+
   /* Danger Red */
   --danger: #FF4757;
   --danger-light: #FFE8EA;
-  
+
   /* Neutrals */
   --background: #F8FAFC;
   --foreground: #0F172A;
@@ -28,19 +28,37 @@
   --muted: #64748B;
   --muted-foreground: #94A3B8;
   --border: #E2E8F0;
-  
+
   /* Sidebar */
   --sidebar: #1E5EFF;
   --sidebar-foreground: #FFFFFF;
-  
+  --sidebar-glass-default: rgba(199, 201, 217, 0.30);
+  --sidebar-glass-hover: rgba(199, 201, 217, 0.60);
+
   /* Charts */
   --chart-1: #1E5EFF;
   --chart-2: #00C48C;
   --chart-3: #FFD60A;
   --chart-4: #FF4757;
   --chart-5: #64748B;
-  
+
   --radius: 0.75rem;
+}
+
+.dark {
+  --background: #0D1117;
+  --foreground: #E6EDF3;
+  --card: #161B22;
+  --card-foreground: #E6EDF3;
+  --muted: #8B949E;
+  --muted-foreground: #6E7681;
+  --border: #30363D;
+  --primary-light: #1C2D4F;
+  --success-light: #0D2E22;
+  --warning-light: #2A2000;
+  --danger-light: #2D1115;
+  --sidebar-glass-default: rgba(13, 17, 23, 0.55);
+  --sidebar-glass-hover: rgba(22, 27, 34, 0.88);
 }
 
 @theme inline {

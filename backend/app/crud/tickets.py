@@ -1,44 +1,68 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
-from app.models.tickets import Ticket as TicketModel
-from app.schemas.tickets import TicketCreate, TicketUpdate
+from typing import Optional
 from datetime import datetime
 
-def get_ticket(db: Session, ticket_id: int):
-    return db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
 
-def get_tickets(db: Session, skip: int = 0, limit: int = 100, 
-                start_date: datetime = None, end_date: datetime = None):
-    query = db.query(TicketModel)
-    
-    # Requisito: Filtro de período
+from app.models.tickets import Ticket as TicketModel
+from app.schemas.tickets import TicketCreate, TicketUpdate
+
+
+async def get_ticket(db: AsyncSession, ticket_id: int) -> Optional[TicketModel]:
+    result = await db.execute(select(TicketModel).where(TicketModel.id == ticket_id))
+    return result.scalar_one_or_none()
+
+
+async def get_tickets(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> list[TicketModel]:
+    query = select(TicketModel)
+
     if start_date and end_date:
-        query = query.filter(and_(TicketModel.created_at >= start_date, 
-                                 TicketModel.created_at <= end_date))
-    
-    return query.offset(skip).limit(limit).all()
+        query = query.where(
+            and_(
+                TicketModel.data_abertura >= start_date,
+                TicketModel.data_abertura <= end_date,
+            )
+        )
 
-def create_ticket(db: Session, ticket: TicketCreate):
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
+
+
+async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketModel:
     db_ticket = TicketModel(**ticket.model_dump())
     db.add(db_ticket)
-    db.commit()
-    db.refresh(db_ticket)
+    await db.commit()
+    await db.refresh(db_ticket)
     return db_ticket
 
-def update_ticket(db: Session, ticket_id: int, ticket: TicketUpdate):
-    db_query = db.query(TicketModel).filter(TicketModel.id == ticket_id)
-    db_ticket = db_query.first()
-    if db_ticket:
-        update_data = ticket.model_dump(exclude_unset=True)
-        db_query.update(update_data)
-        db.commit()
-        db.refresh(db_ticket)
+
+async def update_ticket(
+    db: AsyncSession, ticket_id: int, ticket: TicketUpdate
+) -> Optional[TicketModel]:
+    db_ticket = await get_ticket(db, ticket_id)
+    if not db_ticket:
+        return None
+
+    update_data = ticket.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_ticket, field, value)
+
+    await db.commit()
+    await db.refresh(db_ticket)
     return db_ticket
 
-def delete_ticket(db: Session, ticket_id: int):
-    db_ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    if db_ticket:
-        db.delete(db_ticket)
-        db.commit()
-        return True
-    return False
+
+async def delete_ticket(db: AsyncSession, ticket_id: int) -> bool:
+    db_ticket = await get_ticket(db, ticket_id)
+    if not db_ticket:
+        return False
+
+    await db.delete(db_ticket)
+    await db.commit()
+    return True

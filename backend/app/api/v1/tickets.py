@@ -1,37 +1,41 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 from datetime import datetime
-from app.api import deps
-from app.crud import tickets as crud
-from app.schemas import tickets as schemas
+
+from app.api.deps import get_db
+from app.services import tickets as service
+from app.schemas.tickets import TicketCreate, TicketUpdate, TicketOut
 
 router = APIRouter()
 
-@router.post("/", response_model=schemas.Ticket)
-def create_ticket(ticket: schemas.TicketCreate, db: Session = Depends(deps.get_db)):
-    return crud.create_ticket(db=db, ticket=ticket)
 
-@router.get("/", response_model=List[schemas.Ticket])
-def read_tickets(
-    skip: int = 0, 
-    limit: int = 100, 
-    start_date: datetime = Query(None), 
-    end_date: datetime = Query(None),
-    db: Session = Depends(deps.get_db)
+@router.get("/", response_model=list[TicketOut])
+async def listar(
+    skip:       int                    = Query(0,    ge=0),
+    limit:      int                    = Query(100,  ge=1, le=500),
+    start_date: Optional[datetime]     = Query(None, description="Filtro início do período (ISO 8601)"),
+    end_date:   Optional[datetime]     = Query(None, description="Filtro fim do período (ISO 8601)"),
+    db: AsyncSession = Depends(get_db),
 ):
-    return crud.get_tickets(db, skip=skip, limit=limit, start_date=start_date, end_date=end_date)
+    return await service.listar_tickets(db, skip, limit, start_date, end_date)
 
-@router.patch("/{ticket_id}", response_model=schemas.Ticket)
-def update_ticket(ticket_id: int, ticket: schemas.TicketUpdate, db: Session = Depends(deps.get_db)):
-    db_ticket = crud.update_ticket(db, ticket_id=ticket_id, ticket=ticket)
-    if not db_ticket:
-        raise HTTPException(status_code=404, detail="Ticket não encontrado")
-    return db_ticket
+
+@router.get("/{ticket_id}", response_model=TicketOut)
+async def buscar(ticket_id: int, db: AsyncSession = Depends(get_db)):
+    return await service.buscar_ticket(db, ticket_id)
+
+
+@router.post("/", response_model=TicketOut, status_code=201)
+async def criar(ticket: TicketCreate, db: AsyncSession = Depends(get_db)):
+    return await service.criar_ticket(db, ticket)
+
+
+@router.patch("/{ticket_id}", response_model=TicketOut)
+async def atualizar(ticket_id: int, ticket: TicketUpdate, db: AsyncSession = Depends(get_db)):
+    return await service.atualizar_ticket(db, ticket_id, ticket)
+
 
 @router.delete("/{ticket_id}")
-def delete_ticket(ticket_id: int, db: Session = Depends(deps.get_db)):
-    success = crud.delete_ticket(db, ticket_id=ticket_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Ticket não encontrado")
-    return {"message": "Ticket deletado com sucesso"}
+async def deletar(ticket_id: int, db: AsyncSession = Depends(get_db)):
+    return await service.deletar_ticket(db, ticket_id)

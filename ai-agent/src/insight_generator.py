@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 from src import config
-from src.exceptions import LLMError
 from src.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "insight_system.txt"
@@ -146,10 +145,7 @@ async def generate_insight(
         max_tokens=config.MAX_TOKENS_INSIGHT,
     )
 
-    try:
-        raw_output = await agent.run(question)
-    except RuntimeError as exc:
-        raise LLMError(f"Falha na geração do insight: {exc}") from exc
+    raw_output = await agent.run(question)
 
     insight = _parse_json(raw_output)
 

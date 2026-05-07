@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 from src import config
+from src.exceptions import LLMParseError
 from src.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_system.txt"
@@ -27,9 +28,11 @@ def _extract_sql(raw: str) -> str:
     Extrai o conteúdo SQL de um bloco ```sql ... ``` da resposta do LLM.
 
     Se não houver bloco delimitado, retorna o texto completo (com sanitização).
+    Blocos incompletos (sem fechamento ```) são intencionalmente rejeitados aqui;
+    a política de retry do llm_client reinvoca o LLM automaticamente quando
+    a validação sintática falhar.
     """
-    pattern = r"```sql\s*(.*?)\s*```"
-    match = re.search(pattern, raw, re.DOTALL | re.IGNORECASE)
+    match = re.search(r"```sql\s*(.*?)\s*```", raw, re.DOTALL | re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return raw.strip()
@@ -59,6 +62,29 @@ def _validate_syntax(sql: str) -> None:
         )
 
 
+def _validate_sql_response(raw: str) -> None:
+    """
+    Valida se a resposta bruta do LLM contém um SQL extraível e sintaticamente válido.
+
+    Levanta `LLMParseError` quando o bloco markdown está incompleto ou o SQL
+    não passa na validação de segurança, permitindo que o `llm_client` reintente
+    a chamada automaticamente.
+    """
+    # FORA_DO_ESCOPO é válido — não deve disparar retry
+    stripped = raw.strip()
+    if stripped.upper().startswith("FORA_DO_ESCOPO"):
+        return
+
+    sql = _extract_sql(raw)
+    try:
+        _validate_syntax(sql)
+    except ValueError as exc:
+        raise LLMParseError(
+            "A resposta do LLM não continha um SQL válido. "
+            "Tentando novamente..."
+        ) from exc
+
+
 async def generate_sql(question: str, schema: str) -> str:
     """
     Gera uma query SQL a partir de uma pergunta em linguagem natural.
@@ -83,7 +109,7 @@ async def generate_sql(question: str, schema: str) -> str:
         max_tokens=config.MAX_TOKENS_SQL,
     )
 
-    raw_output = await agent.run(question)
+    raw_output = await agent.run(question, validator=_validate_sql_response)
 
     # Detecta marcador de fora do escopo antes de qualquer parsing
     stripped = raw_output.strip()

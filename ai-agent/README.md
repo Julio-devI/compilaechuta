@@ -47,6 +47,38 @@ print(response.text)
 pytest tests/ -v
 ```
 
+## Smoke Test
+
+O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real. Ele é **autocontido**: cria um banco SQLite temporário com schema mínimo e dados sintéticos, executa 10 perguntas variadas e remove o banco ao final.
+
+### Pré-requisitos
+
+1. Ambiente virtual ativado e dependências instaladas (`pip install -r requirements.txt`).
+2. Arquivo `.env` na raiz do projeto com a chave da API:
+   ```bash
+   GEMINI_API_KEY=sua-chave-aqui
+   ```
+
+### Como executar
+
+```bash
+python tests/smoke_test.py
+```
+
+### O que o script faz
+
+1. **Cria um banco SQLite temporário** com 5 tabelas (`clientes`, `produtos`, `pedidos`, `tickets_suporte`, `avaliacoes`) e dados sintéticos mínimos para os 3 domínios.
+2. **Instancia `VCommerceAgent`** apontando para esse banco.
+3. **Executa 10 perguntas em lotes de 2**, com intervalo de 60 segundos entre lotes para respeitar o rate limit do free tier da Gemini:
+   - **Vendas:** Receita por região, ticket médio
+   - **Suporte:** Produtos com mais tickets, tempo médio de resolução
+   - **Avaliações:** NPS por categoria, melhores avaliações
+   - **Clientes:** Distribuição por segmento, filtro por região
+   - **Edge cases:** Pergunta fora do escopo (piada), pergunta ambígua ("Qual a receita?")
+4. **Remove o banco temporário** automaticamente ao final (bloco `try/finally`).
+
+> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Cada pergunta dispara **2 chamadas ao LLM** (geração de SQL + geração de insight), totalizando 20 chamadas no teste completo. O script respeita automaticamente o limite de 5 requisições/minuto do free tier. Se o limite diário for atingido, o script exibirá `[ERRO]` com a mensagem de `RESOURCE_EXHAUSTED`.
+
 ## Variáveis de Ambiente
 
 | Variável | Descrição |
@@ -95,3 +127,22 @@ pytest tests/ -v
 - **Justificativa:**
 - **Implicações:**
 
+---
+
+### DA-04: Formatos de Saída Distintos por Chamada (Markdown para SQL, JSON para Insight)
+
+- **Contexto:** O agente realiza duas chamadas sequenciais ao LLM. A primeira gera código SQL; a segunda gera uma resposta estruturada com insight textual, dados tabulares e metadados de gráfico. Foi necessário definir o formato de saída ideal para cada uma.
+
+- **Decisão:**
+  - **Chamada 1 (SQL):** O LLM retorna a query dentro de um bloco markdown `` ```sql ... ``` ``.
+  - **Chamada 2 (Insight):** O LLM retorna um objeto JSON válido com campos `text`, `data` e `chart`.
+
+- **Justificativa:**
+  - SQL é código multi-linha com aspas simples; forçá-lo dentro de um campo JSON exigiria escaping complexo e aumentaria a taxa de alucinação do LLM. Blocos markdown (` ```sql `) são o padrão nativo do treinamento de LLMs, garantindo maior aderência e extração trivial via regex.
+  - O insight possui múltiplos campos tipados (`text`, `data`, `chart`); JSON é o formato estruturado ideal para contratos backend/frontend, permitindo parse direto e validação programática.
+  - Separar os formatos otimiza a confiabilidade de cada pipeline: a Chamada 1 produz um artefato técnico para o `db.py`; a Chamada 2 produz um contrato de API para o backend/frontend.
+
+- **Implicações:**
+  - O parser do SQL deve ser resiliente a blocos markdown mal fechados pelo LLM.
+  - O parser do insight deve tolerar markdown inadvertido (ex: `` ```json ``) antes de tentar extrair o JSON puro.
+  - O prompt do insight deve evitar contradições (instruir "sem markdown" mas exemplificar com `` ```json `` pode induzir o modelo ao erro).

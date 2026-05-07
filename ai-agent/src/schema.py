@@ -60,7 +60,7 @@ def format_schema(technical_schema: dict[str, Any], descriptions: dict[str, Any]
     """
     tables_meta = descriptions.get("tables", {})
     output_lines: list[str] = []
-    output_lines.append("## Schema do Banco de Dados V-Commerce")
+    output_lines.append("## Schema do Banco de Dados")
     output_lines.append("")
 
     for table_name, table_info in technical_schema.get("tables", {}).items():

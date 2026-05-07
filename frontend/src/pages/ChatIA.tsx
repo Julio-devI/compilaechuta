@@ -90,8 +90,8 @@ export function ChatIA() {
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[#1E293B]">Chat IA</h1>
-            <p className="text-[#64748B]">Assistente inteligente para análise de dados</p>
+            <h1 className="text-2xl font-bold text-foreground">Chat IA</h1>
+            <p className="text-muted">Assistente inteligente para análise de dados</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export function ChatIA() {
 
       <div className="flex gap-6 flex-1 min-h-0">
         {/* Chat Area */}
-        <div className="flex-1 bg-white rounded-2xl border border-[#E2E8F0] flex flex-col">
+        <div className="flex-1 bg-card rounded-2xl border border-border flex flex-col">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {mensagens.map((msg) => (
@@ -122,11 +122,11 @@ export function ChatIA() {
                   <div className={`p-4 rounded-2xl ${
                     msg.type === 'user' 
                       ? 'bg-[#1E5EFF] text-white rounded-tr-none' 
-                      : 'bg-[#F8FAFC] text-[#1E293B] rounded-tl-none'
+                      : 'bg-background text-foreground rounded-tl-none'
                   }`}>
                     <p className="whitespace-pre-line">{msg.content}</p>
                   </div>
-                  <span className="text-xs text-[#94A3B8] mt-1 inline-block">{msg.timestamp}</span>
+                  <span className="text-xs text-muted-foreground mt-1 inline-block">{msg.timestamp}</span>
                 </div>
               </div>
             ))}
@@ -136,7 +136,7 @@ export function ChatIA() {
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1E5EFF] to-[#8B5CF6] flex items-center justify-center">
                   <Bot className="w-5 h-5 text-white" />
                 </div>
-                <div className="bg-[#F8FAFC] p-4 rounded-2xl rounded-tl-none">
+                <div className="bg-background p-4 rounded-2xl rounded-tl-none">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 bg-[#94A3B8] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-2 h-2 bg-[#94A3B8] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -148,7 +148,7 @@ export function ChatIA() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-[#E2E8F0]">
+          <div className="p-4 border-t border-border">
             <div className="flex items-center gap-4">
               <input
                 type="text"
@@ -156,7 +156,7 @@ export function ChatIA() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnviar()}
                 placeholder="Digite sua pergunta..."
-                className="flex-1 px-4 py-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#1E5EFF]/20 focus:border-[#1E5EFF]"
+                className="flex-1 px-4 py-3 bg-background rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-[#1E5EFF]/20 focus:border-[#1E5EFF]"
               />
               <button
                 onClick={handleEnviar}
@@ -172,8 +172,8 @@ export function ChatIA() {
         {/* Sidebar */}
         <div className="w-80 space-y-6">
           {/* Sugestões */}
-          <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4">
-            <h3 className="font-bold text-[#1E293B] mb-4 flex items-center gap-2">
+          <div className="bg-card rounded-2xl border border-border p-4">
+            <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-[#FFD60A]" />
               Sugestões
             </h3>
@@ -184,12 +184,12 @@ export function ChatIA() {
                   <button
                     key={index}
                     onClick={() => handleSugestao(sugestao.texto)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F8FAFC] transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-background transition-colors text-left"
                   >
                     <div className="w-8 h-8 rounded-lg bg-[#1E5EFF]/10 flex items-center justify-center">
                       <Icon className="w-4 h-4 text-[#1E5EFF]" />
                     </div>
-                    <span className="text-sm text-[#64748B]">{sugestao.texto}</span>
+                    <span className="text-sm text-muted">{sugestao.texto}</span>
                   </button>
                 )
               })}
@@ -197,12 +197,12 @@ export function ChatIA() {
           </div>
 
           {/* Capacidades */}
-          <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4">
-            <h3 className="font-bold text-[#1E293B] mb-4 flex items-center gap-2">
+          <div className="bg-card rounded-2xl border border-border p-4">
+            <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
               <HelpCircle className="w-5 h-5 text-[#1E5EFF]" />
               O que posso fazer
             </h3>
-            <div className="space-y-3 text-sm text-[#64748B]">
+            <div className="space-y-3 text-sm text-muted">
               <p>• Analisar dados de vendas e receita</p>
               <p>• Gerar insights sobre clientes</p>
               <p>• Identificar tendências de mercado</p>

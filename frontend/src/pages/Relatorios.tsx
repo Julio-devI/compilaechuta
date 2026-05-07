@@ -58,21 +58,21 @@ export function Relatorios() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Relatórios</h1>
-          <p className="text-[#64748B] mt-1">Análises e métricas do seu negócio</p>
+          <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
+          <p className="text-muted mt-1">Análises e métricas do seu negócio</p>
         </div>
         <div className="flex items-center gap-3">
           <select
             value={periodo}
             onChange={(e) => setPeriodo(e.target.value)}
-            className="px-4 py-2.5 bg-white border border-[#E2E8F0] rounded-xl text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#1E5EFF]/20"
+            className="px-4 py-2.5 bg-card border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-[#1E5EFF]/20"
           >
             <option value="semanal">Última Semana</option>
             <option value="mensal">Último Mês</option>
             <option value="trimestral">Último Trimestre</option>
             <option value="anual">Último Ano</option>
           </select>
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-[#E2E8F0] rounded-xl text-[#64748B] hover:bg-[#F8FAFC] transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-xl text-muted hover:bg-background transition-colors">
             <Calendar className="w-4 h-4" />
             Período Personalizado
           </button>
@@ -85,11 +85,11 @@ export function Relatorios() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
+        <div className="bg-card rounded-2xl p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[#64748B] text-sm">Receita Total</p>
-              <p className="text-2xl font-bold text-[#1E293B] mt-1">R$ 4.2M</p>
+              <p className="text-muted text-sm">Receita Total</p>
+              <p className="text-2xl font-bold text-foreground mt-1">R$ 4.2M</p>
               <p className="text-[#00C48C] text-sm mt-2 flex items-center gap-1">
                 <TrendingUp className="w-4 h-4" />
                 +18,5% vs ano anterior
@@ -100,11 +100,11 @@ export function Relatorios() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
+        <div className="bg-card rounded-2xl p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[#64748B] text-sm">Total de Pedidos</p>
-              <p className="text-2xl font-bold text-[#1E293B] mt-1">310.000</p>
+              <p className="text-muted text-sm">Total de Pedidos</p>
+              <p className="text-2xl font-bold text-foreground mt-1">310.000</p>
               <p className="text-[#00C48C] text-sm mt-2 flex items-center gap-1">
                 <TrendingUp className="w-4 h-4" />
                 +12,3% vs ano anterior
@@ -115,11 +115,11 @@ export function Relatorios() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
+        <div className="bg-card rounded-2xl p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[#64748B] text-sm">Novos Clientes</p>
-              <p className="text-2xl font-bold text-[#1E293B] mt-1">15.234</p>
+              <p className="text-muted text-sm">Novos Clientes</p>
+              <p className="text-2xl font-bold text-foreground mt-1">15.234</p>
               <p className="text-[#00C48C] text-sm mt-2 flex items-center gap-1">
                 <TrendingUp className="w-4 h-4" />
                 +25,8% vs ano anterior
@@ -130,11 +130,11 @@ export function Relatorios() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
+        <div className="bg-card rounded-2xl p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[#64748B] text-sm">Ticket Médio</p>
-              <p className="text-2xl font-bold text-[#1E293B] mt-1">R$ 285,00</p>
+              <p className="text-muted text-sm">Ticket Médio</p>
+              <p className="text-2xl font-bold text-foreground mt-1">R$ 285,00</p>
               <p className="text-[#00C48C] text-sm mt-2 flex items-center gap-1">
                 <TrendingUp className="w-4 h-4" />
                 +8,2% vs ano anterior
@@ -150,8 +150,8 @@ export function Relatorios() {
       {/* Charts Row 1 */}
       <div className="grid grid-cols-3 gap-6 mb-6">
         {/* Receita vs Meta */}
-        <div className="col-span-2 bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <h3 className="font-bold text-[#1E293B] mb-6">Receita vs Meta Mensal</h3>
+        <div className="col-span-2 bg-card rounded-2xl p-6 border border-border">
+          <h3 className="font-bold text-foreground mb-6">Receita vs Meta Mensal</h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={receitaMensal}>
               <defs>
@@ -175,8 +175,8 @@ export function Relatorios() {
         </div>
 
         {/* Vendas por Categoria */}
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <h3 className="font-bold text-[#1E293B] mb-6">Vendas por Categoria</h3>
+        <div className="bg-card rounded-2xl p-6 border border-border">
+          <h3 className="font-bold text-foreground mb-6">Vendas por Categoria</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
@@ -200,9 +200,9 @@ export function Relatorios() {
               <div key={item.name} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-[#64748B]">{item.name}</span>
+                  <span className="text-muted">{item.name}</span>
                 </div>
-                <span className="font-medium text-[#1E293B]">{item.value}%</span>
+                <span className="font-medium text-foreground">{item.value}%</span>
               </div>
             ))}
           </div>
@@ -212,8 +212,8 @@ export function Relatorios() {
       {/* Charts Row 2 */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* Clientes por Região */}
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <h3 className="font-bold text-[#1E293B] mb-6">Clientes por Região</h3>
+        <div className="bg-card rounded-2xl p-6 border border-border">
+          <h3 className="font-bold text-foreground mb-6">Clientes por Região</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={clientesPorRegiao} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={true} vertical={false} />
@@ -229,8 +229,8 @@ export function Relatorios() {
         </div>
 
         {/* Pedidos por Dia da Semana */}
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <h3 className="font-bold text-[#1E293B] mb-6">Pedidos por Dia da Semana</h3>
+        <div className="bg-card rounded-2xl p-6 border border-border">
+          <h3 className="font-bold text-foreground mb-6">Pedidos por Dia da Semana</h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={pedidosPorDia}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
@@ -246,24 +246,24 @@ export function Relatorios() {
       </div>
 
       {/* Relatórios Disponíveis */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0]">
-        <div className="p-4 border-b border-[#E2E8F0]">
-          <h3 className="font-bold text-[#1E293B]">Relatórios Recentes</h3>
+      <div className="bg-card rounded-2xl border border-border">
+        <div className="p-4 border-b border-border">
+          <h3 className="font-bold text-foreground">Relatórios Recentes</h3>
         </div>
         <div className="divide-y divide-[#E2E8F0]">
           {relatoriosDisponiveis.map((relatorio) => (
-            <div key={relatorio.id} className="p-4 flex items-center justify-between hover:bg-[#F8FAFC] transition-colors">
+            <div key={relatorio.id} className="p-4 flex items-center justify-between hover:bg-background transition-colors">
               <div className="flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${relatorio.tipo === 'PDF' ? 'bg-[#FF4757]/10' : 'bg-[#00C48C]/10'}`}>
                   <FileText className={`w-5 h-5 ${relatorio.tipo === 'PDF' ? 'text-[#FF4757]' : 'text-[#00C48C]'}`} />
                 </div>
                 <div>
-                  <p className="font-medium text-[#1E293B]">{relatorio.nome}</p>
-                  <p className="text-sm text-[#64748B]">{relatorio.tipo} • {relatorio.tamanho}</p>
+                  <p className="font-medium text-foreground">{relatorio.nome}</p>
+                  <p className="text-sm text-muted">{relatorio.tipo} • {relatorio.tamanho}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-[#64748B]">{relatorio.data}</span>
+                <span className="text-sm text-muted">{relatorio.data}</span>
                 <button className="p-2 hover:bg-[#E2E8F0] rounded-lg transition-colors">
                   <Download className="w-5 h-5 text-[#1E5EFF]" />
                 </button>

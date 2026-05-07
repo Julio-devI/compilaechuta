@@ -1,18 +1,20 @@
+# Web Framework and Server
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 
-# ORM e Migrações
+# ORM and Migrations
 sqlalchemy==2.0.36
 alembic==1.14.0
 
-# Driver assíncrono para SQLite
+# SQLite async driver
 aiosqlite==0.22.1
 
 # Gerenciamento de variáveis de ambiente (.env)
 python-dotenv==1.0.1
 
-# Bibliotecas extras
+# Extras libraries
 pydantic==2.10.3
 pydantic-settings==2.7.0
 pytest==8.3.4
 httpx==0.28.1
+tzdata>=2023.3

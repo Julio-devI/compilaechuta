@@ -15,11 +15,12 @@ class ProductCreate(ProductBase):
     estoque_disponivel: int = 0
 
 class ProductUpdate(BaseModel):
-    nome_produto: Optional[str] = None
-    fornecedor: Optional[str] = None
-    preco: Optional[float] = None
-    categoria: Optional[str] = None
+    nome_produto: Optional[str] = Field(None, max_length=100)
+    fornecedor: Optional[str] = Field(None, max_length=100)
+    preco: Optional[float] = Field(None, gt=0)
+    categoria: Optional[str] = Field(None, max_length=100)
     ativo: Optional[bool] = None
+    peso_kg: Optional[float] = Field(None, gt=0)
 
 class ProductResponse(ProductBase):
     id_produto: int

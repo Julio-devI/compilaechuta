@@ -1,12 +1,14 @@
+# app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Importamos o roteador central da v1
+from app.api.v1.api import api_router
 from app.core.config import settings
-from app.core.database import engine, Base
-from backend.app.api.clients import router as clientes_router
 
-# registra todos os models para o create_all funcionar
-import backend.app.models.clients  # noqa: F401
+# Importante: Registamos os models aqui para garantir que o SQLAlchemy
+# os reconheça. Removemos o prefixo "backend." para evitar conflitos.
+import app.models.clients  # noqa: F401
 import app.models.tickets  # noqa: F401
 
 app = FastAPI(
@@ -15,24 +17,24 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Configuração de CORS profissional usando os seus settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.CORS_ORIGINS if hasattr(settings, "CORS_ORIGINS") else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(clientes_router, prefix="/clientes", tags=["Clientes"])
-# Os demais routers serão adicionados aqui conforme forem implementados:
-# app.include_router(pedidos_router,    prefix="/pedidos",    tags=["Pedidos"])
-# app.include_router(produtos_router,   prefix="/produtos",   tags=["Produtos"])
-# app.include_router(categorias_router, prefix="/categorias", tags=["Categorias"])
-# app.include_router(tickets_router,    prefix="/tickets",    tags=["Tickets"])
-# app.include_router(dashboard_router,  prefix="/dashboard",  tags=["Dashboard"])
-# app.include_router(chat_router,       prefix="/chat",       tags=["Agente IA"])
+# Incluímos o roteador central. 
+# Agora todas as suas rotas começam com /api/v1/
+# Exemplo: seu GET de clientes será /api/v1/clients/
+app.include_router(api_router, prefix="/api/v1")
 
 
-@app.get("/")
-def root():
-    return {"message": "V-Commerce CRM 360 API está online"}
+@app.get("/", tags=["Health"])
+async def root():
+    return {
+        "status": "ok",
+        "message": "V-Commerce CRM 360 API está online. Acesse /docs para ver a documentação."
+    }

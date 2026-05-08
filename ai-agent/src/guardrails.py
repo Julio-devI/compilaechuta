@@ -68,7 +68,7 @@ _PROMPT_INJECTION_PATTERNS = [
     r"forget\s+(everything|all|your)",
     r"act\s+as\s+(if\s+you\s+are|a|an)",
     # Português brasileiro
-    r"ignor[ae]\s+(todas\s+as\s+)?instru[cç][õo]es",
+    r"ignor[ae]r?\s+(todas\s+as\s+)?(instru[cç][õo]es|regras|limites)",
     r"voc[êe]\s+(é|esta|está|eh)\s+agora",
     r"desconsidere\s+(seu|sua|os|as)",
     r"esque[çc]a\s+(tudo|todos|seu|sua|sua\s+programa[cç][ãa]o)",

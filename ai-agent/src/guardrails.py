@@ -15,6 +15,9 @@ descritiva — nunca exposta ao usuário final.
 
 import re
 
+import sqlglot
+import sqlglot.expressions as exp
+
 from src.config import MAX_INPUT_CHARS
 from src.exceptions import GuardrailError
 
@@ -130,3 +133,151 @@ def validate_multiple_statements(sql: str) -> None:
             "Multiplos statements SQL detectados. "
             "Apenas um unico statement SELECT e permitido."
         )
+
+
+# ---------------------------------------------------------------------------
+# Camada 2 — validação do SQL gerado (etapa 2)
+# ---------------------------------------------------------------------------
+
+
+def validate_table_column_allowlist(
+    sql: str, allowlist: dict[str, set[str]]
+) -> None:
+    """
+    Valida se todas as tabelas e colunas referenciadas no SQL
+    existem no allowlist extraído do schema real do banco.
+
+    CTEs (Common Table Expressions) são identificadas automaticamente
+    e ignoradas na checagem de tabelas, pois são temporárias.
+
+    Args:
+        sql: Query SQL já sem comentários e validado sintaticamente.
+        allowlist: Dicionário mapeando nome da tabela para conjunto
+            de nomes de colunas permitidas.
+
+    Raises:
+        GuardrailError: Se uma tabela ou coluna fora do allowlist
+            for detectada.
+    """
+    try:
+        parsed = sqlglot.parse_one(sql, read="sqlite")
+    except Exception as exc:
+        raise GuardrailError(
+            f"Falha ao parsear SQL para allowlist: {exc}"
+        ) from exc
+
+    cte_names = {cte.alias for cte in parsed.find_all(exp.CTE)}
+
+    for table in parsed.find_all(exp.Table):
+        if table.name in cte_names:
+            continue
+        if table.name not in allowlist:
+            raise GuardrailError(
+                f"Tabela '{table.name}' nao esta no allowlist do schema."
+            )
+
+    allowed_columns: set[str] = set()
+    for cols in allowlist.values():
+        allowed_columns.update(cols)
+
+    for col in parsed.find_all(exp.Column):
+        if col.name not in allowed_columns:
+            raise GuardrailError(
+                f"Coluna '{col.name}' nao esta no allowlist do schema."
+            )
+
+
+def validate_semantic_schema(
+    sql: str, allowlist: dict[str, set[str]]
+) -> None:
+    """
+    Valida se colunas referenciadas pertencem às tabelas declaradas
+    no FROM e JOIN da query, resolvendo aliases corretamente.
+
+    Args:
+        sql: Query SQL já sem comentários.
+        allowlist: Dicionário mapeando nome da tabela para conjunto
+            de nomes de colunas permitidas.
+
+    Raises:
+        GuardrailError: Se uma coluna não puder ser associada a uma
+            tabela do escopo ou se o SQL não puder ser parseado.
+    """
+    try:
+        parsed = sqlglot.parse_one(sql, read="sqlite")
+    except Exception as exc:
+        raise GuardrailError(
+            f"Falha ao parsear SQL para validacao semantica: {exc}"
+        ) from exc
+
+    # Mapeia alias -> nome real das tabelas no escopo (inclui CTEs)
+    scope_tables: dict[str, str] = {}
+    for table in parsed.find_all(exp.Table):
+        alias = table.alias or table.name
+        scope_tables[alias] = table.name
+
+    allowed_columns_global: set[str] = set()
+    for cols in allowlist.values():
+        allowed_columns_global.update(cols)
+
+    for col in parsed.find_all(exp.Column):
+        col_name = col.name
+        table_node = col.args.get("table")
+        table_ref = table_node.name if hasattr(table_node, "name") else None
+
+        if table_ref:
+            real_table = scope_tables.get(table_ref, table_ref)
+            if real_table in allowlist and col_name in allowlist[real_table]:
+                continue
+            # Fallback para CTEs e subqueries (tabela nao no allowlist)
+            if real_table not in allowlist and col_name in allowed_columns_global:
+                continue
+            raise GuardrailError(
+                f"Coluna '{col_name}' (tabela '{table_ref}') "
+                f"nao pertence ao schema."
+            )
+        else:
+            found = False
+            for tbl_name in scope_tables.values():
+                if tbl_name in allowlist and col_name in allowlist[tbl_name]:
+                    found = True
+                    break
+            if not found and col_name in allowed_columns_global:
+                found = True
+            if not found:
+                raise GuardrailError(
+                    f"Coluna '{col_name}' nao pertence a nenhuma "
+                    f"tabela do FROM/JOIN."
+                )
+
+
+def add_limit_if_missing(sql: str, max_rows: int) -> str:
+    """
+    Adiciona LIMIT max_rows ao final do SQL caso não exista.
+
+    Preserva o ponto-e-vírgula final, se presente.
+
+    Args:
+        sql: Query SQL válido.
+        max_rows: Número máximo de linhas a serem retornadas.
+
+    Returns:
+        SQL com LIMIT injetado no final, quando necessário.
+
+    Raises:
+        GuardrailError: Se o SQL não puder ser parseado.
+    """
+    try:
+        parsed = sqlglot.parse_one(sql, read="sqlite")
+    except Exception as exc:
+        raise GuardrailError(
+            f"Falha ao parsear SQL para verificar LIMIT: {exc}"
+        ) from exc
+
+    if parsed.find(exp.Limit):
+        return sql
+
+    stripped = sql.strip()
+    if stripped.endswith(";"):
+        return stripped[:-1].rstrip() + f" LIMIT {max_rows};"
+    return stripped + f" LIMIT {max_rows}"

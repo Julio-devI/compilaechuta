@@ -85,9 +85,7 @@ python tests/smoke_test.py
 |---|---|
 | `GEMINI_API_KEY` | Chave da API Google Gemini |
 | `DB_PATH` | Caminho para o banco SQLite do backend |
-| `LLM_MODEL` | Modelo Gemini (padrão: `gemini-2.5-flash`) |
-| `QUERY_TIMEOUT_SECONDS` | Timeout de execução SQL (padrão: 10) |
-| `MAX_ROWS` | Limite de linhas retornadas (padrão: 1000) |
+| `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2 (padrão: 0.3) |
 
 ## Limitações Conhecidas
 
@@ -113,20 +111,22 @@ python tests/smoke_test.py
 
 ### DA-02: Escolha do Google Gemini 2.5 Flash
 
-- **Contexto:** O case exige um modelo LLM para gerar SQL e insights em português.
+- **Contexto:** O agente precisa de um modelo LLM capaz de gerar SQL válido e insights em português brasileiro.
 - **Decisão:** Utilizar o modelo `gemini-2.5-flash` como padrão, via PydanticAI.
 - **Justificativa:** O Gemini 2.5 Flash oferece melhor capacidade de reasoning para joins e agregações SQL, reduzindo a taxa de erros na Chamada 1. Além disso, para o volume de uso esperado neste projeto, o limite de tokens diários (250.000 tokens/minuto) não será alcançado antes do limite de requisições diárias (20 req/dia), permitindo o uso do modelo mais potente sem restrições práticas.
 - **Implicações:** O módulo depende da disponibilidade e dos termos de uso da API Google Gemini. A troca para outro provedor exigiria adaptação no `llm_client.py`.
 
 ---
 
-### DA-03: Guardrails em Duas Camadas
+### DA-03: Guardrails em Três Camadas
 
-- **Status:** Pendente de implementação (`feat/ai-agent-guardrails`).
 - **Contexto:** O agente executa SQL gerado por um LLM e recebe entrada direta do usuário, o que expõe o sistema a riscos de injeção de prompt e queries destrutivas.
-- **Decisão:** (a ser implementado) Camada 1 — filtrar tabelas sensíveis no schema enviado ao LLM; Camada 2 — validar SQL gerado antes da execução.
-- **Justificativa:** (a ser definido na branch `feat/ai-agent-guardrails`)
-- **Implicações:** (a ser definido)
+- **Decisão:** Organizar os guardrails em três camadas sequenciais:
+  - **Camada 1 (pré-LLM):** validação do input do usuário — rejeita string vazia, limita tamanho da pergunta.
+  - **Camada 2 (pós-LLM):** validação do SQL gerado — remove comentários, bloqueia queries destrutivas, detecta múltiplos statements, valida allowlist de tabelas/colunas contra o schema real e verifica semântica das colunas referenciadas.
+  - **Camada 3 (execução):** conexão SQLite read-only (`?mode=ro`), timeout de execução e truncamento de resultados.
+- **Justificativa:** A divisão em camadas permite que cada etapa do pipeline tenha validações específicas. A Camada 1 elimina inputs degenerados antes de consumir tokens do LLM. A Camada 2 garante que apenas queries SELECT válidas e contra tabelas existentes sejam executadas. A Camada 3 é uma proteção de último recurso ao nível do driver do banco, independente de toda a lógica Python.
+- **Implicações:** Queries inválidas são bloqueadas o mais cedo possível, economizando chamadas ao LLM e protegendo o banco. A ordem das camadas é rígida: Camada 1 → Camada 2 → execução → Camada 3.
 
 ---
 
@@ -233,16 +233,25 @@ python tests/smoke_test.py
 
 ### DA-13: Schema Extraído em Runtime, Não Versionado
 
-- **Contexto:** O allowlist de tabelas e colunas e a validação semântica exigem validar se identificadores no SQL existem no schema real. O documento de planejamento sugeria um arquivo intermediário versionado, mas isso introduz risco de divergência com o banco.
-- **Decisão:** Não versionar arquivo intermediário. O schema é extraído do SQLite via `PRAGMA table_info()` em runtime, cacheado em memória, e usado diretamente pelos guardrails.
-- **Justificativa:** Versionar um schema intermediário cria um ponto de falha adicional: se o banco evolui e o arquivo não é atualizado, os guardrails passam a rejeitar queries válidas ou aceitar queries contra tabelas removidas. Extrair o schema diretamente do SQLite em runtime garante que o allowlist de tabelas e colunas e a validação semântica sempre validem contra o estado atual do banco, eliminando divergência. O cache em memória, invalidado via `invalidate_schema()`, mantém performance sem sacrificar consistência.
+- **Contexto:** O allowlist de tabelas e colunas e a validação semântica exigem validar se identificadores no SQL existem no schema real do banco. Uma alternativa seria manter um arquivo intermediário (ex.: YAML ou JSON) versionado junto ao código, contendo a lista de tabelas e colunas permitidas.
+- **Decisão:** Não manter arquivo intermediário versionado. O schema é extraído do SQLite via `PRAGMA table_info()` em runtime, cacheado em memória, e usado diretamente pelos guardrails.
+- **Justificativa:** Um arquivo intermediário versionado cria um ponto de falha adicional: se o banco evolui e o arquivo não é atualizado, os guardrails passam a rejeitar queries válidas ou aceitar queries contra tabelas removidas. Extrair o schema diretamente do SQLite em runtime garante que o allowlist de tabelas e colunas e a validação semântica sempre validem contra o estado atual do banco, eliminando divergência. O cache em memória, invalidado via `invalidate_schema()`, mantém performance sem sacrificar consistência.
 - **Implicações:** O schema usado pelos guardrails sempre reflete o estado atual do banco. O cache em memória é invalidado junto com o schema do agente via `invalidate_schema()`.
 
 ---
 
 ### DA-15: Allowlist Configurável com Exclusão de Tabelas Sensíveis
 
-- **Contexto:** O banco pode conter tabelas sensíveis (ex.: dados de usuários do sistema, auditoria, logs internos) que não devem ser expostas ao agente nem consultadas pelos analistas de negócio.
-- **Decisão:** A função `build_allowlist()` aceita um parâmetro opcional `excluded_tables: set[str]` que omite tabelas específicas do allowlist. Tabelas excluídas não aparecem no prompt do LLM e são rejeitadas pelos guardrails caso o LLM as alucine.
-- **Justificativa:** O allowlist alimenta tanto o schema enviado ao prompt do LLM quanto as validações dos guardrails. Se uma tabela sensível for omitida do allowlist, ela desaparece do contexto do modelo, eliminando por construção a possibilidade de alucinação. Essa abordagem é mais robusta do que filtrar apenas no momento da execução, pois impede a geração de SQL inválido antes mesmo da primeira chamada ao LLM.
-- **Implicações:** O backend pode configurar `excluded_tables` via variável de ambiente ou configuração. Tabelas excluídas ficam invisíveis para o LLM e bloqueadas pelos guardrails, protegendo dados sensíveis sem alterar o banco.
+- **Contexto:** O banco pode conter tabelas sensíveis (ex.: dados de usuários do sistema, auditoria, logs internos) que não devem ser expostas ao agente nem consultadas pelos analistas de negócio. O allowlist de tabelas e colunas alimenta tanto o schema enviado ao prompt do LLM quanto as validações dos guardrails da Camada 2. Se uma tabela sensível aparecer no prompt, o LLM pode gerar SQL consultando-a — mesmo que o allowlist técnico a bloqueie depois.
+- **Decisão:** `excluded_tables` é um parâmetro do construtor `VCommerceAgent.__init__(db_path, excluded_tables=None)`. O backend passa o conjunto de tabelas sensíveis ao instanciar o agente. Esse conjunto é aplicado em dois pontos: (1) `format_schema()` omite as tabelas do texto enviado ao prompt do LLM, e (2) `build_allowlist()` omite as mesmas tabelas do allowlist usado pelos guardrails G9 e G10. O filtro é aplicado em runtime e reflete o estado atual do banco.
+- **Justificativa:** O backend conhece o schema completo do sistema e controla quais tabelas são sensíveis. O módulo ai-agent não deve precisar saber quais tabelas são sensíveis — ele apenas aplica o filtro recebido via parâmetro de construtor. Isso desacopla a política de segurança (backend) da implementação técnica (ai-agent). Filtrar apenas no allowlist dos guardrails (Camada 2) não é suficiente: o LLM ainda vê a tabela no schema e pode alucinar queries válidas sintaticamente mas inválidas semanticamente (ex.: JOIN com tabela sensível usando colunas que não existem). Remover a tabela do prompt elimina a alucinação por construção.
+- **Implicações:** O backend controla a lista de tabelas sensíveis e as passa ao instanciar `VCommerceAgent`. Tabelas excluídas ficam invisíveis para o LLM e bloqueadas pelos guardrails. O cache do schema (`invalidate_schema()`) invalida o allowlist junto, garantindo consistência após mudanças.
+
+---
+
+### DA-16: Parâmetros de Infraestrutura como Argumentos de Construtor
+
+- **Contexto:** O módulo ai-agent é consumido pelo backend FastAPI como uma biblioteca. Configurações como limite de linhas (`max_rows`), timeout de queries (`query_timeout_seconds`) e modelo LLM (`llm_model`) precisam variar conforme o contexto de uso: uma tela de preview pode exigir apenas 50 linhas, enquanto uma exportação pode precisar de 1000; usuários comuns podem usar um modelo mais rápido, enquanto analistas podem usar um modelo mais poderoso.
+- **Decisão:** `max_rows`, `query_timeout_seconds` e `llm_model` são parâmetros opcionais do construtor `VCommerceAgent`, com valores padrão hardcoded (`1000`, `10`, `gemini-2.5-flash`). Não existem variáveis de ambiente correspondentes.
+- **Justificativa:** Configurações globais (variáveis de ambiente ou constantes de módulo) impedem que o backend crie múltiplas instâncias do agente com behaviors distintos no mesmo processo. Parâmetros de construtor permitem que o backend defina a policy por instância: `agent_preview = VCommerceAgent(db_path, max_rows=50)` vs. `agent_export = VCommerceAgent(db_path, max_rows=1000)`. Defaults hardcoded garantem que o agente funcione corretamente mesmo quando o backend não passar nenhum valor, sem exigir configuração obrigatória.
+- **Implicações:** O backend FastAPI controla esses parâmetros ao instanciar `VCommerceAgent`. O módulo ai-agent não precisa de arquivo `.env` para essas configurações. Testes podem criar instâncias com valores baixos sem alterar o ambiente do sistema.

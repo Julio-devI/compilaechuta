@@ -42,14 +42,33 @@ class AgentResponse:
 class VCommerceAgent:
     """Agente Text-to-SQL para o domínio V-Commerce."""
 
-    def __init__(self, db_path: str) -> None:
+    def __init__(
+        self,
+        db_path: str,
+        excluded_tables: set[str] | None = None,
+        max_rows: int = 1000,
+        query_timeout_seconds: int = 10,
+        llm_model: str = "gemini-2.5-flash",
+    ) -> None:
         """
         Inicializa o agente com o caminho do banco de dados.
 
         Args:
             db_path: Caminho absoluto ou relativo para o arquivo SQLite.
+            excluded_tables: Conjunto de nomes de tabelas a omitir do schema
+                enviado ao LLM e do allowlist dos guardrails. Controlado
+                pelo backend.
+            max_rows: Número máximo de linhas retornadas por query.
+            query_timeout_seconds: Timeout em segundos para execução de queries.
+            llm_model: Identificador do modelo Gemini a ser usado.
         """
-        self._db = Database(db_path)
+        self._db = Database(
+            db_path,
+            max_rows=max_rows,
+            query_timeout_seconds=query_timeout_seconds,
+        )
+        self._excluded_tables: set[str] = excluded_tables or set()
+        self._llm_model = llm_model
         self._schema_text: str | None = None
         self._technical_schema: dict[str, Any] | None = None
 
@@ -66,7 +85,9 @@ class VCommerceAgent:
         descriptions = load_descriptions()
         technical_schema = await self._db.get_technical_schema()
         self._technical_schema = technical_schema
-        self._schema_text = format_schema(technical_schema, descriptions)
+        self._schema_text = format_schema(
+            technical_schema, descriptions, excluded_tables=self._excluded_tables
+        )
         return self._schema_text, self._technical_schema
 
     async def ask(self, question: str) -> AgentResponse:
@@ -123,7 +144,7 @@ class VCommerceAgent:
 
         # Etapa 2: gerar SQL
         try:
-            sql = await generate_sql(question, schema)
+            sql = await generate_sql(question, schema, model=self._llm_model)
         except ValueError as exc:
             return AgentResponse(
                 text=f"O SQL gerado não passou na validação de segurança: {exc}",
@@ -164,7 +185,7 @@ class VCommerceAgent:
 
         # Etapa 5: gerar insight
         # Nota: LLMError propaga diretamente para o backend tratar
-        insight = await generate_insight(question, rows, sql)
+        insight = await generate_insight(question, rows, sql, model=self._llm_model)
 
         # Etapa 6: montar resposta
         chart = None

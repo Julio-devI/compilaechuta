@@ -10,14 +10,25 @@ são adicionados nos commits seguintes.
 import pytest
 
 from src.guardrails import (
+    add_limit_if_missing,
     strip_sql_comments,
     validate_destructive_queries,
     validate_empty_input,
     validate_input_length,
     validate_multiple_statements,
+    validate_semantic_schema,
+    validate_table_column_allowlist,
 )
 from src.exceptions import GuardrailError
 from src.config import MAX_INPUT_CHARS
+
+
+# Fixture compartilhada para testes de allowlist e semântica
+_ALLOWLIST = {
+    "clientes": {"id", "nome", "regiao", "email"},
+    "pedidos": {"id", "cliente_id", "valor", "data", "status"},
+    "produtos": {"id", "nome", "categoria", "preco"},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -189,3 +200,128 @@ def test_validate_input_length_accepts_exact_limit():
 def test_validate_input_length_accepts_shorter():
     short_input = "Quais os 10 produtos mais vendidos?"
     validate_input_length(short_input)
+
+
+# ---------------------------------------------------------------------------
+# Camada 2 — allowlist de tabelas e colunas (G9)
+# ---------------------------------------------------------------------------
+
+
+def test_allowlist_rejects_unknown_table():
+    sql = "SELECT * FROM inexistente"
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_table_column_allowlist(sql, _ALLOWLIST)
+    assert "inexistente" in str(exc_info.value)
+
+
+def test_allowlist_rejects_unknown_column():
+    sql = "SELECT inexistente FROM clientes"
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_table_column_allowlist(sql, _ALLOWLIST)
+    assert "inexistente" in str(exc_info.value)
+
+
+def test_allowlist_accepts_valid_query():
+    sql = "SELECT nome, regiao FROM clientes"
+    validate_table_column_allowlist(sql, _ALLOWLIST)
+
+
+def test_allowlist_accepts_join():
+    sql = (
+        "SELECT c.nome, p.valor FROM clientes c "
+        "JOIN pedidos p ON c.id = p.cliente_id"
+    )
+    validate_table_column_allowlist(sql, _ALLOWLIST)
+
+
+def test_allowlist_ignores_cte_tables():
+    sql = (
+        "WITH cte AS (SELECT id, nome FROM clientes) "
+        "SELECT * FROM cte"
+    )
+    validate_table_column_allowlist(sql, _ALLOWLIST)
+
+
+def test_allowlist_rejects_column_in_cte_select():
+    """Colunas dentro do CTE ainda devem ser validadas."""
+    sql = (
+        "WITH cte AS (SELECT id, inexistente FROM clientes) "
+        "SELECT * FROM cte"
+    )
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_table_column_allowlist(sql, _ALLOWLIST)
+    assert "inexistente" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# Camada 2 — validação semântica (G10)
+# ---------------------------------------------------------------------------
+
+
+def test_semantic_rejects_column_from_wrong_table():
+    sql = (
+        "SELECT c.nome, p.nome FROM clientes c "
+        "JOIN pedidos p ON c.id = p.cliente_id"
+    )
+    # 'nome' existe em clientes e produtos, mas NÃO em pedidos
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_semantic_schema(sql, _ALLOWLIST)
+    assert "nome" in str(exc_info.value)
+
+
+def test_semantic_accepts_column_without_prefix():
+    sql = "SELECT id, nome FROM clientes"
+    validate_semantic_schema(sql, _ALLOWLIST)
+
+
+def test_semantic_rejects_unknown_column_without_prefix():
+    sql = "SELECT id, inexistente FROM clientes"
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_semantic_schema(sql, _ALLOWLIST)
+    assert "inexistente" in str(exc_info.value)
+
+
+def test_semantic_resolves_alias():
+    sql = (
+        "SELECT c.nome, p.valor FROM clientes c "
+        "JOIN pedidos p ON c.id = p.cliente_id"
+    )
+    validate_semantic_schema(sql, _ALLOWLIST)
+
+
+def test_semantic_accepts_cte_columns():
+    sql = (
+        "WITH cte AS (SELECT id, nome FROM clientes) "
+        "SELECT id, nome FROM cte"
+    )
+    validate_semantic_schema(sql, _ALLOWLIST)
+
+
+# ---------------------------------------------------------------------------
+# Camada 2 — reescrita de limite de linhas (G13)
+# ---------------------------------------------------------------------------
+
+
+def test_add_limit_injects_when_missing():
+    sql = "SELECT * FROM clientes"
+    result = add_limit_if_missing(sql, 100)
+    assert result.endswith("LIMIT 100")
+    assert "SELECT * FROM clientes" in result
+
+
+def test_add_limit_preserves_semicolon():
+    sql = "SELECT * FROM clientes;"
+    result = add_limit_if_missing(sql, 100)
+    assert result.endswith("LIMIT 100;")
+
+
+def test_add_limit_skips_when_present():
+    sql = "SELECT * FROM clientes LIMIT 5"
+    result = add_limit_if_missing(sql, 100)
+    assert result == sql
+
+
+def test_add_limit_skips_when_present_with_semicolon():
+    sql = "SELECT * FROM clientes LIMIT 5;"
+    result = add_limit_if_missing(sql, 100)
+    assert result == sql

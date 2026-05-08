@@ -85,13 +85,16 @@ def _validate_sql_response(raw: str) -> None:
         ) from exc
 
 
-async def generate_sql(question: str, schema: str) -> str:
+async def generate_sql(
+    question: str, schema: str, model: str | None = None
+) -> str:
     """
     Gera uma query SQL a partir de uma pergunta em linguagem natural.
 
     Args:
         question: Pergunta do usuário em português.
         schema: Schema completo do banco formatado como texto.
+        model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
         String contendo a query SQL (ou o marcador "FORA_DO_ESCOPO ...").
@@ -107,6 +110,7 @@ async def generate_sql(question: str, schema: str) -> str:
         system_prompt=system_prompt,
         temperature=0.0,
         max_tokens=config.MAX_TOKENS_SQL,
+        model=model,
     )
 
     raw_output = await agent.run(question, validator=_validate_sql_response)

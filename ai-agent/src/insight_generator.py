@@ -121,7 +121,10 @@ _MAX_ROWS_FOR_INSIGHT_PROMPT = 100
 
 
 async def generate_insight(
-    question: str, data: list[dict[str, Any]], sql: str
+    question: str,
+    data: list[dict[str, Any]],
+    sql: str,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """
     Gera um insight estruturado a partir dos dados de uma consulta SQL.
@@ -130,6 +133,7 @@ async def generate_insight(
         question: Pergunta original do usuário em português.
         data: Lista de dicionários retornada pelo banco (pode ser vazia).
         sql: Query SQL que gerou os dados (para contexto no prompt).
+        model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
         Dicionário com estrutura {"text": str, "data": list[dict] | None, "chart": dict | None}.
@@ -156,6 +160,7 @@ async def generate_insight(
         system_prompt=system_prompt,
         temperature=config.LLM_TEMPERATURE_INSIGHT,
         max_tokens=config.MAX_TOKENS_INSIGHT,
+        model=model,
     )
 
     raw_output = await agent.run(question)

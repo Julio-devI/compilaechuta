@@ -142,6 +142,7 @@ class LLMAgent:
         system_prompt: str,
         temperature: float,
         max_tokens: int | None = None,
+        model: str | None = None,
     ) -> None:
         """
         Inicializa o agente com o system prompt e parâmetros do modelo.
@@ -150,6 +151,8 @@ class LLMAgent:
             system_prompt: Instruções de sistema a serem injetadas no prompt.
             temperature: Temperatura do modelo (0.0 para determinístico).
             max_tokens: Limite máximo de tokens na resposta (None = padrão do modelo).
+            model: Identificador do modelo Gemini a ser usado. Se None,
+                utiliza o valor padrão de config.LLM_MODEL.
 
         Nota:
             A validação da chave de API ocorre no momento da instanciação.
@@ -158,7 +161,8 @@ class LLMAgent:
         """
         config.assert_gemini_key()
 
-        model = GeminiModel(config.LLM_MODEL)
+        model_name = model if model is not None else config.LLM_MODEL
+        model = GeminiModel(model_name)
 
         settings_kwargs: dict[str, Any] = {"temperature": temperature}
         if max_tokens is not None:

@@ -251,6 +251,41 @@ def validate_semantic_schema(
                 )
 
 
+def apply_layer_2(
+    sql: str,
+    allowlist: dict[str, set[str]],
+    max_rows: int,
+) -> str:
+    """
+    Aplica todos os guardrails da Camada 2 na ordem correta.
+
+    Ordem:
+        1. strip_sql_comments
+        2. validate_destructive_queries
+        3. validate_multiple_statements
+        4. validate_table_column_allowlist
+        5. validate_semantic_schema
+        6. add_limit_if_missing
+
+    Args:
+        sql: Query SQL bruta retornada pelo LLM.
+        allowlist: Dicionário de tabelas e colunas permitidas.
+        max_rows: Limite de linhas a ser injetado se ausente.
+
+    Returns:
+        SQL limpo, validado e com LIMIT aplicado.
+
+    Raises:
+        GuardrailError: Se qualquer guardrail da Camada 2 falhar.
+    """
+    cleaned = strip_sql_comments(sql)
+    validate_destructive_queries(cleaned)
+    validate_multiple_statements(cleaned)
+    validate_table_column_allowlist(cleaned, allowlist)
+    validate_semantic_schema(cleaned, allowlist)
+    return add_limit_if_missing(cleaned, max_rows)
+
+
 def add_limit_if_missing(sql: str, max_rows: int) -> str:
     """
     Adiciona LIMIT max_rows ao final do SQL caso não exista.

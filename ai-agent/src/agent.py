@@ -5,15 +5,16 @@ Orquestra as duas chamadas ao LLM (geração de SQL e geração de insight)
 e expõe a interface consumida pelo backend FastAPI.
 """
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from src.db import Database
 from src.exceptions import GuardrailError, LLMError
-from src.guardrails import validate_empty_input, validate_input_length
+from src.guardrails import apply_layer_2, validate_empty_input, validate_input_length
 from src.insight_generator import generate_insight
 from src.schema import build_allowlist, format_schema, load_descriptions
-from src.sql_generator import generate_sql
+from src.sql_generator import generate_sql, generate_sql_correction
 
 
 @dataclass
@@ -67,6 +68,7 @@ class VCommerceAgent:
             max_rows=max_rows,
             query_timeout_seconds=query_timeout_seconds,
         )
+        self._max_rows = max_rows
         self._excluded_tables: set[str] = excluded_tables or set()
         self._llm_model = llm_model
         self._schema_text: str | None = None
@@ -147,7 +149,7 @@ class VCommerceAgent:
             sql = await generate_sql(question, schema, model=self._llm_model)
         except ValueError as exc:
             return AgentResponse(
-                text=f"O SQL gerado não passou na validação de segurança: {exc}",
+                text="Não foi possível processar sua pergunta. Tente reformulá-la.",
                 data=None,
                 chart=None,
                 sql=sql,
@@ -156,6 +158,34 @@ class VCommerceAgent:
                 truncated=False,
             )
         # Nota: LLMError propaga diretamente para o backend tratar
+
+        # Etapa 2.5: aplicar Camada 2 com loop de autocorreção
+        allowlist = build_allowlist(
+            technical_schema, excluded_tables=self._excluded_tables
+        )
+        for attempt in range(3):
+            try:
+                sql = apply_layer_2(sql, allowlist, self._max_rows)
+                break
+            except GuardrailError as exc:
+                if attempt == 2:
+                    return AgentResponse(
+                        text="Não foi possível processar sua pergunta. Tente reformulá-la.",
+                        data=None,
+                        chart=None,
+                        sql=sql,
+                        error=True,
+                        out_of_scope=False,
+                        truncated=False,
+                    )
+                sql = await generate_sql_correction(
+                    question=question,
+                    sql=sql,
+                    error=str(exc),
+                    schema=schema,
+                    model=self._llm_model,
+                )
+                await asyncio.sleep(1 * (2 ** attempt))
 
         # Etapa 3: detectar fora do escopo
         if sql.strip().upper().startswith("FORA_DO_ESCOPO"):

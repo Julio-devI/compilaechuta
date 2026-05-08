@@ -13,6 +13,7 @@ from src.exceptions import LLMParseError
 from src.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_system.txt"
+_CORRECTION_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_correction_system.txt"
 
 
 def _load_system_prompt(schema: str) -> str:
@@ -123,3 +124,61 @@ async def generate_sql(
     sql = _extract_sql(raw_output)
     _validate_syntax(sql)
     return sql
+
+
+def _load_correction_prompt(schema: str, sql: str, error: str) -> str:
+    """Carrega o template do prompt de correção e injeta variáveis."""
+    if not _CORRECTION_PROMPT_PATH.exists():
+        raise FileNotFoundError(
+            f"Prompt de correcao nao encontrado: {_CORRECTION_PROMPT_PATH}"
+        )
+    template = _CORRECTION_PROMPT_PATH.read_text(encoding="utf-8")
+    return (
+        template.replace("{schema}", schema)
+        .replace("{sql}", sql)
+        .replace("{error}", error)
+    )
+
+
+async def generate_sql_correction(
+    question: str,
+    sql: str,
+    error: str,
+    schema: str,
+    model: str | None = None,
+) -> str:
+    """
+    Solicita ao LLM uma correção do SQL que falhou nos guardrails.
+
+    Args:
+        question: Pergunta original do usuário.
+        sql: SQL problemático que falhou na validação.
+        error: Mensagem técnica do erro (da exceção GuardrailError).
+        schema: Schema completo do banco formatado como texto.
+        model: Identificador do modelo Gemini. Se None, usa o padrão.
+
+    Returns:
+        SQL corrigido (ou marcador "FORA_DO_ESCOPO ...").
+
+    Raises:
+        FileNotFoundError: Se o arquivo de prompt não for encontrado.
+        LLMError: Se a chamada ao LLM falhar.
+    """
+    system_prompt = _load_correction_prompt(schema, sql, error)
+
+    agent = LLMAgent(
+        system_prompt=system_prompt,
+        temperature=0.0,
+        max_tokens=config.MAX_TOKENS_SQL,
+        model=model,
+    )
+
+    raw_output = await agent.run(question, validator=_validate_sql_response)
+
+    stripped = raw_output.strip()
+    if stripped.upper().startswith("FORA_DO_ESCOPO"):
+        return stripped
+
+    corrected = _extract_sql(raw_output)
+    _validate_syntax(corrected)
+    return corrected

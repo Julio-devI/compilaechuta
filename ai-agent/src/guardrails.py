@@ -59,12 +59,22 @@ def validate_input_length(question: str) -> None:
 
 
 # Padrões de prompt injection detectados na Camada 1
+# Inclui variantes em inglês e português brasileiro
 _PROMPT_INJECTION_PATTERNS = [
+    # Inglês
     r"ignore\s+(previous|all|above)\s+instructions?",
     r"you\s+are\s+now",
     r"disregard\s+your",
     r"forget\s+(everything|all|your)",
     r"act\s+as\s+(if\s+you\s+are|a|an)",
+    # Português brasileiro
+    r"ignor[ae]\s+(todas\s+as\s+)?instru[cç][õo]es",
+    r"voc[êe]\s+(é|esta|está|eh)\s+agora",
+    r"desconsidere\s+(seu|sua|os|as)",
+    r"esque[çc]a\s+(tudo|todos|seu|sua|sua\s+programa[cç][ãa]o)",
+    r"(aja|atue|comporte-se)\s+como\s+(se\s+voc[êe]\s+fosses?|se\s+fosse|um|uma)",
+    r"agora\s+voc[êe]\s+(é|esta|está|eh)",
+    # SQL embutido (qualquer idioma)
     r"\b(SELECT|DROP|INSERT|UPDATE|DELETE)\s+\w+",
 ]
 _PROMPT_INJECTION_RE = re.compile(

@@ -208,9 +208,9 @@ class VCommerceAgent:
         # Etapa 4: executar SQL
         try:
             rows, truncated = await self._db.execute_query(sql)
-        except (RuntimeError, TimeoutError) as exc:
+        except (RuntimeError, TimeoutError):
             return AgentResponse(
-                text=f"Erro ao consultar o banco: {exc}",
+                text="Não foi possível processar sua pergunta. Tente reformulá-la.",
                 data=None,
                 chart=None,
                 sql=sql,

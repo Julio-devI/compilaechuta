@@ -142,13 +142,8 @@ async def generate_insight(
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
         LLMError: Se a chamada ao LLM falhar.
     """
-    # Edge case: dados vazios
-    if not data:
-        return {
-            "text": "Não foram encontrados resultados para essa consulta.",
-            "data": None,
-            "chart": None,
-        }
+    # Edge case: dados vazios — deixa o LLM contextualizar no prompt
+    is_empty = not data
 
     is_scalar = len(data) == 1 and len(data[0]) == 1
 
@@ -167,7 +162,11 @@ async def generate_insight(
 
     insight = _parse_json(raw_output)
 
-    if is_scalar:
+    if is_empty:
+        # Quando não há dados, força data/chart como None e preserva o texto do LLM
+        insight["data"] = None
+        insight["chart"] = None
+    elif is_scalar:
         insight["data"] = None
         insight["chart"] = None
     else:

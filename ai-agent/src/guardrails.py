@@ -15,7 +15,44 @@ descritiva — nunca exposta ao usuário final.
 
 import re
 
+from src.config import MAX_INPUT_CHARS
 from src.exceptions import GuardrailError
+
+
+# ---------------------------------------------------------------------------
+# Camada 1 — validação do input do usuário (pré-LLM)
+# ---------------------------------------------------------------------------
+
+
+def validate_empty_input(question: str) -> None:
+    """
+    Rejeita input vazio ou composto apenas de espaços em branco.
+
+    Args:
+        question: Pergunta do usuário em português.
+
+    Raises:
+        GuardrailError: Se a string, após strip(), estiver vazia.
+    """
+    if question.strip() == "":
+        raise GuardrailError("Input do usuario esta vazio.")
+
+
+def validate_input_length(question: str) -> None:
+    """
+    Rejeita input com comprimento superior a MAX_INPUT_CHARS.
+
+    Args:
+        question: Pergunta do usuário em português.
+
+    Raises:
+        GuardrailError: Se o comprimento exceder o limite configurado.
+    """
+    if len(question) > MAX_INPUT_CHARS:
+        raise GuardrailError(
+            f"Input do usuario excede o limite de {MAX_INPUT_CHARS} caracteres. "
+            f"Comprimento recebido: {len(question)}."
+        )
 
 
 # ---------------------------------------------------------------------------

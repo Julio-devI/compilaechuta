@@ -40,6 +40,9 @@ MAX_TOKENS_INSIGHT: int = 4096
 MAX_ROWS: int = int(os.getenv("MAX_ROWS", "1000"))
 """Número máximo de linhas retornadas por query para evitar sobrecarga."""
 
+MAX_INPUT_CHARS: int = 500
+"""Limite de caracteres para a pergunta do usuário (pré-LLM)."""
+
 
 def _validate() -> None:
     """

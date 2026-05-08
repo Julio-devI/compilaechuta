@@ -11,7 +11,7 @@ from typing import Any, Literal
 from src.db import Database
 from src.exceptions import LLMError
 from src.insight_generator import generate_insight
-from src.schema import format_schema, load_descriptions
+from src.schema import build_allowlist, format_schema, load_descriptions
 from src.sql_generator import generate_sql
 
 
@@ -50,20 +50,23 @@ class VCommerceAgent:
         """
         self._db = Database(db_path)
         self._schema_text: str | None = None
+        self._technical_schema: dict[str, Any] | None = None
 
     def invalidate_schema(self) -> None:
         """Limpa o cache do schema, forçando recarregamento na próxima consulta."""
         self._schema_text = None
+        self._technical_schema = None
 
-    async def _load_schema(self) -> str:
+    async def _load_schema(self) -> tuple[str, dict[str, Any]]:
         """Carrega e formata o schema do banco (lazy caching)."""
-        if self._schema_text is not None:
-            return self._schema_text
+        if self._schema_text is not None and self._technical_schema is not None:
+            return self._schema_text, self._technical_schema
 
         descriptions = load_descriptions()
         technical_schema = await self._db.get_technical_schema()
+        self._technical_schema = technical_schema
         self._schema_text = format_schema(technical_schema, descriptions)
-        return self._schema_text
+        return self._schema_text, self._technical_schema
 
     async def ask(self, question: str) -> AgentResponse:
         """
@@ -90,7 +93,7 @@ class VCommerceAgent:
 
         # Etapa 1: carregar schema
         try:
-            schema = await self._load_schema()
+            schema, technical_schema = await self._load_schema()
         except (FileNotFoundError, RuntimeError) as exc:
             return AgentResponse(
                 text=f"Erro ao carregar o schema do banco: {exc}",

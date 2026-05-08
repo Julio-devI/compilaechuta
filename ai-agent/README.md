@@ -228,3 +228,21 @@ python tests/smoke_test.py
   - O parser do SQL deve ser resiliente a blocos markdown mal fechados pelo LLM.
   - O parser do insight deve tolerar markdown inadvertido (ex: `` ```json ``) antes de tentar extrair o JSON puro.
   - O prompt do insight deve evitar contradições (instruir "sem markdown" mas exemplificar com `` ```json `` pode induzir o modelo ao erro).
+
+---
+
+### DA-13: Schema Extraído em Runtime, Não Versionado
+
+- **Contexto:** O allowlist de tabelas e colunas e a validação semântica exigem validar se identificadores no SQL existem no schema real. O documento de planejamento sugeria um arquivo intermediário versionado, mas isso introduz risco de divergência com o banco.
+- **Decisão:** Não versionar arquivo intermediário. O schema é extraído do SQLite via `PRAGMA table_info()` em runtime, cacheado em memória, e usado diretamente pelos guardrails.
+- **Justificativa:** Versionar um schema intermediário cria um ponto de falha adicional: se o banco evolui e o arquivo não é atualizado, os guardrails passam a rejeitar queries válidas ou aceitar queries contra tabelas removidas. Extrair o schema diretamente do SQLite em runtime garante que o allowlist de tabelas e colunas e a validação semântica sempre validem contra o estado atual do banco, eliminando divergência. O cache em memória, invalidado via `invalidate_schema()`, mantém performance sem sacrificar consistência.
+- **Implicações:** O schema usado pelos guardrails sempre reflete o estado atual do banco. O cache em memória é invalidado junto com o schema do agente via `invalidate_schema()`.
+
+---
+
+### DA-15: Allowlist Configurável com Exclusão de Tabelas Sensíveis
+
+- **Contexto:** O banco pode conter tabelas sensíveis (ex.: dados de usuários do sistema, auditoria, logs internos) que não devem ser expostas ao agente nem consultadas pelos analistas de negócio.
+- **Decisão:** A função `build_allowlist()` aceita um parâmetro opcional `excluded_tables: set[str]` que omite tabelas específicas do allowlist. Tabelas excluídas não aparecem no prompt do LLM e são rejeitadas pelos guardrails caso o LLM as alucine.
+- **Justificativa:** O allowlist alimenta tanto o schema enviado ao prompt do LLM quanto as validações dos guardrails. Se uma tabela sensível for omitida do allowlist, ela desaparece do contexto do modelo, eliminando por construção a possibilidade de alucinação. Essa abordagem é mais robusta do que filtrar apenas no momento da execução, pois impede a geração de SQL inválido antes mesmo da primeira chamada ao LLM.
+- **Implicações:** O backend pode configurar `excluded_tables` via variável de ambiente ou configuração. Tabelas excluídas ficam invisíveis para o LLM e bloqueadas pelos guardrails, protegendo dados sensíveis sem alterar o banco.

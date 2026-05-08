@@ -112,3 +112,27 @@ def format_schema(technical_schema: dict[str, Any], descriptions: dict[str, Any]
         output_lines.append("")
 
     return "\n".join(output_lines)
+
+
+def build_allowlist(
+    technical_schema: dict[str, Any], excluded_tables: set[str] | None = None
+) -> dict[str, set[str]]:
+    """
+    Constrói o allowlist de tabelas e colunas a partir do schema técnico em memória.
+
+    Args:
+        technical_schema: Saída de Database.get_technical_schema().
+        excluded_tables: Conjunto opcional de nomes de tabelas a serem omitidas
+            do allowlist (ex.: tabelas sensíveis como usuários, auditoria).
+
+    Returns:
+        Dicionário mapeando nome da tabela para um conjunto de nomes de colunas.
+    """
+    excluded = excluded_tables or set()
+    allowlist: dict[str, set[str]] = {}
+    for table_name, table_info in technical_schema.get("tables", {}).items():
+        if table_name in excluded:
+            continue
+        columns = {col["name"] for col in table_info.get("columns", [])}
+        allowlist[table_name] = columns
+    return allowlist

@@ -72,6 +72,18 @@ class LLMUnknownError(LLMError):
     pass
 
 
+class GuardrailError(RuntimeError):
+    """
+    Exceção levantada quando um guardrail de segurança ou qualidade é acionado.
+
+    A mensagem interna é descritiva e destinada apenas ao pipeline interno
+    (logs, prompt de autocorreção). Nunca deve ser exposta ao usuário final.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
 def _is_rate_limit_per_minute(exc: Exception) -> bool:
     """
     Inspeciona o corpo da resposta de erro 429 para diferenciar

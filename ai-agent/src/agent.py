@@ -11,7 +11,12 @@ from typing import Any, Literal
 
 from src.db import Database
 from src.exceptions import GuardrailError, LLMError
-from src.guardrails import apply_layer_2, validate_empty_input, validate_input_length
+from src.guardrails import (
+    apply_layer_2,
+    validate_empty_input,
+    validate_input_length,
+    validate_prompt_injection,
+)
 from src.insight_generator import generate_insight
 from src.schema import build_allowlist, format_schema, load_descriptions
 from src.sql_generator import generate_sql, generate_sql_correction
@@ -119,6 +124,7 @@ class VCommerceAgent:
         try:
             validate_empty_input(question)
             validate_input_length(question)
+            validate_prompt_injection(question)
         except GuardrailError:
             return AgentResponse(
                 text="Não foi possível processar sua pergunta. Tente reformulá-la.",

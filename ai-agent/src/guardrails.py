@@ -58,6 +58,41 @@ def validate_input_length(question: str) -> None:
         )
 
 
+# Padrões de prompt injection detectados na Camada 1
+_PROMPT_INJECTION_PATTERNS = [
+    r"ignore\s+(previous|all|above)\s+instructions?",
+    r"you\s+are\s+now",
+    r"disregard\s+your",
+    r"forget\s+(everything|all|your)",
+    r"act\s+as\s+(if\s+you\s+are|a|an)",
+    r"\b(SELECT|DROP|INSERT|UPDATE|DELETE)\s+\w+",
+]
+_PROMPT_INJECTION_RE = re.compile(
+    "|".join(f"({p})" for p in _PROMPT_INJECTION_PATTERNS),
+    re.IGNORECASE,
+)
+
+
+def validate_prompt_injection(question: str) -> None:
+    """
+    Detecta tentativas de prompt injection no input do usuário.
+
+    Verifica padrões como instruções para ignorar o system prompt,
+    assumir outra persona, ou blocos SQL embutidos diretamente
+    na pergunta.
+
+    Args:
+        question: Pergunta do usuário em português.
+
+    Raises:
+        GuardrailError: Se um padrão de prompt injection for detectado.
+    """
+    if _PROMPT_INJECTION_RE.search(question):
+        raise GuardrailError(
+            "Tentativa de prompt injection detectada no input do usuario."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Camada 2 — validação do SQL gerado (etapa 1)
 # ---------------------------------------------------------------------------

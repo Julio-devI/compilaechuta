@@ -203,7 +203,7 @@ def test_validate_input_length_accepts_shorter():
 
 
 # ---------------------------------------------------------------------------
-# Camada 2 — allowlist de tabelas e colunas (G9)
+# Camada 2 — allowlist de tabelas e colunas
 # ---------------------------------------------------------------------------
 
 
@@ -254,7 +254,7 @@ def test_allowlist_rejects_column_in_cte_select():
 
 
 # ---------------------------------------------------------------------------
-# Camada 2 — validação semântica (G10)
+# Camada 2 — validação semântica
 # ---------------------------------------------------------------------------
 
 
@@ -298,7 +298,7 @@ def test_semantic_accepts_cte_columns():
 
 
 # ---------------------------------------------------------------------------
-# Camada 2 — reescrita de limite de linhas (G13)
+# Camada 2 — reescrita de limite de linhas
 # ---------------------------------------------------------------------------
 
 

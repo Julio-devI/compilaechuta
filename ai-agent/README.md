@@ -43,20 +43,23 @@ agent.clear_history()
 
 ## Estrutura
 
-- `src/agent.py` — Classe pública `VCommerceAgent`
-- `src/sql_generator.py` — Chamada 1: NL → SQL
-- `src/insight_generator.py` — Chamada 2: dados → insight
-- `src/db.py` — Conexão e execução SQL
-- `src/schema.py` — Extração e formatação do schema do banco
-- `src/guardrails.py` — Validações de segurança
-- `src/config.py` — Configurações centralizadas
-- `src/prompts/` — System prompts em arquivos `.txt`
-- `tests/` — Testes automatizados (pytest)
+- `src/agent.py` — Classe pública `VCommerceAgent` (Facade)
+- `src/core/` — Configurações e tratamento de erros customizados
+- `src/database/` — Conexão, execução SQL e extração de schema
+- `src/llm/` — Geração de prompts, chamadas à API Gemini e clientes LLM
+- `src/security/` — Validações de segurança e guardrails
+- `tests/unit/` — Testes automatizados rápidos e isolados
+- `tests/integration/` — Smoke tests contra a API real e banco sintético
 
 ## Testes
 
 ```bash
-pytest tests/ -v
+# Testes unitários (rápidos, sem consumo de cota API)
+pytest tests/unit/ -v
+
+# Smoke tests de integração (consomem cota API)
+pytest tests/integration/ -v
+# ou rodar os scripts python manualmente
 ```
 
 ## Smoke Test
@@ -74,7 +77,9 @@ O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real.
 ### Como executar
 
 ```bash
-python tests/smoke_test.py
+python tests/integration/smoke_test.py
+python tests/integration/smoke_test_guardrails.py
+python tests/integration/smoke_test_memory.py
 ```
 
 ### O que o script faz

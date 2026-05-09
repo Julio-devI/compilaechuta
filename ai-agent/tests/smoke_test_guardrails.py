@@ -193,9 +193,9 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
         {
             "name": "C12: Coluna em tabela errada (semantica + allowlist)",
             "question": "Qual o preco dos clientes da regiao Sudeste?",
-            "expected_status": "ERRO",
-            "expected_calls": 3,
-            "description": "Coluna 'preco' existe em produtos, nao em clientes; Camada 2 bloqueia + retry",
+            "expected_status": "FORA_DO_ESCOPO",
+            "expected_calls": 1,
+            "description": "LLM recusa pergunta ambigua (clientes nao tem preco) em vez de alucinar coluna inexistente",
         },
     ]
 

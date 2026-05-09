@@ -74,6 +74,12 @@ _PROMPT_INJECTION_PATTERNS = [
     r"esque[çc]a\s+(tudo|todos|seu|sua|sua\s+programa[cç][ãa]o)",
     r"(aja|atue|comporte-se)\s+como\s+(se\s+voc[êe]\s+fosses?|se\s+fosse|um|uma)",
     r"agora\s+voc[êe]\s+(é|esta|está|eh)",
+    # Exfiltração do system prompt — PT-BR
+    r"(mostre|mostra|exib[ea]|revele|diga|repita)\s+(me\s+)?(suas?|as|o)\s+(instru[cç][õo]es|regras|prompt|diretriz|configura[cç][ãa]o)",
+    r"qual\s+(é|eh|e)\s+o?\s*(seu|teu|sua|tua)\s+(prompt|system\s*prompt|instru[cç][ãa]o)",
+    # Exfiltração do system prompt — EN
+    r"(show|display|reveal|print|repeat|output)\s+(me\s+)?(your|the)\s+(system\s*)?(prompt|instructions?|rules|directives)",
+    r"(what|whats|what's)\s+(is\s+)?(your|the)\s+(system\s*)?(prompt|instructions?)",
 ]
 _PROMPT_INJECTION_RE = re.compile(
     "|".join(f"({p})" for p in _PROMPT_INJECTION_PATTERNS),

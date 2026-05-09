@@ -169,3 +169,62 @@
 - **Decisão:** `max_rows`, `query_timeout_seconds` e `llm_model` são parâmetros opcionais do construtor `VCommerceAgent`, com valores padrão hardcoded (`1000`, `10`, `gemini-2.5-flash`). Não existem variáveis de ambiente correspondentes.
 - **Justificativa:** Configurações globais (variáveis de ambiente ou constantes de módulo) impedem que o backend crie múltiplas instâncias do agente com behaviors distintos no mesmo processo. Parâmetros de construtor permitem que o backend defina a policy por instância: `agent_preview = VCommerceAgent(db_path, max_rows=50)` vs. `agent_export = VCommerceAgent(db_path, max_rows=1000)`. Defaults hardcoded garantem que o agente funcione corretamente mesmo quando o backend não passar nenhum valor, sem exigir configuração obrigatória.
 - **Implicações:** O backend FastAPI controla esses parâmetros ao instanciar `VCommerceAgent`. O módulo ai-agent não precisa de arquivo `.env` para essas configurações. Testes podem criar instâncias com valores baixos sem alterar o ambiente do sistema.
+
+---
+
+### DA-18: Histórico de Conversa Inclui SQL Gerado
+
+- **Contexto:** A memória de conversa (US-IA-05) exige que o agente entenda perguntas de follow-up como "E no mês passado?" ou "Filtre por eletrônicos". Para que a Chamada 1 (geração de SQL) resolva essas referências corretamente, ela precisa saber não apenas o que o usuário perguntou antes, mas também qual SQL foi gerado e executado.
+- **Decisão:** O campo `content` do role `assistant` no histórico passado a `ask()` inclui o SQL gerado (`sql`) além do insight textual (`text`). O formato do histórico é `[{"role": "user"|"assistant", "content": str, "sql": str | None}]`.
+- **Justificativa:** Sem o agente entender o histórico completo (incluindo o SQL), não faz sentido implementar a memória. O SQL é o artefato técnico que conecta a pergunta anterior ao resultado concreto. Se o usuário pergunta "Qual a receita do mês?" e depois "E do mês passado?", a Chamada 1 precisa ver o SQL anterior (`SELECT SUM(...) WHERE mes = ...`) para saber exatamente qual filtro temporal alterar. Apenas o insight textual ("A receita foi R$ 125.340") não contém informação suficiente para gerar o SQL de follow-up com precisão.
+- **Implicações:** O backend precisa armazenar o campo `sql` do `AgentResponse` junto ao histórico da sessão. O volume de dados por interação no histórico aumenta, mas o impacto é desprezível frente ao custo de falhas na resolução de follow-ups.
+
+---
+
+### DA-19: Limite Padrão de 20 Turnos no Histórico
+
+- **Contexto:** O histórico de conversa é injetado nos prompts da Chamada 1 e Chamada 2, consumindo tokens do context window do modelo. É necessário definir um limite para evitar estouro.
+- **Decisão:** O limite padrão de turnos no histórico é de 20 (20 pares pergunta/resposta, totalizando até 40 mensagens). O valor é configurável via `config.py`.
+- **Justificativa:** O projeto utiliza o free tier da API Gemini, onde o fator limitante é o número de requisições diárias (não tokens por requisição). Como o Gemini 2.5 Flash possui um context window grande, o custo de enviar um histórico mais longo não impacta a quota diária. Um limite de 20 turnos permite conversas longas sem risco de atingir limites de contexto, maximizando a utilidade da memória.
+- **Implicações:** Conversas com mais de 20 turnos terão as interações mais antigas descartadas. O valor pode ser ajustado via constante configurável sem alteração de código.
+
+---
+
+### DA-20: Constante de Configuração `MAX_HISTORY_TURNS`
+
+- **Contexto:** O limite de turnos no histórico precisa ser parametrizado e acessível centralmente.
+- **Decisão:** A constante é nomeada `MAX_HISTORY_TURNS` e reside em `config.py`, com valor padrão `20`.
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Implicações:** Todos os módulos que processam histórico (`agent.py`, `sql_generator.py`, `insight_generator.py`) importam o limite de `config.py`. O backend pode eventualmente sobrescrever via parâmetro de construtor, seguindo o padrão de DA-17.
+
+---
+
+### DA-21: Injeção Bidirecional do Histórico nos Prompts
+
+- **Contexto:** O agente realiza duas chamadas ao LLM com propósitos distintos (Chamada 1: gerar SQL; Chamada 2: gerar insight). Cada chamada precisa de contexto conversacional diferente para resolver follow-ups corretamente.
+- **Decisão:** O histórico de conversa é injetado como texto estruturado nos prompts de **ambas** as chamadas:
+  - **Chamada 1 (SQL):** recebe perguntas anteriores + SQLs gerados, permitindo resolver referências como "E no mês passado?" (sabe qual filtro temporal alterar).
+  - **Chamada 2 (Insight):** recebe perguntas anteriores + insights textuais, mantendo coerência narrativa entre respostas.
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Implicações:** O volume de tokens por chamada aumenta proporcionalmente ao tamanho do histórico. A injeção é feita via blocos de texto nos prompts (não via `message_history` nativo do PydanticAI), pois as duas chamadas usam agentes distintos com system prompts diferentes — misturar respostas SQL com respostas de insight no histórico nativo quebraria o contexto de cada chamada.
+
+---
+
+### DA-22: Gerenciamento Stateful do Histórico pelo ai-agent
+
+- **Contexto:** A memória de conversa pode ser gerenciada pelo backend (passando `history` como parâmetro a cada chamada) ou pelo próprio módulo ai-agent (mantendo estado interno). O backend é desenvolvido por outro time e possui suas próprias responsabilidades.
+- **Decisão:** O `VCommerceAgent` gerencia o histórico internamente em `self._history`. O método `ask(question)` armazena automaticamente cada par pergunta/resposta após uma interação bem-sucedida. O agente é responsável por truncar o histórico ao limite de `MAX_HISTORY_TURNS` e por formatar a injeção nos prompts. O método `clear_history()` permite reset explícito.
+- **Justificativa:** Gerenciar contexto de conversa é responsabilidade natural do agente — ele já mantém estado interno (cache de schema). Centralizar a lógica de memória no ai-agent simplifica a integração para o backend (que só precisa chamar `ask()`) e garante que o formato do histórico injetado nos prompts seja controlado pelo módulo que sabe como usá-lo. O backend não precisa conhecer detalhes internos como a inclusão de SQL ou a estratégia de truncamento.
+- **Implicações:** O backend precisa criar uma instância de `VCommerceAgent` por sessão de chat (não pode compartilhar entre usuários). O histórico é mantido em memória e perdido se a instância for destruída, a menos que o backend utilize a API de export/import (DA-23).
+
+---
+
+### DA-23: API de Export/Import para Persistência Opcional pelo Backend
+
+- **Contexto:** O gerenciamento stateful pelo ai-agent (DA-22) resolve o caso de uso padrão, mas o histórico é perdido se o servidor reiniciar ou a instância for destruída. O backend pode desejar persistir sessões de chat em banco de dados ou cache distribuído.
+- **Decisão:** O `VCommerceAgent` expõe dois métodos adicionais:
+  - `export_history() -> list[dict]` — retorna o histórico atual em formato serializável (JSON-compatível).
+  - `import_history(history: list[dict]) -> None` — restaura o histórico a partir de um snapshot previamente exportado.
+  O agente gerencia tudo internamente por padrão; o backend só usa export/import se quiser persistência entre restarts.
+- **Justificativa:** Manter a abordagem de gerenciamento interno (DA-22) como padrão simplifica o uso comum. Expor export/import permite que o backend adicione persistência sem alterar o módulo ai-agent, respeitando o princípio de que funcionalidades opcionais não devem complicar o fluxo principal. O formato serializável (`list[dict]`) é agnóstico de tecnologia de armazenamento — o backend pode usar Redis, PostgreSQL, filesystem ou qualquer outro mecanismo.
+- **Implicações:** O contrato de `export_history`/`import_history` torna-se parte da interface pública do agente. Alterações no formato interno do histórico exigem migração ou versionamento do snapshot. O `import_history` valida o formato recebido e aplica o truncamento de `MAX_HISTORY_TURNS` automaticamente.

@@ -41,17 +41,26 @@ def _extract_sql(raw: str) -> str:
     return raw.strip()
 
 
+def _strip_sql_comments(sql: str) -> str:
+    """Remove comentários SQL antes da validação sintática."""
+    # Remove comentários de bloco /* ... */
+    sql = re.sub(r"/\*.*?\*/", "", sql, flags=re.DOTALL)
+    # Remove comentários de linha -- ...
+    sql = re.sub(r"--.*", "", sql)
+    return sql.strip()
+
+
 def _validate_syntax(sql: str) -> None:
     """
     Validação sintática mínima do SQL gerado.
 
     Regras:
-        - Deve começar com SELECT ou WITH (ignorando espaços e parênteses iniciais).
+        - Deve começar com SELECT ou WITH (ignorando espaços, parênteses e comentários).
 
     Raises:
         ValueError: Se o SQL não passar na validação.
     """
-    cleaned = sql.strip()
+    cleaned = _strip_sql_comments(sql)
 
     # Remove parênteses iniciais recursivamente para subqueries ou expressões
     while cleaned.startswith("("):

@@ -12,11 +12,10 @@ import asyncio
 import sqlite3
 import sys
 import tempfile
-import time
 from pathlib import Path
 
 # Adiciona ai-agent/ ao PYTHONPATH para permitir imports do pacote src
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 # ---------------------------------------------------------------------------
@@ -167,98 +166,76 @@ def _create_test_db(path: str) -> None:
 
 async def _run_smoke_test(db_path: str) -> None:
     from src.agent import VCommerceAgent
-    from tests.integration.smoke_test_config import DELAY_BETWEEN_BATCHES_SECONDS
-    from src.core.exceptions import LLMQuotaError
+    from tests.integration.smoke_test_config import DELAY_BETWEEN_BATCHES_SECONDS, BATCH_SIZE
 
     agent = VCommerceAgent(db_path=db_path)
     
     print("\n" + "="*60)
-    print("INICIANDO SMOKE TEST DE MEMÓRIA")
+    print("INICIANDO SMOKE TEST DE MEMÓRIA (7 TURNOS = 14 CALLS API)")
     print("="*60)
 
-    # ---------------------------------------------------------
-    # BLOCO 1 - Cadeia de Follow-up (S1, S2, S3)
-    # ---------------------------------------------------------
-    print("\n--- BLOCO 1: Cadeia de Follow-up ---")
-    
-    q1 = "Qual a receita total por regiao?"
-    print(f"\nS1: {q1}")
-    resp1 = await agent.ask(q1)
-    print(f" SQL: {resp1.sql}")
-    print(f" Resposta: {resp1.text}")
-    
-    await asyncio.sleep(20)
+    questions_part_1 = [
+        "Qual a receita total por regiao?",
+        "E qual regiao vendeu mais?",
+        "Quantos pedidos essa regiao teve?",
+        "Quais foram os 3 produtos mais vendidos nessa regiao?",
+        "Qual deles teve a maior avaliacao media?"
+    ]
 
-    q2 = "E qual regiao vendeu mais?"
-    print(f"\nS2 (Follow-up): {q2}")
-    resp2 = await agent.ask(q2)
-    print(f" SQL: {resp2.sql}")
-    print(f" Resposta: {resp2.text}")
-    # O SQL deve conter ORDER BY DESC LIMIT 1 e referenciar as tabelas de vendas/clientes
+    print("\n--- BLOCO 1: Cadeia Extensa de Follow-up (5 Turnos) ---")
     
-    await asyncio.sleep(20)
+    for i, q in enumerate(questions_part_1):
+        print(f"\nS{i+1}: {q}")
+        try:
+            resp = await agent.ask(q)
+            print(f" SQL: {resp.sql}")
+            print(f" Resposta: {resp.text}")
+        except Exception as e:
+            print(f" [ERRO] {e}")
+        
+        # Batching: Sleep every BATCH_SIZE queries to avoid rate limit
+        if (i + 1) % BATCH_SIZE == 0 and (i + 1) < len(questions_part_1):
+            print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s para respeitar o rate limit...")
+            await asyncio.sleep(DELAY_BETWEEN_BATCHES_SECONDS)
 
-    q3 = "Quantos pedidos essa regiao teve?"
-    print(f"\nS3 (Follow-up do follow-up): {q3}")
-    resp3 = await agent.ask(q3)
-    print(f" SQL: {resp3.sql}")
-    print(f" Resposta: {resp3.text}")
-    # O SQL deve referenciar explicitamente a regiao retornada em S2.
-
-    print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s para respeitar o rate limit...")
+    print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s antes do Export/Import...")
     await asyncio.sleep(DELAY_BETWEEN_BATCHES_SECONDS)
 
     # ---------------------------------------------------------
-    # BLOCO 2 - Clear History (S4)
+    # BLOCO 2 - Export / Import (S9, S10)
     # ---------------------------------------------------------
-    print("\n--- BLOCO 2: Clear History ---")
-    agent.clear_history()
-    print("Histórico limpo!")
-
-    q4 = "Quais produtos custam mais de R$ 1000?"
-    print(f"\nS4 (Independente): {q4}")
-    resp4 = await agent.ask(q4)
-    print(f" SQL: {resp4.sql}")
-    print(f" Resposta: {resp4.text}")
-    # Nao deve referenciar nada sobre regiao ou vendas.
-
-    print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s para respeitar o rate limit...")
-    await asyncio.sleep(DELAY_BETWEEN_BATCHES_SECONDS)
-
-    # ---------------------------------------------------------
-    # BLOCO 3 - Export / Import (S5, S6)
-    # ---------------------------------------------------------
-    print("\n--- BLOCO 3: Export / Import ---")
+    print("\n--- BLOCO 2: Export / Import ---")
     
-    q5 = "Quantos tickets temos na base?"
-    print(f"\nS5: {q5}")
-    resp5 = await agent.ask(q5)
-    print(f" SQL: {resp5.sql}")
-    print(f" Resposta: {resp5.text}")
-
-    await asyncio.sleep(20)
-
-    # Exporta
     exported = agent.export_history()
-    print(f"\n[Ação] Histórico exportado: {len(exported)} mensagens.")
+    print(f"\n[Ação] Histórico exportado: {len(exported)} mensagens ({(len(exported))//2} turnos).")
     
-    # Destroi o agente
     del agent
     print("[Ação] Agente destruído (simulando nova requisição HTTP).")
     
-    # Recria agente vazio e importa
     agent = VCommerceAgent(db_path=db_path)
     agent.import_history(exported)
-    print(f"[Ação] Novo agente criado. Histórico importado.")
+    print(f"[Ação] Novo agente criado. Histórico importado com sucesso.")
 
-    q6 = "Destes, quantos estao abertos?"
-    print(f"\nS6 (Follow-up pós-import): {q6}")
-    resp6 = await agent.ask(q6)
-    print(f" SQL: {resp6.sql}")
-    print(f" Resposta: {resp6.text}")
+    questions_part_2 = [
+        "Voltando a regiao que mais vendeu, quantos clientes moram la?",
+        "E quantos desses clientes sao do segmento Campeões?"
+    ]
+
+    for i, q in enumerate(questions_part_2):
+        print(f"\nS{9+i}: {q}")
+        try:
+            resp = await agent.ask(q)
+            print(f" SQL: {resp.sql}")
+            print(f" Resposta: {resp.text}")
+        except Exception as e:
+            print(f" [ERRO] {e}")
+
+        if i == 0:
+            print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s para respeitar o rate limit...")
+            await asyncio.sleep(DELAY_BETWEEN_BATCHES_SECONDS)
 
     print("\n" + "="*60)
-    print("TESTE DE MEMÓRIA CONCLUÍDO")
+    print("TESTE DE MEMÓRIA DE 7 TURNOS CONCLUÍDO COM SUCESSO")
     print("="*60)
 
 

@@ -8,8 +8,8 @@ from app.models.tickets import Ticket as TicketModel
 from app.schemas.tickets import TicketCreate, TicketUpdate
 
 
-async def get_ticket(db: AsyncSession, ticket_id: int) -> Optional[TicketModel]:
-    result = await db.execute(select(TicketModel).where(TicketModel.id == ticket_id))
+async def get_ticket(db: AsyncSession, ticket_id: str) -> Optional[TicketModel]:
+    result = await db.execute(select(TicketModel).where(TicketModel.id_ticket == ticket_id))
     return result.scalar_one_or_none()
 
 
@@ -43,14 +43,13 @@ async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketModel:
 
 
 async def update_ticket(
-    db: AsyncSession, ticket_id: int, ticket: TicketUpdate
+    db: AsyncSession, ticket_id: str, ticket: TicketUpdate
 ) -> Optional[TicketModel]:
     db_ticket = await get_ticket(db, ticket_id)
     if not db_ticket:
         return None
 
-    update_data = ticket.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
+    for field, value in ticket.model_dump(exclude_unset=True).items():
         setattr(db_ticket, field, value)
 
     await db.commit()
@@ -58,7 +57,7 @@ async def update_ticket(
     return db_ticket
 
 
-async def delete_ticket(db: AsyncSession, ticket_id: int) -> bool:
+async def delete_ticket(db: AsyncSession, ticket_id: str) -> bool:
     db_ticket = await get_ticket(db, ticket_id)
     if not db_ticket:
         return False

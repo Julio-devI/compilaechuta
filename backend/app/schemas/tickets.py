@@ -4,12 +4,14 @@ from typing import Optional
 
 
 class TicketBase(BaseModel):
-    cliente_id:     str
-    tipo:           Optional[str] = None
-    status:         str = "aberto"          # aberto | fechado
-    descricao:      Optional[str] = None
-    sentimento:     Optional[str] = None    # positivo | neutro | negativo
-    tempo_resolucao: Optional[int] = None   # em minutos
+    id_cliente:            str
+    id_pedido:             Optional[str] = None
+    id_produto:            Optional[str] = None
+    status:                Optional[str] = None   # aberto | resolvido
+    tipo_problema:         Optional[str] = None
+    agente_suporte:        Optional[str] = None
+    nota_avaliacao:        Optional[float] = None
+    tempo_resolucao_horas: Optional[float] = None
 
 
 class TicketCreate(TicketBase):
@@ -17,18 +19,18 @@ class TicketCreate(TicketBase):
 
 
 class TicketUpdate(BaseModel):
-    tipo:            Optional[str] = None
-    status:          Optional[str] = None
-    descricao:       Optional[str] = None
-    sentimento:      Optional[str] = None
-    tempo_resolucao: Optional[int] = None
-    data_fechamento: Optional[datetime] = None
+    status:                Optional[str] = None
+    tipo_problema:         Optional[str] = None
+    agente_suporte:        Optional[str] = None
+    nota_avaliacao:        Optional[float] = None
+    tempo_resolucao_horas: Optional[float] = None
+    data_resolucao:        Optional[datetime] = None
 
 
 class TicketOut(TicketBase):
-    id:              int
-    data_abertura:   datetime
-    data_fechamento: Optional[datetime] = None
+    id_ticket:      str
+    data_abertura:  Optional[datetime] = None
+    data_resolucao: Optional[datetime] = None
 
     class Config:
         from_attributes = True

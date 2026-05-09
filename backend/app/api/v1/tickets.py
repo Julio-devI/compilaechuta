@@ -12,17 +12,17 @@ router = APIRouter()
 
 @router.get("/", response_model=list[TicketOut])
 async def listar(
-    skip:       int                    = Query(0,    ge=0),
-    limit:      int                    = Query(100,  ge=1, le=500),
-    start_date: Optional[datetime]     = Query(None, description="Filtro início do período (ISO 8601)"),
-    end_date:   Optional[datetime]     = Query(None, description="Filtro fim do período (ISO 8601)"),
+    skip:       int                = Query(0,    ge=0),
+    limit:      int                = Query(100,  ge=1, le=500),
+    start_date: Optional[datetime] = Query(None, description="Filtro início (ISO 8601)"),
+    end_date:   Optional[datetime] = Query(None, description="Filtro fim (ISO 8601)"),
     db: AsyncSession = Depends(get_db),
 ):
     return await service.listar_tickets(db, skip, limit, start_date, end_date)
 
 
 @router.get("/{ticket_id}", response_model=TicketOut)
-async def buscar(ticket_id: int, db: AsyncSession = Depends(get_db)):
+async def buscar(ticket_id: str, db: AsyncSession = Depends(get_db)):
     return await service.buscar_ticket(db, ticket_id)
 
 
@@ -32,10 +32,10 @@ async def criar(ticket: TicketCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{ticket_id}", response_model=TicketOut)
-async def atualizar(ticket_id: int, ticket: TicketUpdate, db: AsyncSession = Depends(get_db)):
+async def atualizar(ticket_id: str, ticket: TicketUpdate, db: AsyncSession = Depends(get_db)):
     return await service.atualizar_ticket(db, ticket_id, ticket)
 
 
 @router.delete("/{ticket_id}")
-async def deletar(ticket_id: int, db: AsyncSession = Depends(get_db)):
+async def deletar(ticket_id: str, db: AsyncSession = Depends(get_db)):
     return await service.deletar_ticket(db, ticket_id)

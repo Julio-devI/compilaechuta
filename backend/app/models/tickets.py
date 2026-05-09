@@ -1,21 +1,22 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
-import datetime
 
 from app.core.database import Base
 
 
 class Ticket(Base):
-    __tablename__ = "tickets"
+    __tablename__ = "fato_suporte_ticket"
 
-    id              = Column(Integer, primary_key=True, index=True)
-    cliente_id      = Column(String, ForeignKey("clientes.id_cliente"), nullable=False, index=True)
-    tipo            = Column(String)
-    status          = Column(String, default="aberto")  # aberto | fechado
-    descricao       = Column(Text)
-    sentimento      = Column(String)                    # positivo | neutro | negativo
-    tempo_resolucao = Column(Integer)                   # em minutos
-    data_abertura   = Column(DateTime, default=datetime.datetime.utcnow)
-    data_fechamento = Column(DateTime, nullable=True)
+    id_ticket              = Column(String, primary_key=True, index=True)
+    id_cliente             = Column(String, ForeignKey("dim_cliente.id_cliente"), nullable=False, index=True)
+    id_pedido              = Column(String, nullable=True)
+    id_produto             = Column(String, nullable=True)
+    data_abertura          = Column(DateTime, nullable=True)
+    data_resolucao         = Column(DateTime, nullable=True)
+    tempo_resolucao_horas  = Column(Float, nullable=True)
+    status                 = Column(String, nullable=True)   # aberto | resolvido
+    tipo_problema          = Column(String, nullable=True)
+    agente_suporte         = Column(String, nullable=True)
+    nota_avaliacao         = Column(Float, nullable=True)
 
     cliente = relationship("Cliente", back_populates="tickets")

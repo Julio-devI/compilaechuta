@@ -142,7 +142,7 @@ def validate_multiple_statements(sql: str) -> None:
     guardrail atua antes da execução para permitir retry controlado.
 
     Args:
-        sql: Query SQL já sem comentários.
+        sql: Query SQL bruto retornado pelo LLM.
 
     Raises:
         GuardrailError: Se houver `;` seguido de conteúdo não-vazio.

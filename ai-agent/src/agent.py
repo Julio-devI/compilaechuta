@@ -169,7 +169,6 @@ class VCommerceAgent:
                 out_of_scope=False,
                 truncated=False,
             )
-        # Nota: LLMError propaga diretamente para o backend tratar
 
         # Etapa 2.5: detectar fora do escopo antes da Camada 2
         # O marcador nao e SQL valido; aplicar guardrails causaria erro de parse
@@ -227,7 +226,6 @@ class VCommerceAgent:
             )
 
         # Etapa 5: gerar insight
-        # Nota: LLMError propaga diretamente para o backend tratar
         insight = await generate_insight(question, rows, sql, model=self._llm_model)
 
         # Etapa 6: montar resposta

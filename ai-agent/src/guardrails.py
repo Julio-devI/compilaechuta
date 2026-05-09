@@ -160,7 +160,9 @@ def validate_multiple_statements(sql: str) -> None:
 
 
 def validate_table_column_allowlist(
-    sql: str, allowlist: dict[str, set[str]]
+    sql: str,
+    allowlist: dict[str, set[str]],
+    parsed: exp.Expression | None = None,
 ) -> None:
     """
     Valida se todas as tabelas e colunas referenciadas no SQL
@@ -170,20 +172,22 @@ def validate_table_column_allowlist(
     e ignoradas na checagem de tabelas, pois são temporárias.
 
     Args:
-        sql: Query SQL já sem comentários e validado sintaticamente.
+        sql: Query SQL já validado sintaticamente.
         allowlist: Dicionário mapeando nome da tabela para conjunto
             de nomes de colunas permitidas.
+        parsed: AST pré-parseada do SQL. Se None, parseia internamente.
 
     Raises:
         GuardrailError: Se uma tabela ou coluna fora do allowlist
             for detectada.
     """
-    try:
-        parsed = sqlglot.parse_one(sql, read="sqlite")
-    except Exception as exc:
-        raise GuardrailError(
-            f"Falha ao parsear SQL para allowlist: {exc}"
-        ) from exc
+    if parsed is None:
+        try:
+            parsed = sqlglot.parse_one(sql, read="sqlite")
+        except Exception as exc:
+            raise GuardrailError(
+                f"Falha ao parsear SQL para allowlist: {exc}"
+            ) from exc
 
     cte_names = {cte.alias for cte in parsed.find_all(exp.CTE)}
 
@@ -209,27 +213,38 @@ def validate_table_column_allowlist(
 
 
 def validate_semantic_schema(
-    sql: str, allowlist: dict[str, set[str]]
+    sql: str,
+    allowlist: dict[str, set[str]],
+    parsed: exp.Expression | None = None,
 ) -> None:
     """
     Valida se colunas referenciadas pertencem às tabelas declaradas
     no FROM e JOIN da query, resolvendo aliases corretamente.
 
+    Limitação conhecida (CR-08): o mapeamento de aliases é flat (um
+    único dicionário para toda a AST). Se subqueries ou CTEs distintas
+    usarem o mesmo alias (ex: ``t``), o último sobrescreve o anterior,
+    podendo gerar falsos positivos ou negativos. Queries com aliases
+    colidentes são raras em geração por LLM. Será revisado na branch
+    ``feat/ai-agent-extras``.
+
     Args:
-        sql: Query SQL já sem comentários.
+        sql: Query SQL já validado sintaticamente.
         allowlist: Dicionário mapeando nome da tabela para conjunto
             de nomes de colunas permitidas.
+        parsed: AST pré-parseada do SQL. Se None, parseia internamente.
 
     Raises:
         GuardrailError: Se uma coluna não puder ser associada a uma
             tabela do escopo ou se o SQL não puder ser parseado.
     """
-    try:
-        parsed = sqlglot.parse_one(sql, read="sqlite")
-    except Exception as exc:
-        raise GuardrailError(
-            f"Falha ao parsear SQL para validacao semantica: {exc}"
-        ) from exc
+    if parsed is None:
+        try:
+            parsed = sqlglot.parse_one(sql, read="sqlite")
+        except Exception as exc:
+            raise GuardrailError(
+                f"Falha ao parsear SQL para validacao semantica: {exc}"
+            ) from exc
 
     # Mapeia alias -> nome real das tabelas no escopo (inclui CTEs)
     scope_tables: dict[str, str] = {}
@@ -295,6 +310,9 @@ def apply_layer_2(
         4. validate_semantic_schema
         5. add_limit_if_missing
 
+    O SQL é parseado uma única vez por `apply_layer_2` e a AST resultante
+    é reaproveitada nas validações seguintes para evitar parses redundantes.
+
     Args:
         sql: Query SQL bruta retornada pelo LLM.
         allowlist: Dicionário de tabelas e colunas permitidas.
@@ -308,12 +326,22 @@ def apply_layer_2(
     """
     validate_destructive_queries(sql)
     validate_multiple_statements(sql)
-    validate_table_column_allowlist(sql, allowlist)
-    validate_semantic_schema(sql, allowlist)
-    return add_limit_if_missing(sql, max_rows)
+
+    try:
+        parsed = sqlglot.parse_one(sql, read="sqlite")
+    except Exception as exc:
+        raise GuardrailError(
+            f"Falha ao parsear SQL na Camada 2: {exc}"
+        ) from exc
+
+    validate_table_column_allowlist(sql, allowlist, parsed=parsed)
+    validate_semantic_schema(sql, allowlist, parsed=parsed)
+    return add_limit_if_missing(sql, max_rows, parsed=parsed)
 
 
-def add_limit_if_missing(sql: str, max_rows: int) -> str:
+def add_limit_if_missing(
+    sql: str, max_rows: int, parsed: exp.Expression | None = None
+) -> str:
     """
     Adiciona LIMIT max_rows ao final do SQL caso não exista.
 
@@ -322,6 +350,7 @@ def add_limit_if_missing(sql: str, max_rows: int) -> str:
     Args:
         sql: Query SQL válido.
         max_rows: Número máximo de linhas a serem retornadas.
+        parsed: AST pré-parseada do SQL. Se None, parseia internamente.
 
     Returns:
         SQL com LIMIT injetado no final, quando necessário.
@@ -329,12 +358,13 @@ def add_limit_if_missing(sql: str, max_rows: int) -> str:
     Raises:
         GuardrailError: Se o SQL não puder ser parseado.
     """
-    try:
-        parsed = sqlglot.parse_one(sql, read="sqlite")
-    except Exception as exc:
-        raise GuardrailError(
-            f"Falha ao parsear SQL para verificar LIMIT: {exc}"
-        ) from exc
+    if parsed is None:
+        try:
+            parsed = sqlglot.parse_one(sql, read="sqlite")
+        except Exception as exc:
+            raise GuardrailError(
+                f"Falha ao parsear SQL para verificar LIMIT: {exc}"
+            ) from exc
 
     if parsed.args.get("limit"):
         return sql

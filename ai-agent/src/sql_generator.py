@@ -21,7 +21,9 @@ def _load_system_prompt(schema: str) -> str:
     if not _PROMPT_PATH.exists():
         raise FileNotFoundError(f"Prompt não encontrado: {_PROMPT_PATH}")
     template = _PROMPT_PATH.read_text(encoding="utf-8")
-    return template.replace("{schema}", schema)
+    replacements = {"{schema}": schema}
+    pattern = re.compile("|".join(re.escape(k) for k in replacements))
+    return pattern.sub(lambda m: replacements[m.group(0)], template)
 
 
 def _extract_sql(raw: str) -> str:
@@ -71,9 +73,9 @@ def _validate_sql_response(raw: str) -> None:
     não passa na validação de segurança, permitindo que o `llm_client` reintente
     a chamada automaticamente.
     """
-    # FORA_DO_ESCOPO é válido — não deve disparar retry
+    # Marcador de fora do escopo é válido — não deve disparar retry
     stripped = raw.strip()
-    if stripped.upper().startswith("FORA_DO_ESCOPO"):
+    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
         return
 
     sql = _extract_sql(raw)
@@ -118,7 +120,7 @@ async def generate_sql(
 
     # Detecta marcador de fora do escopo antes de qualquer parsing
     stripped = raw_output.strip()
-    if stripped.upper().startswith("FORA_DO_ESCOPO"):
+    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
         return stripped
 
     sql = _extract_sql(raw_output)
@@ -133,11 +135,9 @@ def _load_correction_prompt(schema: str, sql: str, error: str) -> str:
             f"Prompt de correcao nao encontrado: {_CORRECTION_PROMPT_PATH}"
         )
     template = _CORRECTION_PROMPT_PATH.read_text(encoding="utf-8")
-    return (
-        template.replace("{schema}", schema)
-        .replace("{sql}", sql)
-        .replace("{error}", error)
-    )
+    replacements = {"{schema}": schema, "{sql}": sql, "{error}": error}
+    pattern = re.compile("|".join(re.escape(k) for k in replacements))
+    return pattern.sub(lambda m: replacements[m.group(0)], template)
 
 
 async def generate_sql_correction(
@@ -176,7 +176,7 @@ async def generate_sql_correction(
     raw_output = await agent.run(question, validator=_validate_sql_response)
 
     stripped = raw_output.strip()
-    if stripped.upper().startswith("FORA_DO_ESCOPO"):
+    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
         return stripped
 
     corrected = _extract_sql(raw_output)

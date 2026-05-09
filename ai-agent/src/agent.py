@@ -9,6 +9,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from src import config
 from src.db import Database
 from src.exceptions import GuardrailError, LLMError
 from src.guardrails import (
@@ -48,13 +49,18 @@ class AgentResponse:
 class VCommerceAgent:
     """Agente Text-to-SQL para o domínio V-Commerce."""
 
+    _MAX_LAYER2_RETRIES: int = 3
+    _GENERIC_ERROR_MSG: str = (
+        "Não foi possível processar sua pergunta. Tente reformulá-la."
+    )
+
     def __init__(
         self,
         db_path: str,
         excluded_tables: set[str] | None = None,
-        max_rows: int = 1000,
-        query_timeout_seconds: int = 10,
-        llm_model: str = "gemini-2.5-flash",
+        max_rows: int = config.MAX_ROWS,
+        query_timeout_seconds: int = config.QUERY_TIMEOUT_SECONDS,
+        llm_model: str = config.LLM_MODEL,
     ) -> None:
         """
         Inicializa o agente com o caminho do banco de dados.
@@ -127,7 +133,7 @@ class VCommerceAgent:
             validate_prompt_injection(question)
         except GuardrailError:
             return AgentResponse(
-                text="Não foi possível processar sua pergunta. Tente reformulá-la.",
+                text=self._GENERIC_ERROR_MSG,
                 data=None,
                 chart=None,
                 sql="",
@@ -139,9 +145,9 @@ class VCommerceAgent:
         # Etapa 1: carregar schema
         try:
             schema, technical_schema = await self._load_schema()
-        except (FileNotFoundError, RuntimeError) as exc:
+        except (FileNotFoundError, RuntimeError):
             return AgentResponse(
-                text=f"Erro ao carregar o schema do banco: {exc}",
+                text=self._GENERIC_ERROR_MSG,
                 data=None,
                 chart=None,
                 sql="",
@@ -153,9 +159,9 @@ class VCommerceAgent:
         # Etapa 2: gerar SQL
         try:
             sql = await generate_sql(question, schema, model=self._llm_model)
-        except ValueError as exc:
+        except ValueError:
             return AgentResponse(
-                text="Não foi possível processar sua pergunta. Tente reformulá-la.",
+                text=self._GENERIC_ERROR_MSG,
                 data=None,
                 chart=None,
                 sql=sql,
@@ -166,8 +172,8 @@ class VCommerceAgent:
         # Nota: LLMError propaga diretamente para o backend tratar
 
         # Etapa 2.5: detectar fora do escopo antes da Camada 2
-        # FORA_DO_ESCOPO nao e SQL valido; aplicar guardrails causaria erro de parse
-        if sql.strip().upper().startswith("FORA_DO_ESCOPO"):
+        # O marcador nao e SQL valido; aplicar guardrails causaria erro de parse
+        if sql.strip().upper().startswith(config.OUT_OF_SCOPE_MARKER):
             return AgentResponse(
                 text=sql,
                 data=None,
@@ -182,14 +188,14 @@ class VCommerceAgent:
         allowlist = build_allowlist(
             technical_schema, excluded_tables=self._excluded_tables
         )
-        for attempt in range(3):
+        for attempt in range(self._MAX_LAYER2_RETRIES):
             try:
                 sql = apply_layer_2(sql, allowlist, self._max_rows)
                 break
             except GuardrailError as exc:
-                if attempt == 2:
+                if attempt == self._MAX_LAYER2_RETRIES - 1:
                     return AgentResponse(
-                        text="Não foi possível processar sua pergunta. Tente reformulá-la.",
+                        text=self._GENERIC_ERROR_MSG,
                         data=None,
                         chart=None,
                         sql=sql,
@@ -211,7 +217,7 @@ class VCommerceAgent:
             rows, truncated = await self._db.execute_query(sql)
         except (RuntimeError, TimeoutError):
             return AgentResponse(
-                text="Não foi possível processar sua pergunta. Tente reformulá-la.",
+                text=self._GENERIC_ERROR_MSG,
                 data=None,
                 chart=None,
                 sql=sql,

@@ -141,7 +141,7 @@ class LLMAgent:
         config.assert_gemini_key()
 
         model_name = model if model is not None else config.LLM_MODEL
-        model = GeminiModel(model_name)
+        gemini_model = GeminiModel(model_name)
 
         settings_kwargs: dict[str, Any] = {"temperature": temperature}
         if max_tokens is not None:
@@ -149,7 +149,7 @@ class LLMAgent:
         settings = ModelSettings(**settings_kwargs)
 
         self._agent = Agent(
-            model,
+            gemini_model,
             system_prompt=system_prompt,
             model_settings=settings,
         )

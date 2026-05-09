@@ -49,7 +49,7 @@ pytest tests/ -v
 
 ## Smoke Test
 
-O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real. Ele é **autocontido**: cria um banco SQLite temporário com schema mínimo e dados sintéticos, executa 10 perguntas variadas e remove o banco ao final.
+O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real. Ele é **autocontido**: cria um banco SQLite temporário com schema mínimo e dados sintéticos, executa 5 perguntas variadas e remove o banco ao final.
 
 ### Pré-requisitos
 
@@ -69,7 +69,7 @@ python tests/smoke_test.py
 
 1. **Cria um banco SQLite temporário** com 5 tabelas (`clientes`, `produtos`, `pedidos`, `tickets_suporte`, `avaliacoes`) e dados sintéticos mínimos para os 3 domínios.
 2. **Instancia `VCommerceAgent`** apontando para esse banco.
-3. **Executa 10 perguntas em lotes de 2**, com intervalo de 60 segundos entre lotes para respeitar o rate limit do free tier da Gemini:
+3. **Executa 5 perguntas em lotes de 2**, com intervalo de 75 segundos entre lotes para respeitar o rate limit do free tier da Gemini:
    - **Vendas:** Receita por região, ticket médio
    - **Suporte:** Produtos com mais tickets, tempo médio de resolução
    - **Avaliações:** NPS por categoria, melhores avaliações
@@ -94,6 +94,7 @@ python tests/smoke_test.py
 - Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
 - A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional — o escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
+- A validação semântica de colunas (`validate_semantic_schema`) usa um mapeamento flat de aliases. Se subqueries ou CTEs distintas reutilizarem o mesmo alias, podem ocorrer falsos positivos ou negativos. Queries com aliases colidentes são raras em geração por LLM; será revisado na branch `feat/ai-agent-extras`.
 
 ## Decisões Arquiteturais
 

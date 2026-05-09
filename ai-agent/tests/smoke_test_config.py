@@ -16,7 +16,3 @@ DELAY_BETWEEN_BATCHES_SECONDS = 75  # 1min 15s para respeitar 5 req/min
 
 # Timeout global do smoke test
 MAX_DURATION_SECONDS = 600  # 10 minutos
-
-# Delay entre perguntas dentro de um lote (quando necessario)
-# Nota: atualmente 0s porque o rate limit eh respeitado pela espera entre lotes
-DELAY_BETWEEN_QUESTIONS_SECONDS = 0

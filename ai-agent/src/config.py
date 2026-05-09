@@ -43,6 +43,9 @@ MAX_ROWS: int = 1000
 MAX_INPUT_CHARS: int = 500
 """Limite de caracteres para a pergunta do usuário (pré-LLM)."""
 
+OUT_OF_SCOPE_MARKER: str = "FORA_DO_ESCOPO"
+"""Marcador textual retornado pelo LLM quando a pergunta está fora do escopo do domínio."""
+
 
 def _validate() -> None:
     """

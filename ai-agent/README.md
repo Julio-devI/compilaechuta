@@ -92,6 +92,8 @@ python tests/smoke_test.py
 - O agente depende do schema do banco Gold estar atualizado.
 - Memória de conversa é mantida em memória (não persistente).
 - Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
+- O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
+- A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional — o escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
 
 ## Decisões Arquiteturais
 

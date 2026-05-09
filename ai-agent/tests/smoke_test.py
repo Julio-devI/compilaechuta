@@ -1,12 +1,12 @@
 """
-Smoke test manual do agente V-Commerce (Branch 2).
+Smoke test manual do agente V-Commerce.
 
 Cria um banco SQLite temporario com schema minimo das tabelas Gold,
-instancia VCommerceAgent e executa 10 perguntas de ponta a ponta
+instancia VCommerceAgent e executa 5 perguntas de fluxo feliz
 contra a API Gemini real.
 
-As perguntas sao executadas em lotes de 2 (limite do free tier: 5 req/min),
-com intervalo de 60s entre lotes.
+As configuracoes compartilhadas (limites, timeouts, delays) estao em
+smoke_test_config.py para garantir consistencia entre todos os smoke tests.
 
 Pré-requisito: variavel de ambiente GEMINI_API_KEY configurada no .env
 """
@@ -149,36 +149,38 @@ async def _run_smoke_test(db_path: str) -> None:
 
     agent = VCommerceAgent(db_path=db_path)
 
-    # 10 perguntas cobrindo diferentes cenarios e domínios
+    # 5 perguntas de fluxo feliz cobrindo diferentes domínios e tipos de saída.
+    # NAO inclui guardrails (testados em smoke_test_guardrails.py) nem fora do escopo.
     questions = [
-        # 1. Vendas - Receita por regiao (ranking/comparacao)
+        # 1. Vendas - Receita por regiao (JOIN + SUM, retorna tabela + grafico bar)
         "Qual a receita total por regiao?",
-        # 2. Vendas - Ticket medio (valor escalar)
+        # 2. Vendas - Ticket medio (AVG escalar, retorna valor unico)
         "Qual o ticket medio dos pedidos?",
-        # 3. Suporte - Produtos com mais tickets
-        "Quais produtos geram mais tickets de suporte?",
-        # 4. Suporte - Tempo medio de resolucao (escalar)
+        # 3. Suporte - Tempo medio de resolucao (AVG escalar, outra tabela)
         "Qual o tempo medio de resolucao dos tickets?",
-        # 5. Avaliacoes - NPS por categoria
-        "Qual o NPS medio por categoria de produto?",
-        # 6. Avaliacoes - Ranking de notas
-        "Quais produtos tem a melhor avaliacao dos clientes?",
-        # 7. Clientes - Segmentacao
+        # 4. Clientes - Segmentacao (COUNT + GROUP BY, retorna tabela + grafico bar)
         "Quantos clientes existem em cada segmento?",
-        # 8. Clientes - Filtro por regiao
+        # 5. Clientes - Filtro por regiao (SELECT + WHERE, retorna tabela)
         "Quais clientes sao da regiao Sudeste?",
-        # 9. Fora do escopo
-        "Me conte uma piada",
-        # 10. Ambigua (deveria pedir esclarecimento ou assumir algo razoavel)
-        "Qual a receita?",
     ]
 
+    from tests.smoke_test_config import (
+        BATCH_SIZE,
+        DELAY_BETWEEN_BATCHES_SECONDS,
+        MAX_API_CALLS_PER_DAY,
+        MAX_DURATION_SECONDS,
+    )
+
+    from src.exceptions import LLMQuotaError
+
     total_start = time.perf_counter()
-    max_duration = 300  # 5 minutos
-    batch_size = 2
-    delay_between_batches = 75  # 1 minuto e 15 segundos
+    max_duration = MAX_DURATION_SECONDS
+    batch_size = BATCH_SIZE
+    delay_between_batches = DELAY_BETWEEN_BATCHES_SECONDS
 
     results = []
+    api_calls = 0
+    quota_exhausted = False
 
     for i in range(0, len(questions), batch_size):
         batch = questions[i:i + batch_size]
@@ -189,12 +191,12 @@ async def _run_smoke_test(db_path: str) -> None:
         print(f"LOTE {batch_num}/{total_batches}")
         print(f"{'=' * 60}")
 
-        for question in batch:
+        for idx, question in enumerate(batch):
             # Verifica timeout global
             elapsed_total = time.perf_counter() - total_start
             if elapsed_total >= max_duration:
-                print(f"\n[TIMEOUT] Limite de 5 minutos atingido. Encerrando teste.")
-                _print_summary(results, questions)
+                print(f"\n[TIMEOUT] Limite de 10 minutos atingido. Encerrando teste.")
+                _print_summary(results, questions, api_calls)
                 return
 
             print(f"\nPergunta: {question}")
@@ -203,18 +205,45 @@ async def _run_smoke_test(db_path: str) -> None:
             start = time.perf_counter()
             try:
                 response = await agent.ask(question)
+            except LLMQuotaError as exc:
+                elapsed = time.perf_counter() - start
+                print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {exc}")
+                print("\n[!] A chave de API atingiu o limite diario de 20 requisicoes.")
+                print("[!] O teste sera encerrado. Execute novamente amanha ou use outra chave.")
+                quota_exhausted = True
+                _print_summary(results, questions, api_calls)
+                return
             except Exception as exc:
                 elapsed = time.perf_counter() - start
+                error_msg = str(exc)
+                # Fallback: detecta quota por mensagem
+                if "Limite diario" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {error_msg}")
+                    print("\n[!] A chave de API atingiu o limite diario de 20 requisicoes.")
+                    print("[!] O teste sera encerrado. Execute novamente amanha ou use outra chave.")
+                    quota_exhausted = True
+                    _print_summary(results, questions, api_calls)
+                    return
                 print(f"[ERRO] ({elapsed:.2f}s): {exc}")
                 results.append({
                     "question": question,
                     "status": "ERRO",
                     "elapsed": elapsed,
-                    "error": str(exc),
+                    "error": error_msg,
                 })
+                api_calls += 1
                 continue
 
             elapsed = time.perf_counter() - start
+
+            # Estima chamadas API
+            if elapsed < 0.5:
+                calls = 0  # Bloqueado em guardrail pre-LLM
+            elif response.out_of_scope:
+                calls = 1
+            else:
+                calls = 2  # SQL + insight
+            api_calls += calls
 
             if response.out_of_scope:
                 print(f"[FORA DO ESCOPO] ({elapsed:.2f}s)")
@@ -256,7 +285,9 @@ async def _run_smoke_test(db_path: str) -> None:
                     "chart_type": response.chart.type if response.chart else None,
                 })
 
-        # Aguarda 60s entre lotes (exceto apos o ultimo)
+            print(f"   Chamadas API: {calls} | Total acumulado: {api_calls}/{MAX_API_CALLS_PER_DAY}")
+
+        # Aguarda entre lotes (exceto apos o ultimo)
         if i + batch_size < len(questions):
             elapsed_total = time.perf_counter() - total_start
             remaining = max_duration - elapsed_total
@@ -272,12 +303,15 @@ async def _run_smoke_test(db_path: str) -> None:
     total_elapsed = time.perf_counter() - total_start
     print(f"\n{'=' * 60}")
     print(f"TESTE FINALIZADO em {total_elapsed:.2f}s")
+    print(f"Chamadas API estimadas: {api_calls}/20")
     print(f"{'=' * 60}")
-    _print_summary(results, questions)
+    _print_summary(results, questions, api_calls)
 
 
-def _print_summary(results: list, all_questions: list) -> None:
+def _print_summary(results: list, all_questions: list, api_calls: int = 0) -> None:
     """Imprime resumo dos resultados."""
+    from tests.smoke_test_config import MAX_API_CALLS_PER_DAY
+
     print("\n--- RESUMO ---")
     success_count = sum(1 for r in results if r["status"] == "SUCESSO")
     oos_count = sum(1 for r in results if r["status"] == "FORA_DO_ESCOPO")
@@ -290,7 +324,8 @@ def _print_summary(results: list, all_questions: list) -> None:
     print(f"  - Fora do escopo: {oos_count}")
     print(f"  - Erro: {error_count}")
     if skipped:
-        print(f"  - Nao executadas (timeout): {skipped}")
+        print(f"  - Nao executadas (timeout/quota): {skipped}")
+    print(f"Chamadas API estimadas: {api_calls}/{MAX_API_CALLS_PER_DAY}")
 
     if results:
         avg_time = sum(r["elapsed"] for r in results) / len(results)

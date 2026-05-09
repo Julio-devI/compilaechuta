@@ -165,7 +165,20 @@ class VCommerceAgent:
             )
         # Nota: LLMError propaga diretamente para o backend tratar
 
-        # Etapa 2.5: aplicar Camada 2 com loop de autocorreção
+        # Etapa 2.5: detectar fora do escopo antes da Camada 2
+        # FORA_DO_ESCOPO nao e SQL valido; aplicar guardrails causaria erro de parse
+        if sql.strip().upper().startswith("FORA_DO_ESCOPO"):
+            return AgentResponse(
+                text=sql,
+                data=None,
+                chart=None,
+                sql="",
+                error=False,
+                out_of_scope=True,
+                truncated=False,
+            )
+
+        # Etapa 3: aplicar Camada 2 com loop de autocorreção
         allowlist = build_allowlist(
             technical_schema, excluded_tables=self._excluded_tables
         )
@@ -192,18 +205,6 @@ class VCommerceAgent:
                     model=self._llm_model,
                 )
                 await asyncio.sleep(1 * (2 ** attempt))
-
-        # Etapa 3: detectar fora do escopo
-        if sql.strip().upper().startswith("FORA_DO_ESCOPO"):
-            return AgentResponse(
-                text=sql,
-                data=None,
-                chart=None,
-                sql="",
-                error=False,
-                out_of_scope=True,
-                truncated=False,
-            )
 
         # Etapa 4: executar SQL
         try:

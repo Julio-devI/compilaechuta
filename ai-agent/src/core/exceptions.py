@@ -7,6 +7,8 @@ distingua falhas específicas sem depender de detalhes de
 implementação do provedor de LLM.
 """
 
+from enum import Enum
+
 from google.api_core import exceptions as google_exceptions
 
 
@@ -72,6 +74,29 @@ class LLMUnknownError(LLMError):
     pass
 
 
+class ErrorCode(str, Enum):
+    """
+    Códigos padronizados para violações de segurança e erros operacionais.
+    
+    Estes códigos são trafegados internamente pelo agente e expostos
+    no contrato do AgentResponse para que o backend (FastAPI) possa
+    rastrear o motivo da falha e aplicar lógicas de negócio (ex:
+    banimento temporário de usuário por PROMPT_INJECTION) sem
+    que a mensagem opaca exibida ao usuário final seja alterada.
+    """
+    EMPTY_INPUT = "EMPTY_INPUT"
+    INPUT_TOO_LONG = "INPUT_TOO_LONG"
+    PROMPT_INJECTION = "PROMPT_INJECTION"
+    DESTRUCTIVE_QUERY = "DESTRUCTIVE_QUERY"
+    MULTIPLE_STATEMENTS = "MULTIPLE_STATEMENTS"
+    SCHEMA_VIOLATION_ALLOWLIST = "SCHEMA_VIOLATION_ALLOWLIST"
+    SCHEMA_VIOLATION_SEMANTIC = "SCHEMA_VIOLATION_SEMANTIC"
+    SQL_PARSE_ERROR = "SQL_PARSE_ERROR"
+    EXECUTION_TIMEOUT = "EXECUTION_TIMEOUT"
+    DB_EXECUTION_ERROR = "DB_EXECUTION_ERROR"
+    UNKNOWN_GUARDRAIL = "UNKNOWN_GUARDRAIL"
+
+
 class GuardrailError(RuntimeError):
     """
     Exceção levantada quando um guardrail de segurança ou qualidade é acionado.
@@ -80,7 +105,7 @@ class GuardrailError(RuntimeError):
     (logs, prompt de autocorreção). Nunca deve ser exposta ao usuário final.
     """
 
-    def __init__(self, message: str, error_code: str = "UNKNOWN_GUARDRAIL") -> None:
+    def __init__(self, message: str, error_code: str | ErrorCode = ErrorCode.UNKNOWN_GUARDRAIL) -> None:
         super().__init__(message)
         self.error_code = error_code
 

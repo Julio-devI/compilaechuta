@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from src.core import config
 from src.database.db import Database
-from src.core.exceptions import GuardrailError, LLMError
+from src.core.exceptions import GuardrailError, LLMError, ErrorCode
 from src.security.guardrails import (
     apply_layer_2,
     validate_empty_input,
@@ -295,7 +295,7 @@ class VCommerceAgent:
         try:
             rows, truncated = await self._db.execute_query(sql)
         except (RuntimeError, TimeoutError) as exc:
-            err_code = "EXECUTION_TIMEOUT" if isinstance(exc, TimeoutError) else "DB_EXECUTION_ERROR"
+            err_code = ErrorCode.EXECUTION_TIMEOUT if isinstance(exc, TimeoutError) else ErrorCode.DB_EXECUTION_ERROR
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
                 data=None,

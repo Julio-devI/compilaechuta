@@ -242,3 +242,11 @@
 - **Decis„o:** Refatorar a arquitetura de pastas agrupando os arquivos por domÌnio de responsabilidade: src/core, src/database, src/llm, src/security e separando os testes em 	ests/unit/ e 	ests/integration/. O gent.py atua como facade na raiz do src/.
 - **Justificativa:** *Pendente ó justificativa n„o fornecida pelo desenvolvedor.*
 - **ImplicaÁıes:** Todos os imports internos do projeto foram remapeados. As automaÁıes de CI/CD podem agora isolar a execuÁ„o da pasta 	ests/unit/ sem consumir a cota de tokens da API do Gemini e separar testes de integraÁ„o na pipeline de homologaÁ„o.
+
+
+### DA-26: Rastreabilidade Backend vs Opacidade Frontend via Error Codes de Guardrail
+
+- **Contexto:** Os guardrails barram consultas indevidas retornando sempre uma mensagem gen√©rica por quest√µes de seguran√ßa. Contudo, essa opacidade tamb√©m escondia a causa real do backend, impedindo auditorias e logs detalhados.
+- **Decis√£o:** Refatorar \GuardrailError\ e \AgentResponse\ para incorporar um \error_code\ interno, mapeando cada fun√ß√£o de seguran√ßa e erro de banco de dados (Camadas 1, 2 e 3). A mensagem gen√©rica ao usu√°rio final √© mantida intacta.
+- **Justificativa:** Conforme levantado pelo desenvolvedor, em um sistema real com m√∫ltiplos usu√°rios, √© necess√°rio que o backend identifique a viola√ß√£o exata para poder aplicar tratativas punitivas adequadas (ex: aplicar *timeout* ou banimento autom√°tico em usu√°rios que tentarem realizar *prompt injection* de forma maliciosa).
+- **Implica√ß√µes:** O backend (consumidor do pacote \i-agent\) passa a ter a capacidade de monitorar exatamente o motivo das falhas baseadas em seguran√ßa e infraestrutura local (ex: \PROMPT_INJECTION\, \EXECUTION_TIMEOUT\). Testes automatizados dever√£o ser atualizados para validar o \error_code\.

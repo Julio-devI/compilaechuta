@@ -44,6 +44,7 @@ class AgentResponse:
     error: bool
     out_of_scope: bool
     truncated: bool = False
+    error_code: str | None = None
 
 
 class VCommerceAgent:
@@ -205,7 +206,7 @@ class VCommerceAgent:
             validate_empty_input(question)
             validate_input_length(question)
             validate_prompt_injection(question)
-        except GuardrailError:
+        except GuardrailError as exc:
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
                 data=None,
@@ -214,6 +215,7 @@ class VCommerceAgent:
                 error=True,
                 out_of_scope=False,
                 truncated=False,
+                error_code=exc.error_code,
             )
 
         # Etapa 1: carregar schema
@@ -277,6 +279,7 @@ class VCommerceAgent:
                         error=True,
                         out_of_scope=False,
                         truncated=False,
+                        error_code=exc.error_code,
                     )
                 sql = await generate_sql_correction(
                     question=question,
@@ -291,7 +294,8 @@ class VCommerceAgent:
         # Etapa 4: executar SQL
         try:
             rows, truncated = await self._db.execute_query(sql)
-        except (RuntimeError, TimeoutError):
+        except (RuntimeError, TimeoutError) as exc:
+            err_code = "EXECUTION_TIMEOUT" if isinstance(exc, TimeoutError) else "DB_EXECUTION_ERROR"
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
                 data=None,
@@ -300,6 +304,7 @@ class VCommerceAgent:
                 error=True,
                 out_of_scope=False,
                 truncated=False,
+                error_code=err_code,
             )
 
         # Etapa 5: gerar insight

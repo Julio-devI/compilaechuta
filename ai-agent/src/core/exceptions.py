@@ -80,8 +80,9 @@ class GuardrailError(RuntimeError):
     (logs, prompt de autocorreção). Nunca deve ser exposta ao usuário final.
     """
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, error_code: str = "UNKNOWN_GUARDRAIL") -> None:
         super().__init__(message)
+        self.error_code = error_code
 
 
 def is_rate_limit_per_minute_from_body(body: str) -> bool:

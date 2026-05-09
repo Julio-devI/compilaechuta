@@ -104,6 +104,25 @@ python tests/integration/smoke_test_memory.py
 | `DB_PATH` | Caminho para o banco SQLite do backend |
 | `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2 (padrão: 0.3) |
 
+## Guardrails e Códigos de Erro
+
+Para garantir o "Error Opacity" no frontend, todas as violações de segurança retornam a mesma mensagem amigável para o usuário final: *"Não foi possível processar sua pergunta. Tente reformulá-la."* 
+
+No entanto, o agente repassa um `error_code` silencioso no `AgentResponse` (acessível apenas pelo backend) permitindo auditoria, logs e ações preventivas (como timeout de usuários infratores).
+
+| Camada | Função Interna | Error Code (`AgentResponse.error_code`) | Descrição |
+| :--- | :--- | :--- | :--- |
+| **1 (Input)** | `validate_empty_input` | `EMPTY_INPUT` | Input nulo ou somente espaços em branco. |
+| **1 (Input)** | `validate_input_length` | `INPUT_TOO_LONG` | Excedeu `MAX_INPUT_CHARS`. |
+| **1 (Input)** | `validate_prompt_injection`| `PROMPT_INJECTION` | Regex barrou ataque de persona ou exfiltração. |
+| **2 (SQL)** | `validate_destructive_queries`| `DESTRUCTIVE_QUERY` | AST barrou instrução não-SELECT. |
+| **2 (SQL)** | `validate_multiple_statements`| `MULTIPLE_STATEMENTS` | Múltiplos statements injetados (`;`). |
+| **2 (SQL)** | `validate_table_column_allowlist`| `SCHEMA_VIOLATION_ALLOWLIST`| Uso de tabela/coluna inexistente no schema. |
+| **2 (SQL)** | `validate_semantic_schema` | `SCHEMA_VIOLATION_SEMANTIC` | Coluna não pertence à tabela no JOIN/FROM. |
+| **2 (SQL)** | `sqlglot.parse_one` | `SQL_PARSE_ERROR` | LLM alucinou sintaxe irrecuperável. |
+| **3 (DB)** | `Database.execute_query` | `EXECUTION_TIMEOUT` | Query demorou acima de `QUERY_TIMEOUT_SECONDS`. |
+| **3 (DB)** | `Database.execute_query` | `DB_EXECUTION_ERROR` | Banco bloqueou (ex: modo read-only ou erro interno). |
+
 ## Limitações Conhecidas
 
 - O agente depende do schema do banco Gold estar atualizado.

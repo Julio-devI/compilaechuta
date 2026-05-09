@@ -25,8 +25,20 @@ import asyncio
 from src.agent import VCommerceAgent
 
 agent = VCommerceAgent(db_path='../backend/data/vcommerce.db')
-response = asyncio.run(agent.ask('Quais os 10 produtos mais vendidos?'))
-print(response.text)
+
+# O agente lembra automaticamente do contexto (stateful)
+resp1 = asyncio.run(agent.ask('Quais os 10 produtos mais vendidos?'))
+resp2 = asyncio.run(agent.ask('E apenas na região Sul?'))  # Pergunta de follow-up
+print(resp2.text)
+
+# Persistência de sessão (opcional para o backend)
+history = agent.export_history()  # Retorna list[dict] serializável
+# ... salva em Redis/Banco de dados ...
+# ... restaura em uma nova requisição ...
+agent.import_history(history)
+
+# Inicia nova conversa
+agent.clear_history()
 ```
 
 ## Estrutura
@@ -90,7 +102,7 @@ python tests/smoke_test.py
 ## Limitações Conhecidas
 
 - O agente depende do schema do banco Gold estar atualizado.
-- Memória de conversa é mantida em memória (não persistente).
+- A memória de conversa é mantida no estado da instância do agente. Para persistência entre requisições HTTP, o backend deve serializar os dados via `export_history()` e restaurá-los com `import_history()`.
 - Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
 - A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional — o escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.

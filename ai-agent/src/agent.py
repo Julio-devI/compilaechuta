@@ -84,11 +84,85 @@ class VCommerceAgent:
         self._llm_model = llm_model
         self._schema_text: str | None = None
         self._technical_schema: dict[str, Any] | None = None
+        self._history: list[dict[str, str | None]] = []
 
     def invalidate_schema(self) -> None:
         """Limpa o cache do schema, forçando recarregamento na próxima consulta."""
         self._schema_text = None
         self._technical_schema = None
+
+    def clear_history(self) -> None:
+        """Limpa o histórico de conversa, iniciando uma nova sessão."""
+        self._history = []
+
+    def export_history(self) -> list[dict[str, str | None]]:
+        """
+        Exporta o histórico atual em formato serializável (JSON-compatível).
+
+        Retorna lista de dicts com campos:
+            - role: 'user' | 'assistant'
+            - content: texto da mensagem (pergunta ou insight)
+            - sql: SQL gerado (apenas para role='assistant', None para 'user')
+
+        O backend pode serializar com json.dumps() e armazenar onde desejar.
+        """
+        return [entry.copy() for entry in self._history]
+
+    def import_history(self, history: list[dict[str, str | None]]) -> None:
+        """
+        Restaura o histórico a partir de um snapshot exportado.
+
+        Valida o formato de cada entrada e aplica truncamento
+        automático a MAX_HISTORY_TURNS turnos.
+
+        Args:
+            history: Lista de dicts no formato retornado por export_history().
+
+        Raises:
+            ValueError: Se o formato do histórico for inválido.
+        """
+        if not isinstance(history, list):
+            raise ValueError("O histórico deve ser uma lista de dicionários.")
+
+        valid_roles = {"user", "assistant"}
+        for entry in history:
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    "Cada entrada do histórico deve ser um dicionário."
+                )
+            role = entry.get("role")
+            if role not in valid_roles:
+                raise ValueError(
+                    f"Campo 'role' inválido: '{role}'. "
+                    f"Valores permitidos: {valid_roles}"
+                )
+            content = entry.get("content")
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError(
+                    "Cada entrada deve ter um campo 'content' com texto não vazio."
+                )
+
+        max_entries = config.MAX_HISTORY_TURNS * 2
+        self._history = [
+            entry.copy() for entry in history[-max_entries:]
+        ]
+
+    def _append_to_history(
+        self, question: str, response: "AgentResponse"
+    ) -> None:
+        """Adiciona a interação ao histórico e aplica truncamento."""
+        self._history.append(
+            {"role": "user", "content": question, "sql": None}
+        )
+        self._history.append({
+            "role": "assistant",
+            "content": response.text,
+            "sql": response.sql,
+        })
+        # Truncar ao limite
+        max_entries = config.MAX_HISTORY_TURNS * 2
+        if len(self._history) > max_entries:
+            self._history = self._history[-max_entries:]
 
     async def _load_schema(self) -> tuple[str, dict[str, Any]]:
         """Carrega e formata o schema do banco (lazy caching)."""
@@ -158,7 +232,9 @@ class VCommerceAgent:
 
         # Etapa 2: gerar SQL
         try:
-            sql = await generate_sql(question, schema, model=self._llm_model)
+            sql = await generate_sql(
+                question, schema, history=self._history, model=self._llm_model
+            )
         except ValueError:
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
@@ -207,6 +283,7 @@ class VCommerceAgent:
                     sql=sql,
                     error=str(exc),
                     schema=schema,
+                    history=self._history,
                     model=self._llm_model,
                 )
                 await asyncio.sleep(1 * (2 ** attempt))
@@ -226,7 +303,9 @@ class VCommerceAgent:
             )
 
         # Etapa 5: gerar insight
-        insight = await generate_insight(question, rows, sql, model=self._llm_model)
+        insight = await generate_insight(
+            question, rows, sql, history=self._history, model=self._llm_model
+        )
 
         # Etapa 6: montar resposta
         chart = None
@@ -242,7 +321,7 @@ class VCommerceAgent:
             except (TypeError, KeyError):
                 chart = None
 
-        return AgentResponse(
+        response = AgentResponse(
             text=insight["text"],
             data=insight.get("data"),
             chart=chart,
@@ -252,6 +331,11 @@ class VCommerceAgent:
             truncated=truncated,
         )
 
+        # Armazena no histórico apenas interações bem-sucedidas
+        self._append_to_history(question, response)
+
+        return response
+
     def initial_suggestions(self) -> list[str]:
         """
         Retorna uma lista fixa de sugestões iniciais de perguntas.
@@ -260,9 +344,9 @@ class VCommerceAgent:
         mais dimensões de cliente e produto.
         """
         return [
-            "Quais os 10 produtos mais vendidos no último mês?",
-            "Qual a receita total por região neste trimestre?",
-            "Quais produtos geram mais tickets de suporte?",
-            "Qual o NPS médio por categoria de produto?",
-            "Qual o tempo médio de resolução de tickets por agente?",
+            "Quais foram os 10 produtos mais vendidos este mês?",
+            "Qual a receita total por região?",
+            "Quais clientes têm mais tickets de suporte abertos?",
+            "Qual o ticket médio por categoria de produto?",
+            "Quais produtos têm a melhor avaliação dos clientes?",
         ]

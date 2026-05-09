@@ -18,7 +18,9 @@ from src.llm_client import LLMAgent
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "insight_system.txt"
 
 
-def _load_system_prompt(question: str, data: list[dict[str, Any]], sql: str) -> str:
+def _load_system_prompt(
+    question: str, data: list[dict[str, Any]], sql: str, history_text: str = ""
+) -> str:
     """Carrega o template do system prompt e injeta as variáveis de contexto."""
     if not _PROMPT_PATH.exists():
         raise FileNotFoundError(f"Prompt não encontrado: {_PROMPT_PATH}")
@@ -29,6 +31,7 @@ def _load_system_prompt(question: str, data: list[dict[str, Any]], sql: str) -> 
         "{question}": question,
         "{sql}": sql,
         "{data}": json.dumps(data, ensure_ascii=False, indent=2),
+        "{history}": history_text,
     }
     pattern = re.compile("|".join(re.escape(k) for k in replacements))
     template = pattern.sub(lambda m: replacements[m.group(0)], template)
@@ -120,10 +123,36 @@ _MAX_ROWS_FOR_INSIGHT_PROMPT = 100
 """Número máximo de linhas enviadas ao prompt da Chamada 2 para evitar estouro de context window."""
 
 
+def format_history_for_insight(history: list[dict[str, str | None]] | None) -> str:
+    """Formata o histórico de conversa para injeção no prompt da Chamada 2."""
+    if not history:
+        return ""
+
+    lines = ["## Histórico da Conversa\n"]
+    turn = 0
+    for i in range(0, len(history), 2):
+        if i + 1 >= len(history):
+            break
+        turn += 1
+        user_msg = history[i]
+        assistant_msg = history[i + 1]
+        lines.append(f"Interação {turn}:")
+        lines.append(f"Pergunta: {user_msg['content']}")
+        lines.append(f"Resposta: {assistant_msg['content']}")
+        lines.append("")
+
+    lines.append(
+        "Mantenha coerência com as respostas anteriores. "
+        "Não repita informações já fornecidas, a menos que o usuário peça.\n"
+    )
+    return "\n".join(lines)
+
+
 async def generate_insight(
     question: str,
     data: list[dict[str, Any]],
     sql: str,
+    history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -149,7 +178,10 @@ async def generate_insight(
 
     # Trunca dados para o prompt a fim de preservar context window (P4)
     data_for_prompt = data[:_MAX_ROWS_FOR_INSIGHT_PROMPT]
-    system_prompt = _load_system_prompt(question, data_for_prompt, sql)
+    history_text = format_history_for_insight(history)
+    system_prompt = _load_system_prompt(
+        question, data_for_prompt, sql, history_text=history_text
+    )
 
     agent = LLMAgent(
         system_prompt=system_prompt,

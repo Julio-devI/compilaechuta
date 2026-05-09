@@ -16,12 +16,12 @@ _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_system.txt"
 _CORRECTION_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_correction_system.txt"
 
 
-def _load_system_prompt(schema: str) -> str:
-    """Carrega o template do system prompt e injeta o schema dinâmico."""
+def _load_system_prompt(schema: str, history_text: str = "") -> str:
+    """Carrega o template do system prompt e injeta o schema dinâmico e o histórico."""
     if not _PROMPT_PATH.exists():
         raise FileNotFoundError(f"Prompt não encontrado: {_PROMPT_PATH}")
     template = _PROMPT_PATH.read_text(encoding="utf-8")
-    replacements = {"{schema}": schema}
+    replacements = {"{schema}": schema, "{history}": history_text}
     pattern = re.compile("|".join(re.escape(k) for k in replacements))
     return pattern.sub(lambda m: replacements[m.group(0)], template)
 
@@ -97,8 +97,37 @@ def _validate_sql_response(raw: str) -> None:
         ) from exc
 
 
+def format_history_for_sql(history: list[dict[str, str | None]] | None) -> str:
+    """Formata o histórico de conversa para injeção no prompt da Chamada 1."""
+    if not history:
+        return ""
+
+    lines = ["## Histórico da Conversa\n"]
+    turn = 0
+    for i in range(0, len(history), 2):
+        if i + 1 >= len(history):
+            break
+        turn += 1
+        user_msg = history[i]
+        assistant_msg = history[i + 1]
+        lines.append(f"Interação {turn}:")
+        lines.append(f"Pergunta: {user_msg['content']}")
+        if assistant_msg.get("sql"):
+            lines.append(f"SQL gerado: {assistant_msg['sql']}")
+        lines.append("")
+
+    lines.append(
+        "Considere o histórico acima ao gerar o SQL para a pergunta atual. "
+        "Resolva pronomes e referências implícitas com base nas interações anteriores.\n"
+    )
+    return "\n".join(lines)
+
+
 async def generate_sql(
-    question: str, schema: str, model: str | None = None
+    question: str,
+    schema: str,
+    history: list[dict[str, str | None]] | None = None,
+    model: str | None = None,
 ) -> str:
     """
     Gera uma query SQL a partir de uma pergunta em linguagem natural.
@@ -116,7 +145,8 @@ async def generate_sql(
         ValueError: Se o SQL gerado não passar na validação sintática.
         RuntimeError: Se a chamada ao LLM falhar.
     """
-    system_prompt = _load_system_prompt(schema)
+    history_text = format_history_for_sql(history)
+    system_prompt = _load_system_prompt(schema, history_text=history_text)
 
     agent = LLMAgent(
         system_prompt=system_prompt,
@@ -137,14 +167,21 @@ async def generate_sql(
     return sql
 
 
-def _load_correction_prompt(schema: str, sql: str, error: str) -> str:
+def _load_correction_prompt(
+    schema: str, sql: str, error: str, history_text: str = ""
+) -> str:
     """Carrega o template do prompt de correção e injeta variáveis."""
     if not _CORRECTION_PROMPT_PATH.exists():
         raise FileNotFoundError(
             f"Prompt de correcao nao encontrado: {_CORRECTION_PROMPT_PATH}"
         )
     template = _CORRECTION_PROMPT_PATH.read_text(encoding="utf-8")
-    replacements = {"{schema}": schema, "{sql}": sql, "{error}": error}
+    replacements = {
+        "{schema}": schema,
+        "{sql}": sql,
+        "{error}": error,
+        "{history}": history_text,
+    }
     pattern = re.compile("|".join(re.escape(k) for k in replacements))
     return pattern.sub(lambda m: replacements[m.group(0)], template)
 
@@ -154,6 +191,7 @@ async def generate_sql_correction(
     sql: str,
     error: str,
     schema: str,
+    history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
 ) -> str:
     """
@@ -173,7 +211,8 @@ async def generate_sql_correction(
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
         LLMError: Se a chamada ao LLM falhar.
     """
-    system_prompt = _load_correction_prompt(schema, sql, error)
+    history_text = format_history_for_sql(history)
+    system_prompt = _load_correction_prompt(schema, sql, error, history_text=history_text)
 
     agent = LLMAgent(
         system_prompt=system_prompt,

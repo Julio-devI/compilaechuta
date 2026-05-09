@@ -6,6 +6,8 @@ Um SQL gerado anteriormente falhou na validação de segurança ou de schema. Co
 ## Schema do Banco
 {schema}
 
+{history}
+
 ## SQL Problemático
 ```sql
 {sql}

@@ -58,7 +58,7 @@ ORDER BY (receita_mes_atual - receita_mes_anterior) DESC;
 Pergunta: "Quais produtos geram mais tickets de suporte?"
 ```sql
 SELECT p.nome_produto AS produto, COUNT(s.id_ticket) AS total_tickets
-FROM fato_suporte_tickets s
+FROM fato_suporte_ticket s
 JOIN dim_produto p ON s.id_produto = p.id_produto
 GROUP BY p.nome_produto
 ORDER BY total_tickets DESC

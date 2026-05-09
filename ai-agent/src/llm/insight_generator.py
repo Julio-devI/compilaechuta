@@ -12,8 +12,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src import config
-from src.llm_client import LLMAgent
+from src.core import config
+from src.llm.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "insight_system.txt"
 

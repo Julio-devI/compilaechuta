@@ -7,17 +7,17 @@ e exclusão de tabelas sensíveis.
 
 import pytest
 
-from src.schema import build_allowlist, format_schema
+from src.database.schema import build_allowlist, format_schema
 
 
 @pytest.fixture
 def sample_technical_schema() -> dict:
     return {
         "tables": {
-            "clientes": {
+            "dim_cliente": {
                 "columns": [
                     {"name": "id", "type": "INTEGER", "notnull": 1, "dflt_value": None, "pk": 1},
-                    {"name": "nome", "type": "TEXT", "notnull": 1, "dflt_value": None, "pk": 0},
+                    {"name": "nome_cliente", "type": "TEXT", "notnull": 1, "dflt_value": None, "pk": 0},
                 ],
                 "primary_keys": ["id"],
                 "foreign_keys": [],
@@ -38,10 +38,10 @@ def sample_technical_schema() -> dict:
 def sample_descriptions() -> dict:
     return {
         "tables": {
-            "clientes": {
-                "description": "Tabela de clientes da V-Commerce",
+            "dim_cliente": {
+                "description": "Tabela de dim_cliente da V-Commerce",
                 "columns": {
-                    "nome": {"description": "Nome completo do cliente", "examples": ["João Silva"]},
+                    "nome_cliente": {"description": "Nome completo do cliente", "examples": ["João Silva"]},
                 },
             },
             "usuarios": {
@@ -56,20 +56,20 @@ def sample_descriptions() -> dict:
 
 def test_build_allowlist_includes_all_tables_by_default(sample_technical_schema):
     result = build_allowlist(sample_technical_schema)
-    assert set(result.keys()) == {"clientes", "usuarios"}
-    assert result["clientes"] == {"id", "nome"}
+    assert set(result.keys()) == {"dim_cliente", "usuarios"}
+    assert result["dim_cliente"] == {"id", "nome_cliente"}
     assert result["usuarios"] == {"id", "senha"}
 
 
 def test_build_allowlist_excludes_tables(sample_technical_schema):
     result = build_allowlist(sample_technical_schema, excluded_tables={"usuarios"})
-    assert set(result.keys()) == {"clientes"}
+    assert set(result.keys()) == {"dim_cliente"}
     assert "usuarios" not in result
 
 
 def test_format_schema_includes_all_tables_by_default(sample_technical_schema, sample_descriptions):
     text = format_schema(sample_technical_schema, sample_descriptions)
-    assert "CREATE TABLE clientes" in text
+    assert "CREATE TABLE dim_cliente" in text
     assert "CREATE TABLE usuarios" in text
     assert "senha" in text
 
@@ -80,14 +80,14 @@ def test_format_schema_excludes_tables(sample_technical_schema, sample_descripti
         sample_descriptions,
         excluded_tables={"usuarios"},
     )
-    assert "CREATE TABLE clientes" in text
+    assert "CREATE TABLE dim_cliente" in text
     assert "CREATE TABLE usuarios" not in text
     assert "senha" not in text
 
 
 def test_format_schema_omits_missing_descriptions(sample_technical_schema):
     text = format_schema(sample_technical_schema, {"tables": {}})
-    assert "CREATE TABLE clientes" in text
+    assert "CREATE TABLE dim_cliente" in text
     assert "CREATE TABLE usuarios" in text
     # Sem descrições, não há metadados extras
     assert "Descrição:" not in text

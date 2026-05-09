@@ -6,9 +6,9 @@ Cobre funcionalidades stateful, truncamento, export/import e formatação de his
 import pytest
 
 from src.agent import VCommerceAgent, AgentResponse
-from src import config
-from src.sql_generator import format_history_for_sql
-from src.insight_generator import format_history_for_insight
+from src.core import config
+from src.llm.sql_generator import format_history_for_sql
+from src.llm.insight_generator import format_history_for_insight
 
 
 # ---------------------------------------------------------------------------

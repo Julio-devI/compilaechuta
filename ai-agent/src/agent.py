@@ -9,18 +9,18 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from src import config
-from src.db import Database
-from src.exceptions import GuardrailError, LLMError
-from src.guardrails import (
+from src.core import config
+from src.database.db import Database
+from src.core.exceptions import GuardrailError, LLMError
+from src.security.guardrails import (
     apply_layer_2,
     validate_empty_input,
     validate_input_length,
     validate_prompt_injection,
 )
-from src.insight_generator import generate_insight
-from src.schema import build_allowlist, format_schema, load_descriptions
-from src.sql_generator import generate_sql, generate_sql_correction
+from src.llm.insight_generator import generate_insight
+from src.database.schema import build_allowlist, format_schema, load_descriptions
+from src.llm.sql_generator import generate_sql, generate_sql_correction
 
 
 @dataclass

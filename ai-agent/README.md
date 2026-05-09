@@ -79,7 +79,7 @@ python tests/smoke_test.py
 
 ### O que o script faz
 
-1. **Cria um banco SQLite temporário** com 5 tabelas (`clientes`, `produtos`, `pedidos`, `tickets_suporte`, `avaliacoes`) e dados sintéticos mínimos para os 3 domínios.
+1. **Cria um banco SQLite temporário** com as tabelas principais (`dim_cliente`, `dim_produto`, `fato_vendas`, `fato_suporte_ticket`, `fato_avaliacoes_pedido`, `dim_tempo`) e dados sintéticos mínimos para os domínios.
 2. **Instancia `VCommerceAgent`** apontando para esse banco.
 3. **Executa 5 perguntas em lotes de 2**, com intervalo de 75 segundos entre lotes para respeitar o rate limit do free tier da Gemini:
    - **Vendas:** Receita por região, ticket médio

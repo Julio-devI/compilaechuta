@@ -12,13 +12,16 @@ from typing import Any
 
 import aiosqlite
 
-from src import config
-
 
 class Database:
     """Conexão assíncrona com o banco SQLite para execução de queries de leitura."""
 
-    def __init__(self, db_path: str | None) -> None:
+    def __init__(
+        self,
+        db_path: str | None,
+        max_rows: int = 1000,
+        query_timeout_seconds: int = 10,
+    ) -> None:
         """
         Inicializa a conexão com o caminho do banco.
 
@@ -27,8 +30,12 @@ class Database:
                      Se vazio ou None, a conexão será tratada como não configurada
                      e uma mensagem amigável será retornada na primeira tentativa
                      de uso, sem interromper a aplicação.
+            max_rows: Número máximo de linhas retornadas por query.
+            query_timeout_seconds: Timeout em segundos para execução de queries.
         """
         self._db_path = db_path.strip() if db_path else None
+        self._max_rows = max_rows
+        self._query_timeout_seconds = query_timeout_seconds
 
     def _get_connection_uri(self) -> str:
         """Monta a URI de conexão com read-only para arquivos em disco."""
@@ -62,20 +69,20 @@ class Database:
             async with aiosqlite.connect(self._get_connection_uri(), uri=True) as conn:
                 conn.row_factory = aiosqlite.Row
                 cursor = await conn.execute(sql)
-                rows = await cursor.fetchmany(config.MAX_ROWS + 1)
-                truncated = len(rows) > config.MAX_ROWS
+                rows = await cursor.fetchmany(self._max_rows + 1)
+                truncated = len(rows) > self._max_rows
                 if truncated:
-                    rows = rows[: config.MAX_ROWS]
+                    rows = rows[: self._max_rows]
                 result = [dict(row) for row in rows]
                 return result, truncated
 
         try:
             return await asyncio.wait_for(
-                _run(), timeout=config.QUERY_TIMEOUT_SECONDS
+                _run(), timeout=self._query_timeout_seconds
             )
         except asyncio.TimeoutError as exc:
             raise TimeoutError(
-                f"A consulta excedeu o limite de {config.QUERY_TIMEOUT_SECONDS} segundos. "
+                f"A consulta excedeu o limite de {self._query_timeout_seconds} segundos. "
                 "Tente simplificar a pergunta ou adicionar filtros mais específicos."
             ) from exc
         except sqlite3.OperationalError as exc:

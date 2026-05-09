@@ -121,7 +121,10 @@ _MAX_ROWS_FOR_INSIGHT_PROMPT = 100
 
 
 async def generate_insight(
-    question: str, data: list[dict[str, Any]], sql: str
+    question: str,
+    data: list[dict[str, Any]],
+    sql: str,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """
     Gera um insight estruturado a partir dos dados de uma consulta SQL.
@@ -130,6 +133,7 @@ async def generate_insight(
         question: Pergunta original do usuário em português.
         data: Lista de dicionários retornada pelo banco (pode ser vazia).
         sql: Query SQL que gerou os dados (para contexto no prompt).
+        model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
         Dicionário com estrutura {"text": str, "data": list[dict] | None, "chart": dict | None}.
@@ -138,13 +142,8 @@ async def generate_insight(
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
         LLMError: Se a chamada ao LLM falhar.
     """
-    # Edge case: dados vazios
-    if not data:
-        return {
-            "text": "Não foram encontrados resultados para essa consulta.",
-            "data": None,
-            "chart": None,
-        }
+    # Edge case: dados vazios — deixa o LLM contextualizar no prompt
+    is_empty = not data
 
     is_scalar = len(data) == 1 and len(data[0]) == 1
 
@@ -156,13 +155,18 @@ async def generate_insight(
         system_prompt=system_prompt,
         temperature=config.LLM_TEMPERATURE_INSIGHT,
         max_tokens=config.MAX_TOKENS_INSIGHT,
+        model=model,
     )
 
     raw_output = await agent.run(question)
 
     insight = _parse_json(raw_output)
 
-    if is_scalar:
+    if is_empty:
+        # Quando não há dados, força data/chart como None e preserva o texto do LLM
+        insight["data"] = None
+        insight["chart"] = None
+    elif is_scalar:
         insight["data"] = None
         insight["chart"] = None
     else:

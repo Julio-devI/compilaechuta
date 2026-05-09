@@ -39,11 +39,16 @@ def load_descriptions() -> dict[str, Any]:
         ) from exc
 
 
-def format_schema(technical_schema: dict[str, Any], descriptions: dict[str, Any]) -> str:
+def format_schema(
+    technical_schema: dict[str, Any],
+    descriptions: dict[str, Any],
+    excluded_tables: set[str] | None = None,
+) -> str:
     """
     Combina schema técnico + metadados de negócio em um texto formatado.
 
-    Para cada tabela presente no banco, o texto inclui:
+    Para cada tabela presente no banco (exceto as em `excluded_tables`),
+    o texto inclui:
     - O CREATE TABLE statement reconstruído a partir do schema técnico.
     - A descrição da tabela (quando disponível no JSON).
     - Para cada coluna: tipo, descrição e exemplos de valores.
@@ -54,16 +59,20 @@ def format_schema(technical_schema: dict[str, Any], descriptions: dict[str, Any]
     Args:
         technical_schema: Saída de `Database.get_technical_schema()`.
         descriptions: Saída de `load_descriptions()`.
+        excluded_tables: Conjunto de nomes de tabelas a omitir do texto.
 
     Returns:
         Texto único pronto para ser injetado no system prompt do LLM.
     """
+    excluded = excluded_tables or set()
     tables_meta = descriptions.get("tables", {})
     output_lines: list[str] = []
     output_lines.append("## Schema do Banco de Dados")
     output_lines.append("")
 
     for table_name, table_info in technical_schema.get("tables", {}).items():
+        if table_name in excluded:
+            continue
         cols = table_info.get("columns", [])
         fks = table_info.get("foreign_keys", [])
         meta = tables_meta.get(table_name, {})
@@ -75,7 +84,11 @@ def format_schema(technical_schema: dict[str, Any], descriptions: dict[str, Any]
             col_name = col["name"]
             col_type = col["type"]
             not_null = " NOT NULL" if col.get("notnull") else ""
-            default = f" DEFAULT {col['dflt_value']}" if col.get("dflt_value") is not None else ""
+            if col.get("dflt_value") is not None:
+                val = col["dflt_value"]
+                default = f" DEFAULT {val}"  # SQLite já retorna com aspas para strings
+            else:
+                default = ""
             pk_marker = " PRIMARY KEY" if col.get("pk") else ""
             col_defs.append(f"    {col_name} {col_type}{not_null}{default}{pk_marker}")
 
@@ -112,3 +125,27 @@ def format_schema(technical_schema: dict[str, Any], descriptions: dict[str, Any]
         output_lines.append("")
 
     return "\n".join(output_lines)
+
+
+def build_allowlist(
+    technical_schema: dict[str, Any], excluded_tables: set[str] | None = None
+) -> dict[str, set[str]]:
+    """
+    Constrói o allowlist de tabelas e colunas a partir do schema técnico em memória.
+
+    Args:
+        technical_schema: Saída de Database.get_technical_schema().
+        excluded_tables: Conjunto opcional de nomes de tabelas a serem omitidas
+            do allowlist (ex.: tabelas sensíveis como usuários, auditoria).
+
+    Returns:
+        Dicionário mapeando nome da tabela para um conjunto de nomes de colunas.
+    """
+    excluded = excluded_tables or set()
+    allowlist: dict[str, set[str]] = {}
+    for table_name, table_info in technical_schema.get("tables", {}).items():
+        if table_name in excluded:
+            continue
+        columns = {col["name"] for col in table_info.get("columns", [])}
+        allowlist[table_name] = columns
+    return allowlist

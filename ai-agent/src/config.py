@@ -22,14 +22,14 @@ DB_PATH: str = os.getenv("DB_PATH", "")
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 """Chave de API para acesso ao modelo Google Gemini."""
 
-LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-2.5-flash")
-"""Identificador do modelo LLM utilizado nas chamadas ao Gemini."""
+LLM_MODEL: str = "gemini-2.5-flash"
+"""Identificador padrão do modelo LLM utilizado nas chamadas ao Gemini."""
 
 LLM_TEMPERATURE_INSIGHT: float = float(os.getenv("LLM_TEMPERATURE_INSIGHT", "0.3"))
 """Temperatura moderada (0.3) para geração de insights na Chamada 2."""
 
-QUERY_TIMEOUT_SECONDS: int = int(os.getenv("QUERY_TIMEOUT_SECONDS", "10"))
-"""Timeout em segundos para execução de queries no banco de dados."""
+QUERY_TIMEOUT_SECONDS: int = 10
+"""Timeout padrão em segundos para execução de queries no banco de dados."""
 
 MAX_TOKENS_SQL: int = 1024
 """Limite de tokens para a Chamada 1 (geração de SQL)."""
@@ -37,8 +37,14 @@ MAX_TOKENS_SQL: int = 1024
 MAX_TOKENS_INSIGHT: int = 4096
 """Limite de tokens para a Chamada 2 (geração de insight)."""
 
-MAX_ROWS: int = int(os.getenv("MAX_ROWS", "1000"))
+MAX_ROWS: int = 1000
 """Número máximo de linhas retornadas por query para evitar sobrecarga."""
+
+MAX_INPUT_CHARS: int = 500
+"""Limite de caracteres para a pergunta do usuário (pré-LLM)."""
+
+OUT_OF_SCOPE_MARKER: str = "FORA_DO_ESCOPO"
+"""Marcador textual retornado pelo LLM quando a pergunta está fora do escopo do domínio."""
 
 
 def _validate() -> None:

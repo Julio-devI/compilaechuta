@@ -5,14 +5,22 @@ Orquestra as duas chamadas ao LLM (geração de SQL e geração de insight)
 e expõe a interface consumida pelo backend FastAPI.
 """
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from src import config
 from src.db import Database
-from src.exceptions import LLMError
+from src.exceptions import GuardrailError, LLMError
+from src.guardrails import (
+    apply_layer_2,
+    validate_empty_input,
+    validate_input_length,
+    validate_prompt_injection,
+)
 from src.insight_generator import generate_insight
-from src.schema import format_schema, load_descriptions
-from src.sql_generator import generate_sql
+from src.schema import build_allowlist, format_schema, load_descriptions
+from src.sql_generator import generate_sql, generate_sql_correction
 
 
 @dataclass
@@ -41,29 +49,59 @@ class AgentResponse:
 class VCommerceAgent:
     """Agente Text-to-SQL para o domínio V-Commerce."""
 
-    def __init__(self, db_path: str) -> None:
+    _MAX_LAYER2_RETRIES: int = 3
+    _GENERIC_ERROR_MSG: str = (
+        "Não foi possível processar sua pergunta. Tente reformulá-la."
+    )
+
+    def __init__(
+        self,
+        db_path: str,
+        excluded_tables: set[str] | None = None,
+        max_rows: int = config.MAX_ROWS,
+        query_timeout_seconds: int = config.QUERY_TIMEOUT_SECONDS,
+        llm_model: str = config.LLM_MODEL,
+    ) -> None:
         """
         Inicializa o agente com o caminho do banco de dados.
 
         Args:
             db_path: Caminho absoluto ou relativo para o arquivo SQLite.
+            excluded_tables: Conjunto de nomes de tabelas a omitir do schema
+                enviado ao LLM e do allowlist dos guardrails. Controlado
+                pelo backend.
+            max_rows: Número máximo de linhas retornadas por query.
+            query_timeout_seconds: Timeout em segundos para execução de queries.
+            llm_model: Identificador do modelo Gemini a ser usado.
         """
-        self._db = Database(db_path)
+        self._db = Database(
+            db_path,
+            max_rows=max_rows,
+            query_timeout_seconds=query_timeout_seconds,
+        )
+        self._max_rows = max_rows
+        self._excluded_tables: set[str] = excluded_tables or set()
+        self._llm_model = llm_model
         self._schema_text: str | None = None
+        self._technical_schema: dict[str, Any] | None = None
 
     def invalidate_schema(self) -> None:
         """Limpa o cache do schema, forçando recarregamento na próxima consulta."""
         self._schema_text = None
+        self._technical_schema = None
 
-    async def _load_schema(self) -> str:
+    async def _load_schema(self) -> tuple[str, dict[str, Any]]:
         """Carrega e formata o schema do banco (lazy caching)."""
-        if self._schema_text is not None:
-            return self._schema_text
+        if self._schema_text is not None and self._technical_schema is not None:
+            return self._schema_text, self._technical_schema
 
         descriptions = load_descriptions()
         technical_schema = await self._db.get_technical_schema()
-        self._schema_text = format_schema(technical_schema, descriptions)
-        return self._schema_text
+        self._technical_schema = technical_schema
+        self._schema_text = format_schema(
+            technical_schema, descriptions, excluded_tables=self._excluded_tables
+        )
+        return self._schema_text, self._technical_schema
 
     async def ask(self, question: str) -> AgentResponse:
         """
@@ -88,12 +126,28 @@ class VCommerceAgent:
         """
         sql = ""
 
+        # Camada 1: validação do input do usuário (pré-LLM)
+        try:
+            validate_empty_input(question)
+            validate_input_length(question)
+            validate_prompt_injection(question)
+        except GuardrailError:
+            return AgentResponse(
+                text=self._GENERIC_ERROR_MSG,
+                data=None,
+                chart=None,
+                sql="",
+                error=True,
+                out_of_scope=False,
+                truncated=False,
+            )
+
         # Etapa 1: carregar schema
         try:
-            schema = await self._load_schema()
-        except (FileNotFoundError, RuntimeError) as exc:
+            schema, technical_schema = await self._load_schema()
+        except (FileNotFoundError, RuntimeError):
             return AgentResponse(
-                text=f"Erro ao carregar o schema do banco: {exc}",
+                text=self._GENERIC_ERROR_MSG,
                 data=None,
                 chart=None,
                 sql="",
@@ -104,10 +158,10 @@ class VCommerceAgent:
 
         # Etapa 2: gerar SQL
         try:
-            sql = await generate_sql(question, schema)
-        except ValueError as exc:
+            sql = await generate_sql(question, schema, model=self._llm_model)
+        except ValueError:
             return AgentResponse(
-                text=f"O SQL gerado não passou na validação de segurança: {exc}",
+                text=self._GENERIC_ERROR_MSG,
                 data=None,
                 chart=None,
                 sql=sql,
@@ -115,10 +169,10 @@ class VCommerceAgent:
                 out_of_scope=False,
                 truncated=False,
             )
-        # Nota: LLMError propaga diretamente para o backend tratar
 
-        # Etapa 3: detectar fora do escopo
-        if sql.strip().upper().startswith("FORA_DO_ESCOPO"):
+        # Etapa 2.5: detectar fora do escopo antes da Camada 2
+        # O marcador nao e SQL valido; aplicar guardrails causaria erro de parse
+        if sql.strip().upper().startswith(config.OUT_OF_SCOPE_MARKER):
             return AgentResponse(
                 text=sql,
                 data=None,
@@ -129,12 +183,40 @@ class VCommerceAgent:
                 truncated=False,
             )
 
+        # Etapa 3: aplicar Camada 2 com loop de autocorreção
+        allowlist = build_allowlist(
+            technical_schema, excluded_tables=self._excluded_tables
+        )
+        for attempt in range(self._MAX_LAYER2_RETRIES):
+            try:
+                sql = apply_layer_2(sql, allowlist, self._max_rows)
+                break
+            except GuardrailError as exc:
+                if attempt == self._MAX_LAYER2_RETRIES - 1:
+                    return AgentResponse(
+                        text=self._GENERIC_ERROR_MSG,
+                        data=None,
+                        chart=None,
+                        sql=sql,
+                        error=True,
+                        out_of_scope=False,
+                        truncated=False,
+                    )
+                sql = await generate_sql_correction(
+                    question=question,
+                    sql=sql,
+                    error=str(exc),
+                    schema=schema,
+                    model=self._llm_model,
+                )
+                await asyncio.sleep(1 * (2 ** attempt))
+
         # Etapa 4: executar SQL
         try:
             rows, truncated = await self._db.execute_query(sql)
-        except (RuntimeError, TimeoutError) as exc:
+        except (RuntimeError, TimeoutError):
             return AgentResponse(
-                text=f"Erro ao consultar o banco: {exc}",
+                text=self._GENERIC_ERROR_MSG,
                 data=None,
                 chart=None,
                 sql=sql,
@@ -144,8 +226,7 @@ class VCommerceAgent:
             )
 
         # Etapa 5: gerar insight
-        # Nota: LLMError propaga diretamente para o backend tratar
-        insight = await generate_insight(question, rows, sql)
+        insight = await generate_insight(question, rows, sql, model=self._llm_model)
 
         # Etapa 6: montar resposta
         chart = None

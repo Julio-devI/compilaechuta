@@ -72,29 +72,36 @@ class LLMUnknownError(LLMError):
     pass
 
 
-def _is_rate_limit_per_minute(exc: Exception) -> bool:
+class GuardrailError(RuntimeError):
     """
-    Inspeciona o corpo da resposta de erro 429 para diferenciar
-    rate limit por minuto (recuperável) de quota diária (não recuperável).
+    Exceção levantada quando um guardrail de segurança ou qualidade é acionado.
 
-    Retorna True se o erro for de rate limit por minuto.
+    A mensagem interna é descritiva e destinada apenas ao pipeline interno
+    (logs, prompt de autocorreção). Nunca deve ser exposta ao usuário final.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+def is_rate_limit_per_minute_from_body(body: str) -> bool:
+    """
+    Parseia o body JSON do erro 429 para detectar rate limit por minuto.
+
+    Args:
+        body: Corpo bruto da resposta de erro (pode estar vazio).
+
+    Returns:
+        True se o erro for de rate limit por minuto (recuperável).
+        Quando o body está vazio, assume True como fallback seguro.
     """
     import json
 
-    raw_body = ""
-    # Tenta extrair o body de diferentes tipos de exceção
-    if hasattr(exc, "body"):
-        raw_body = str(exc.body) if exc.body else ""
-    elif hasattr(exc, "_body"):
-        raw_body = str(exc._body) if exc._body else ""
-    elif hasattr(exc, "response") and hasattr(exc.response, "text"):
-        raw_body = exc.response.text or ""
-
-    if not raw_body:
-        return False
+    if not body:
+        return True  # fallback seguro: prefere retry a desistir prematuramente
 
     try:
-        payload = json.loads(raw_body)
+        payload = json.loads(body)
         details = payload.get("error", {}).get("details", [])
         for detail in details:
             if detail.get("@type", "").endswith("QuotaFailure"):
@@ -107,8 +114,26 @@ def _is_rate_limit_per_minute(exc: Exception) -> bool:
     except (json.JSONDecodeError, AttributeError):
         pass
 
-    # Fallback: se não conseguir parsear, assume rate limit por minuto
     return True
+
+
+def _is_rate_limit_per_minute(exc: Exception) -> bool:
+    """
+    Inspeciona o corpo da resposta de erro 429 para diferenciar
+    rate limit por minuto (recuperável) de quota diária (não recuperável).
+
+    Retorna True se o erro for de rate limit por minuto.
+    """
+    raw_body = ""
+    # Tenta extrair o body de diferentes tipos de exceção
+    if hasattr(exc, "body"):
+        raw_body = str(exc.body) if exc.body else ""
+    elif hasattr(exc, "_body"):
+        raw_body = str(exc._body) if exc._body else ""
+    elif hasattr(exc, "response") and hasattr(exc.response, "text"):
+        raw_body = exc.response.text or ""
+
+    return is_rate_limit_per_minute_from_body(raw_body)
 
 
 def map_google_error(exc: google_exceptions.GoogleAPIError) -> LLMError:

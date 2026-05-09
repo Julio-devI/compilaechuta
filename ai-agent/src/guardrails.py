@@ -7,7 +7,7 @@ schema, organizadas em três camadas:
 
 - Camada 1: validação do input do usuário (pré-LLM).
 - Camada 2: validação do SQL gerado (pós-LLM).
-- Camada 3: validação do resultado da execução.
+- Camada 3: validação do resultado da execução (planejada).
 
 Cada função de guardrail lança GuardrailError com mensagem interna
 descritiva — nunca exposta ao usuário final.
@@ -74,8 +74,6 @@ _PROMPT_INJECTION_PATTERNS = [
     r"esque[çc]a\s+(tudo|todos|seu|sua|sua\s+programa[cç][ãa]o)",
     r"(aja|atue|comporte-se)\s+como\s+(se\s+voc[êe]\s+fosses?|se\s+fosse|um|uma)",
     r"agora\s+voc[êe]\s+(é|esta|está|eh)",
-    # SQL embutido (qualquer idioma)
-    r"\b(SELECT|DROP|INSERT|UPDATE|DELETE)\s+\w+",
 ]
 _PROMPT_INJECTION_RE = re.compile(
     "|".join(f"({p})" for p in _PROMPT_INJECTION_PATTERNS),
@@ -108,52 +106,28 @@ def validate_prompt_injection(question: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def strip_sql_comments(sql: str) -> str:
-    """
-    Remove comentários SQL do texto (linha `--` e bloco `/* */`).
-
-    Args:
-        sql: Query SQL possivelmente contendo comentários.
-
-    Returns:
-        SQL limpo, sem comentários, preservando o restante do texto.
-    """
-    # Remove comentários de bloco /* ... */ (multilinha)
-    cleaned = re.sub(r"/\*.*?\*/", "", sql, flags=re.DOTALL)
-    # Remove comentários de linha -- ... até o fim da linha
-    cleaned = re.sub(r"--.*?$", "", cleaned, flags=re.MULTILINE)
-    return cleaned
-
-
-# Comandos bloqueados: qualquer coisa que não seja SELECT
-_BLOCKED_COMMANDS_RE = re.compile(
-    r"\b(DELETE|DROP|UPDATE|INSERT|ALTER|TRUNCATE|CREATE|REPLACE|"
-    r"ATTACH|DETACH|PRAGMA|VACUUM)\b",
-    re.IGNORECASE,
-)
-
-
 def validate_destructive_queries(sql: str) -> None:
     """
-    Bloqueia queries que contenham comandos destrutivos ou DDL/DML.
+    Bloqueia queries que não sejam SELECT puro via AST.
 
-    Apenas SELECT é permitido. Qualquer ocorrência de DELETE, DROP,
-    UPDATE, INSERT, ALTER, TRUNCATE, CREATE, REPLACE, ATTACH, DETACH,
-    PRAGMA ou VACUUM dispara GuardrailError.
+    O sqlglot já ignora comentários durante o parse, eliminando a
+    necessidade de strip manual. Apenas expressões do tipo Select
+    (incluindo CTEs) são permitidas.
 
     Args:
-        sql: Query SQL já sem comentários (recomenda-se chamar
-             strip_sql_comments antes).
+        sql: Query SQL bruto retornado pelo LLM.
 
     Raises:
-        GuardrailError: Se um comando bloqueado for detectado.
+        GuardrailError: Se o SQL não for um SELECT válido.
     """
-    match = _BLOCKED_COMMANDS_RE.search(sql)
-    if match:
-        command = match.group(1).upper()
+    try:
+        parsed = sqlglot.parse_one(sql, read="sqlite")
+    except Exception as exc:
+        raise GuardrailError(f"Falha ao parsear SQL: {exc}") from exc
+    if not isinstance(parsed, exp.Select):
         raise GuardrailError(
-            f"Comando bloqueado detectado no SQL: {command}. "
-            f"Apenas consultas SELECT sao permitidas."
+            f"Apenas consultas SELECT são permitidas. "
+            f"Tipo detectado: {type(parsed).__name__}"
         )
 
 
@@ -226,6 +200,8 @@ def validate_table_column_allowlist(
         allowed_columns.update(cols)
 
     for col in parsed.find_all(exp.Column):
+        if col.name == "*":
+            continue
         if col.name not in allowed_columns:
             raise GuardrailError(
                 f"Coluna '{col.name}' nao esta no allowlist do schema."
@@ -261,12 +237,15 @@ def validate_semantic_schema(
         alias = table.alias or table.name
         scope_tables[alias] = table.name
 
-    allowed_columns_global: set[str] = set()
-    for cols in allowlist.values():
-        allowed_columns_global.update(cols)
+    select_aliases: set[str] = set()
+    for node in parsed.find_all(exp.Alias):
+        if isinstance(node.parent, (exp.Select, exp.Subquery)):
+            select_aliases.add(node.alias)
 
     for col in parsed.find_all(exp.Column):
         col_name = col.name
+        if col_name in select_aliases:
+            continue
         table_node = col.args.get("table")
         table_ref = table_node.name if hasattr(table_node, "name") else None
 
@@ -274,9 +253,16 @@ def validate_semantic_schema(
             real_table = scope_tables.get(table_ref, table_ref)
             if real_table in allowlist and col_name in allowlist[real_table]:
                 continue
-            # Fallback para CTEs e subqueries (tabela nao no allowlist)
-            if real_table not in allowlist and col_name in allowed_columns_global:
-                continue
+            # Fallback para CTEs genuínas: tabela não no allowlist,
+            # mas coluna existe em alguma tabela do escopo real
+            if real_table not in allowlist:
+                found = False
+                for scope_tbl in scope_tables.values():
+                    if scope_tbl in allowlist and col_name in allowlist[scope_tbl]:
+                        found = True
+                        break
+                if found:
+                    continue
             raise GuardrailError(
                 f"Coluna '{col_name}' (tabela '{table_ref}') "
                 f"nao pertence ao schema."
@@ -287,8 +273,6 @@ def validate_semantic_schema(
                 if tbl_name in allowlist and col_name in allowlist[tbl_name]:
                     found = True
                     break
-            if not found and col_name in allowed_columns_global:
-                found = True
             if not found:
                 raise GuardrailError(
                     f"Coluna '{col_name}' nao pertence a nenhuma "
@@ -305,12 +289,11 @@ def apply_layer_2(
     Aplica todos os guardrails da Camada 2 na ordem correta.
 
     Ordem:
-        1. strip_sql_comments
-        2. validate_destructive_queries
-        3. validate_multiple_statements
-        4. validate_table_column_allowlist
-        5. validate_semantic_schema
-        6. add_limit_if_missing
+        1. validate_destructive_queries (AST — ignora comentários)
+        2. validate_multiple_statements
+        3. validate_table_column_allowlist
+        4. validate_semantic_schema
+        5. add_limit_if_missing
 
     Args:
         sql: Query SQL bruta retornada pelo LLM.
@@ -318,17 +301,16 @@ def apply_layer_2(
         max_rows: Limite de linhas a ser injetado se ausente.
 
     Returns:
-        SQL limpo, validado e com LIMIT aplicado.
+        SQL validado e com LIMIT aplicado.
 
     Raises:
         GuardrailError: Se qualquer guardrail da Camada 2 falhar.
     """
-    cleaned = strip_sql_comments(sql)
-    validate_destructive_queries(cleaned)
-    validate_multiple_statements(cleaned)
-    validate_table_column_allowlist(cleaned, allowlist)
-    validate_semantic_schema(cleaned, allowlist)
-    return add_limit_if_missing(cleaned, max_rows)
+    validate_destructive_queries(sql)
+    validate_multiple_statements(sql)
+    validate_table_column_allowlist(sql, allowlist)
+    validate_semantic_schema(sql, allowlist)
+    return add_limit_if_missing(sql, max_rows)
 
 
 def add_limit_if_missing(sql: str, max_rows: int) -> str:
@@ -354,7 +336,7 @@ def add_limit_if_missing(sql: str, max_rows: int) -> str:
             f"Falha ao parsear SQL para verificar LIMIT: {exc}"
         ) from exc
 
-    if parsed.find(exp.Limit):
+    if parsed.args.get("limit"):
         return sql
 
     stripped = sql.strip()

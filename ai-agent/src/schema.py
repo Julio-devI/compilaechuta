@@ -84,7 +84,11 @@ def format_schema(
             col_name = col["name"]
             col_type = col["type"]
             not_null = " NOT NULL" if col.get("notnull") else ""
-            default = f" DEFAULT {col['dflt_value']}" if col.get("dflt_value") is not None else ""
+            if col.get("dflt_value") is not None:
+                val = col["dflt_value"]
+                default = f" DEFAULT {val}"  # SQLite já retorna com aspas para strings
+            else:
+                default = ""
             pk_marker = " PRIMARY KEY" if col.get("pk") else ""
             col_defs.append(f"    {col_name} {col_type}{not_null}{default}{pk_marker}")
 

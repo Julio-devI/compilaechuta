@@ -27,7 +27,7 @@ async def get_clients(
     if status_ticket:
         from app.models.tickets import Ticket
         query = (
-            query.join(Ticket, Ticket.cliente_id == Cliente.id_cliente)
+            query.join(Ticket, Ticket.id_cliente == Cliente.id_cliente)
             .where(Ticket.status == status_ticket)
             .distinct()
         )
@@ -48,8 +48,9 @@ async def get_client_by_id(db: AsyncSession, cliente_id: str) -> Optional[Client
 
 async def get_tickets_by_status(db: AsyncSession, cliente_id: str, status: str) -> list:
     from app.models.tickets import Ticket
+    status_str = status.value if hasattr(status, 'value') else status
     result = await db.execute(
-        select(Ticket).where(Ticket.cliente_id == cliente_id, Ticket.status == status)
+        select(Ticket).where(Ticket.id_cliente == cliente_id, Ticket.status == status_str)
     )
     return result.scalars().all()
 

@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
 import datetime
 
 
@@ -16,11 +16,11 @@ class ClienteCreate(ClienteBase):
 
 class ClienteOut(ClienteBase):
     id_cliente:             str
-    qtd_pedidos_realizados: int
-    total_gasto_brl:        float
-    qtd_tickets_suporte:    int
+    qtd_pedidos_realizados: int   = Field(0, ge=0)
+    total_gasto_brl:        float = Field(0.0, ge=0)
+    qtd_tickets_suporte:    int   = Field(0, ge=0)
     data_ultima_compra:     Optional[datetime.datetime] = None
-    media_estrelas_dadas:   Optional[float] = None
+    media_estrelas_dadas:   Optional[float] = Field(None, ge=0, le=5)
     segmento_rfm:           Optional[str] = None
 
     class Config:

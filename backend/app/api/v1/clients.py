@@ -11,7 +11,7 @@ from app.schemas.clients import ClienteListOut, ClienteOut
 
 class StatusTicket(str, Enum):
     ABERTO = "aberto"
-    FECHADO = "fechado"
+    RESOLVIDO = "resolvido"
 
 
 router = APIRouter()
@@ -22,7 +22,7 @@ async def listar(
     cidade:            Optional[str]   = Query(None, description="Filtrar por cidade"),
     valor_minimo:      Optional[float] = Query(None, ge=0, description="Total gasto mínimo (R$)"),
     frequencia_minima: Optional[int]   = Query(None, ge=0, description="Frequência mínima de compras"),
-    status_ticket:     Optional[StatusTicket] = Query(None, description="Filtrar por status de ticket: aberto | fechado"),
+    status_ticket:     Optional[StatusTicket] = Query(None, description="Filtrar por status de ticket: aberto | resolvido"),
     skip:              int             = Query(0,   ge=0),
     limit:             int             = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
@@ -48,7 +48,7 @@ async def buscar(cliente_id: str, db: AsyncSession = Depends(get_db)):
 @router.get("/{cliente_id}/tickets")
 async def tickets(
     cliente_id: str,
-    status: StatusTicket = Query(..., description="Status dos tickets: aberto | fechado"),
+    status: StatusTicket = Query(..., description="Status dos tickets: aberto | resolvido"),
     db: AsyncSession = Depends(get_db),
 ):
     return await service.listar_tickets_cliente(db, cliente_id, status)

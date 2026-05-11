@@ -43,6 +43,19 @@
   --chart-5: #64748B;
 
   --radius: 0.75rem;
+
+  /* Chat IA */
+  --chat-bg: #ffffff;
+  --chat-sidebar-bg: #f8fafc;
+  --chat-border: #e2e8f0;
+  --chat-header-bg: #f8fafc;
+  --chat-msg-ai-bg: #eef2ff;
+  --chat-input-bg: #f1f5f9;
+  --chat-item-hover: rgba(0, 0, 0, 0.04);
+  --chat-quick-card-bg: #eef2ff;
+  --chat-history-active-bg: rgba(30, 94, 255, 0.08);
+  --chat-history-active-border: rgba(30, 94, 255, 0.25);
+  --chat-accent: #1E5EFF;
 }
 
 .dark {
@@ -59,6 +72,19 @@
   --danger-light: #2D1115;
   --sidebar-glass-default: rgba(13, 17, 23, 0.55);
   --sidebar-glass-hover: rgba(22, 27, 34, 0.88);
+
+  /* Chat IA */
+  --chat-bg: #111859;
+  --chat-sidebar-bg: #0d1347;
+  --chat-border: #1e2870;
+  --chat-header-bg: #0d1347;
+  --chat-msg-ai-bg: #1a2370;
+  --chat-input-bg: #0d1347;
+  --chat-item-hover: rgba(255, 255, 255, 0.05);
+  --chat-quick-card-bg: #1a2370;
+  --chat-history-active-bg: rgba(30, 94, 255, 0.2);
+  --chat-history-active-border: rgba(30, 94, 255, 0.4);
+  --chat-accent: #4D9FFF;
 }
 
 @theme inline {

@@ -1,17 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-
-const tabs = [
-  { id: 'visao-geral', label: 'Visão Geral' },
-  { id: 'este-mes', label: 'Este Mês' },
-  { id: 'ultimos-30-dias', label: 'Últimos 30 Dias' },
-  { id: 'trimestre', label: 'Trimestre' },
-  { id: 'por-categoria', label: 'Por Categoria' },
-  { id: 'escolher-outro', label: 'Escolher outro' },
-]
+import type { FilterTab } from '../services/dashboardService'
+import { getFilterTabs } from '../services/dashboardService'
 
 export function FilterTabs() {
+  const [tabs, setTabs] = useState<FilterTab[]>([])
   const [activeTab, setActiveTab] = useState('ultimos-30-dias')
+
+  useEffect(() => {
+    getFilterTabs().then(setTabs)
+  }, [])
 
   return (
     <div className="flex items-center gap-2 flex-wrap">

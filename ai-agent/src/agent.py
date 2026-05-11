@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from src.core import config
 from src.database.db import Database
-from src.core.exceptions import GuardrailError, LLMError, ErrorCode
+from src.core.exceptions import GuardrailError, LLMParseError, ErrorCode
 from src.security.guardrails import (
     apply_layer_2,
     validate_empty_input,
@@ -126,7 +126,8 @@ class VCommerceAgent:
             raise ValueError("O histórico deve ser uma lista de dicionários.")
 
         valid_roles = {"user", "assistant"}
-        for entry in history:
+        normalized_history: list[dict[str, str | None]] = []
+        for index, entry in enumerate(history):
             if not isinstance(entry, dict):
                 raise ValueError(
                     "Cada entrada do histórico deve ser um dicionário."
@@ -137,15 +138,47 @@ class VCommerceAgent:
                     f"Campo 'role' inválido: '{role}'. "
                     f"Valores permitidos: {valid_roles}"
                 )
+            expected_role = "user" if index % 2 == 0 else "assistant"
+            if role != expected_role:
+                raise ValueError(
+                    "O histórico deve alternar pares user/assistant."
+                )
             content = entry.get("content")
             if not isinstance(content, str) or not content.strip():
                 raise ValueError(
                     "Cada entrada deve ter um campo 'content' com texto não vazio."
                 )
+            sql = entry.get("sql")
+            if role == "user":
+                if sql is not None:
+                    raise ValueError(
+                        "Entradas com role='user' devem ter campo 'sql' nulo ou ausente."
+                    )
+                normalized_history.append({
+                    "role": "user",
+                    "content": content,
+                    "sql": None,
+                })
+                continue
+
+            if not isinstance(sql, str) or not sql.strip():
+                raise ValueError(
+                    "Entradas com role='assistant' devem ter campo 'sql' com texto não vazio."
+                )
+            normalized_history.append({
+                "role": "assistant",
+                "content": content,
+                "sql": sql,
+            })
+
+        if len(normalized_history) % 2 != 0:
+            raise ValueError(
+                "O histórico deve conter pares completos user/assistant."
+            )
 
         max_entries = config.MAX_HISTORY_TURNS * 2
         self._history = [
-            entry.copy() for entry in history[-max_entries:]
+            entry.copy() for entry in normalized_history[-max_entries:]
         ]
 
     def _append_to_history(
@@ -237,7 +270,7 @@ class VCommerceAgent:
             sql = await generate_sql(
                 question, schema, history=self._history, model=self._llm_model
             )
-        except ValueError:
+        except (ValueError, LLMParseError):
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
                 data=None,
@@ -246,6 +279,7 @@ class VCommerceAgent:
                 error=True,
                 out_of_scope=False,
                 truncated=False,
+                error_code=ErrorCode.SQL_PARSE_ERROR,
             )
 
         # Etapa 2.5: detectar fora do escopo antes da Camada 2
@@ -281,14 +315,26 @@ class VCommerceAgent:
                         truncated=False,
                         error_code=exc.error_code,
                     )
-                sql = await generate_sql_correction(
-                    question=question,
-                    sql=sql,
-                    error=str(exc),
-                    schema=schema,
-                    history=self._history,
-                    model=self._llm_model,
-                )
+                try:
+                    sql = await generate_sql_correction(
+                        question=question,
+                        sql=sql,
+                        error=str(exc),
+                        schema=schema,
+                        history=self._history,
+                        model=self._llm_model,
+                    )
+                except (ValueError, LLMParseError):
+                    return AgentResponse(
+                        text=self._GENERIC_ERROR_MSG,
+                        data=None,
+                        chart=None,
+                        sql=sql,
+                        error=True,
+                        out_of_scope=False,
+                        truncated=False,
+                        error_code=ErrorCode.SQL_PARSE_ERROR,
+                    )
                 await asyncio.sleep(1 * (2 ** attempt))
 
         # Etapa 4: executar SQL

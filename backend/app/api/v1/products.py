@@ -54,7 +54,6 @@ async def delete_product(
     id_produto: str,
     db: AsyncSession = Depends(get_db)
 ):
-    # Verifique ou modifique em service se delete retorna uma validação
     product = await product_service.get_productById(db=db, product_id=id_produto)
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")

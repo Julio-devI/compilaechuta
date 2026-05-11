@@ -12,17 +12,17 @@ export function RevenueChart() {
   }, [])
 
   return (
-    <div className="bg-card rounded-2xl p-6 border border-border shadow-sm">
+    <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <TrendingUp className="w-4 h-4 text-muted" />
-        <span className="text-sm font-medium text-muted uppercase tracking-wider">Tendências</span>
+        <TrendingUp className="w-3.5 h-3.5 text-muted" />
+        <span className="text-xs font-medium text-muted uppercase tracking-wider">Tendências</span>
       </div>
-      <h3 className="text-2xl font-semibold text-[#020854] dark:text-foreground mb-1">Média de Receita por Mês</h3>
-      <p className="text-sm text-muted mb-6">Evolução de Faturamento — clique para detalhar</p>
+      <h3 className="text-lg font-semibold text-[#020854] dark:text-foreground mb-0.5">Média de Receita por Mês</h3>
+      <p className="text-xs text-muted mb-3">Evolução de Faturamento — clique para detalhar</p>
 
       {/* Chart */}
-      <div className="h-75">
+      <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}

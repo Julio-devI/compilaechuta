@@ -31,11 +31,13 @@ def test_clear_history():
 def test_append_to_history():
     agent = VCommerceAgent(db_path=":memory:")
     resp = AgentResponse(
+        status="success",
         text="Insight",
+        presentation=None,
         data=[{"a": 1}],
         chart=None,
         sql="SELECT 1",
-        error=False,
+        error=None,
         out_of_scope=False,
         truncated=False,
     )
@@ -51,11 +53,13 @@ def test_history_truncation(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
     
     resp = AgentResponse(
+        status="success",
         text="Insight",
+        presentation=None,
         data=[],
         chart=None,
         sql="SELECT 1",
-        error=False,
+        error=None,
         out_of_scope=False,
         truncated=False,
     )
@@ -224,8 +228,10 @@ async def test_ask_returns_controlled_response_when_generate_sql_parse_fails(mon
 
     response = await agent.ask("Qual a receita total?")
 
-    assert response.error is True
+    assert response.status == "error"
+    assert response.error is not None
     assert response.out_of_scope is False
-    assert response.error_code == ErrorCode.SQL_PARSE_ERROR
+    assert response.error.code == ErrorCode.SQL_PARSE_ERROR
+    assert response.error.stage == "sql_generation"
     assert response.sql == ""
     assert agent._history == []

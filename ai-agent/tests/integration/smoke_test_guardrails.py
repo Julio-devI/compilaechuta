@@ -233,12 +233,16 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
         if scenario.get("check_sql_contains"):
             passed = passed and scenario["check_sql_contains"] in (response.sql or "")
         if scenario.get("expected_error_code"):
-            passed = passed and response.error_code == scenario["expected_error_code"]
+            passed = (
+                passed
+                and response.error is not None
+                and response.error.code == scenario["expected_error_code"]
+            )
 
         status_icon = "[PASSOU]" if passed else "[FALHOU]"
         print(f"{status_icon} ({elapsed:.2f}s) -> Status: {got_status}")
-        if response.error_code:
-            print(f"   Error Code: {response.error_code}")
+        if response.error:
+            print(f"   Error Code: {response.error.code}")
         print(f"   Texto: {response.text[:200]}...")
         if response.sql:
             print(f"   SQL  : {response.sql[:120]}...")

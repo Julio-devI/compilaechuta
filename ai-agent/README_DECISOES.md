@@ -322,6 +322,8 @@
 
 - **Implicações:** O custo em tokens do prompt de correção aumenta proporcionalmente ao tamanho do histórico, mas o impacto é marginal dado que correções são raras (menos de 10% das chamadas) e o histórico já é truncado a 20 turnos (DA-19).
 
+---
+
 ### DA-25: Reorganização da Estrutura de Diretórios por Domínio
 
 - **Contexto:** A estrutura original agrupava todos os arquivos no diretório src/ raiz e tests/ raiz, misturando componentes de diferentes naturezas (LLM, banco de dados, segurança) e tipos de teste (unitários rápidos e smoke tests lentos de integração).
@@ -329,7 +331,10 @@
 - **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade: src/core, src/database, src/llm, src/security e separando os testes em tests/unit/ e tests/integration/. O agent.py atua como facade na raiz do src/.
 
 - **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+
 - **Implicações:** Todos os imports internos do projeto foram remapeados. As automações de CI/CD podem agora isolar a execução da pasta tests/unit/ sem consumir a cota de tokens da API do Gemini e separar testes de integração na pipeline de homologação.
+
+---
 
 ### DA-26: Rastreabilidade Backend vs Opacidade Frontend via Error Codes de Guardrail
 
@@ -340,3 +345,15 @@
 - **Justificativa:** Conforme levantado pelo desenvolvedor, em um sistema real com múltiplos usuários, é necessário que o backend identifique a violação exata para poder aplicar tratativas punitivas adequadas (ex: aplicar *timeout* ou banimento automático em usuários que tentarem realizar *prompt injection* de forma maliciosa).
 
 - **Implicações:** O backend (consumidor do pacote `ai-agent`) passa a ter a capacidade de monitorar exatamente o motivo das falhas baseadas em segurança e infraestrutura local (ex: `PROMPT_INJECTION`, `EXECUTION_TIMEOUT`). Testes automatizados deverão ser atualizados para validar o `error_code`.
+
+---
+
+### DA-27: Resposta Pública Estruturada com Dados do Banco
+
+- **Contexto:** O backend precisa consumir respostas previsíveis do agente e o frontend precisa renderizar seções alinhadas ao layout do Figma, sem depender de parsing de texto livre.
+
+- **Decisão:** `AgentResponse` passa a expor `status`, `presentation`, `data`, `chart`, `sql`, `error`, `out_of_scope` e `truncated`. O campo `error` sempre existe no contrato como objeto estruturado ou `null`. O SQL continua sendo enviado ao backend como metadado técnico, mas não faz parte da apresentação ao usuário. O campo `data` é preenchido exclusivamente com linhas retornadas pelo banco após execução do SQL validado; a Chamada 2 gera apenas apresentação textual e sugestão de gráfico.
+
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+
+- **Implicações:** O backend passa a consumir um contrato mais estável e consegue distinguir sucesso, erro e fora de escopo via `status`. O frontend pode renderizar `presentation` sem interpretar texto livre. A Chamada 2 deixa de ser fonte de verdade para dados, reduzindo risco de alucinação ou divergência entre resultado SQL e visualização.

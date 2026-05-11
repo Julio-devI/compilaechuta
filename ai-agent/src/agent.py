@@ -9,9 +9,21 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from sqlglot import exp, parse_one
+
 from src.core import config
 from src.database.db import Database
-from src.core.exceptions import GuardrailError, LLMParseError, ErrorCode
+from src.core.exceptions import (
+    ErrorCode,
+    GuardrailError,
+    LLMAuthenticationError,
+    LLMError,
+    LLMParseError,
+    LLMQuotaError,
+    LLMRateLimitError,
+    LLMTimeoutError,
+    LLMUnavailableError,
+)
 from src.security.guardrails import (
     apply_layer_2,
     validate_empty_input,
@@ -34,17 +46,88 @@ class ChartSuggestion:
 
 
 @dataclass
+class ResponseSection:
+    """Seção textual da resposta apresentada ao usuário."""
+
+    title: str
+    content: str
+
+
+@dataclass
+class DataSource:
+    """Tabela consultada para compor a resposta."""
+
+    table: str
+    label: str | None
+    description: str | None
+
+
+@dataclass
+class SourcesSummary:
+    """Resumo das fontes de dados usadas na resposta."""
+
+    text: str
+    tables: list[DataSource]
+
+
+@dataclass
+class ResponsePresentation:
+    """Estrutura textual alinhada ao layout do frontend."""
+
+    activity: str
+    answer_sections: list[ResponseSection]
+    sources_summary: SourcesSummary | None
+
+
+@dataclass
+class ResponseError:
+    """Erro estruturado retornado ao backend."""
+
+    code: str
+    message: str
+    stage: Literal[
+        "input",
+        "schema",
+        "sql_generation",
+        "sql_validation",
+        "database",
+        "insight_generation",
+        "llm",
+    ]
+    retryable: bool
+
+
+@dataclass
 class AgentResponse:
     """Resposta completa do agente para uma pergunta do usuário."""
 
+    status: Literal["success", "error", "out_of_scope"]
     text: str
+    presentation: ResponsePresentation | None
     data: list[dict] | None
     chart: ChartSuggestion | None
     sql: str
-    error: bool
+    error: ResponseError | None
     out_of_scope: bool
     truncated: bool = False
-    error_code: str | None = None
+
+
+def _error_code_value(code: str | ErrorCode) -> str:
+    """Normaliza códigos internos para string serializável."""
+    return code.value if isinstance(code, ErrorCode) else str(code)
+
+
+def _build_text_from_presentation(presentation: ResponsePresentation | None) -> str:
+    """Monta o campo legado `text` a partir da apresentação estruturada."""
+    if presentation is None:
+        return ""
+
+    parts = [presentation.activity.strip()]
+    for section in presentation.answer_sections:
+        parts.append(f"{section.title}: {section.content}")
+    if presentation.sources_summary is not None:
+        parts.append(presentation.sources_summary.text)
+    return "\n\n".join(part for part in parts if part)
 
 
 class VCommerceAgent:
@@ -85,12 +168,14 @@ class VCommerceAgent:
         self._llm_model = llm_model
         self._schema_text: str | None = None
         self._technical_schema: dict[str, Any] | None = None
+        self._descriptions: dict[str, Any] | None = None
         self._history: list[dict[str, str | None]] = []
 
     def invalidate_schema(self) -> None:
         """Limpa o cache do schema, forçando recarregamento na próxima consulta."""
         self._schema_text = None
         self._technical_schema = None
+        self._descriptions = None
 
     def clear_history(self) -> None:
         """Limpa o histórico de conversa, iniciando uma nova sessão."""
@@ -205,11 +290,151 @@ class VCommerceAgent:
 
         descriptions = load_descriptions()
         technical_schema = await self._db.get_technical_schema()
+        self._descriptions = descriptions
         self._technical_schema = technical_schema
         self._schema_text = format_schema(
             technical_schema, descriptions, excluded_tables=self._excluded_tables
         )
         return self._schema_text, self._technical_schema
+
+    def _make_error_response(
+        self,
+        *,
+        code: str | ErrorCode,
+        stage: Literal[
+            "input",
+            "schema",
+            "sql_generation",
+            "sql_validation",
+            "database",
+            "insight_generation",
+            "llm",
+        ],
+        sql: str = "",
+        message: str | None = None,
+        retryable: bool = False,
+    ) -> AgentResponse:
+        """Monta uma resposta de erro padronizada para o backend."""
+        error = ResponseError(
+            code=_error_code_value(code),
+            message=message or self._GENERIC_ERROR_MSG,
+            stage=stage,
+            retryable=retryable,
+        )
+        return AgentResponse(
+            status="error",
+            text=error.message,
+            presentation=None,
+            data=None,
+            chart=None,
+            sql=sql,
+            error=error,
+            out_of_scope=False,
+            truncated=False,
+        )
+
+    def _make_llm_error_response(self, exc: LLMError, *, sql: str = "") -> AgentResponse:
+        """Converte falhas esperadas do LLM em erro estruturado."""
+        retryable = isinstance(
+            exc, (LLMRateLimitError, LLMTimeoutError, LLMUnavailableError)
+        )
+        if isinstance(exc, LLMQuotaError):
+            retryable = False
+        if isinstance(exc, LLMAuthenticationError):
+            retryable = False
+        return self._make_error_response(
+            code=ErrorCode.LLM_ERROR,
+            stage="llm",
+            sql=sql,
+            message=str(exc) or self._GENERIC_ERROR_MSG,
+            retryable=retryable,
+        )
+
+    def _extract_sources(self, sql: str) -> list[DataSource]:
+        """Extrai tabelas do SQL validado e enriquece com metadados de negócio."""
+        try:
+            tree = parse_one(sql, read="sqlite")
+        except Exception:
+            return []
+
+        table_names = sorted(
+            {
+                table.name
+                for table in tree.find_all(exp.Table)
+                if table.name and table.name not in self._excluded_tables
+            }
+        )
+        tables_meta = (self._descriptions or {}).get("tables", {})
+        sources: list[DataSource] = []
+        for table_name in table_names:
+            meta = tables_meta.get(table_name, {})
+            sources.append(
+                DataSource(
+                    table=table_name,
+                    label=table_name,
+                    description=meta.get("description"),
+                )
+            )
+        return sources
+
+    def _build_sources_summary(
+        self, insight: dict[str, Any], sql: str
+    ) -> SourcesSummary | None:
+        """Combina resumo textual do LLM com fontes extraídas do SQL."""
+        sources = self._extract_sources(sql)
+        raw_summary = insight.get("sources_summary")
+        text = ""
+        if isinstance(raw_summary, dict) and isinstance(raw_summary.get("text"), str):
+            text = raw_summary["text"].strip()
+        if not text and sources:
+            names = ", ".join(source.table for source in sources)
+            text = f"Fonte de dados consultada: {names}."
+        if not text and not sources:
+            return None
+        return SourcesSummary(text=text, tables=sources)
+
+    def _build_presentation(
+        self, insight: dict[str, Any], sql: str
+    ) -> ResponsePresentation:
+        """Converte o JSON da Chamada 2 para dataclasses públicas."""
+        sections = [
+            ResponseSection(
+                title=str(section["title"]),
+                content=str(section["content"]),
+            )
+            for section in insight["answer_sections"]
+        ]
+        return ResponsePresentation(
+            activity=str(insight["activity"]),
+            answer_sections=sections,
+            sources_summary=self._build_sources_summary(insight, sql),
+        )
+
+    def _build_chart(
+        self, chart_data: Any, data: list[dict[str, Any]]
+    ) -> ChartSuggestion | None:
+        """Valida e converte a sugestão de gráfico da Chamada 2."""
+        if not isinstance(chart_data, dict) or not data:
+            return None
+
+        chart_type = chart_data.get("type")
+        if chart_type not in {"bar", "line", "pie", "area"}:
+            return None
+
+        sample_keys = set(data[0].keys())
+        x_axis = chart_data.get("x_axis")
+        y_axis = chart_data.get("y_axis")
+        if x_axis is not None and x_axis not in sample_keys:
+            return None
+        if y_axis is not None and y_axis not in sample_keys:
+            return None
+
+        return ChartSuggestion(
+            type=chart_type,
+            x_axis=x_axis,
+            y_axis=y_axis,
+            title=str(chart_data.get("title") or ""),
+        )
 
     async def ask(self, question: str) -> AgentResponse:
         """
@@ -229,8 +454,9 @@ class VCommerceAgent:
         Returns:
             AgentResponse contendo insight, dados brutos, sugestão de gráfico e SQL.
 
-        Raises:
-            LLMError: Se a comunicação com a API Gemini falhar em qualquer chamada.
+        Observação:
+            Falhas esperadas do pipeline são retornadas em `AgentResponse.error`.
+            Exceções de programação fora do contrato público continuam propagando.
         """
         sql = ""
 
@@ -240,29 +466,20 @@ class VCommerceAgent:
             validate_input_length(question)
             validate_prompt_injection(question)
         except GuardrailError as exc:
-            return AgentResponse(
-                text=self._GENERIC_ERROR_MSG,
-                data=None,
-                chart=None,
-                sql="",
-                error=True,
-                out_of_scope=False,
-                truncated=False,
-                error_code=exc.error_code,
+            return self._make_error_response(
+                code=exc.error_code,
+                stage="input",
+                retryable=False,
             )
 
         # Etapa 1: carregar schema
         try:
             schema, technical_schema = await self._load_schema()
-        except (FileNotFoundError, RuntimeError):
-            return AgentResponse(
-                text=self._GENERIC_ERROR_MSG,
-                data=None,
-                chart=None,
-                sql="",
-                error=True,
-                out_of_scope=False,
-                truncated=False,
+        except (FileNotFoundError, RuntimeError, ValueError):
+            return self._make_error_response(
+                code=ErrorCode.SCHEMA_LOAD_ERROR,
+                stage="schema",
+                retryable=False,
             )
 
         # Etapa 2: gerar SQL
@@ -271,26 +488,26 @@ class VCommerceAgent:
                 question, schema, history=self._history, model=self._llm_model
             )
         except (ValueError, LLMParseError):
-            return AgentResponse(
-                text=self._GENERIC_ERROR_MSG,
-                data=None,
-                chart=None,
+            return self._make_error_response(
+                code=ErrorCode.SQL_PARSE_ERROR,
+                stage="sql_generation",
                 sql=sql,
-                error=True,
-                out_of_scope=False,
-                truncated=False,
-                error_code=ErrorCode.SQL_PARSE_ERROR,
+                retryable=True,
             )
+        except LLMError as exc:
+            return self._make_llm_error_response(exc, sql=sql)
 
         # Etapa 2.5: detectar fora do escopo antes da Camada 2
         # O marcador nao e SQL valido; aplicar guardrails causaria erro de parse
         if sql.strip().upper().startswith(config.OUT_OF_SCOPE_MARKER):
             return AgentResponse(
+                status="out_of_scope",
                 text=sql,
+                presentation=None,
                 data=None,
                 chart=None,
                 sql="",
-                error=False,
+                error=None,
                 out_of_scope=True,
                 truncated=False,
             )
@@ -305,15 +522,11 @@ class VCommerceAgent:
                 break
             except GuardrailError as exc:
                 if attempt == self._MAX_LAYER2_RETRIES - 1:
-                    return AgentResponse(
-                        text=self._GENERIC_ERROR_MSG,
-                        data=None,
-                        chart=None,
+                    return self._make_error_response(
+                        code=exc.error_code,
+                        stage="sql_validation",
                         sql=sql,
-                        error=True,
-                        out_of_scope=False,
-                        truncated=False,
-                        error_code=exc.error_code,
+                        retryable=False,
                     )
                 try:
                     sql = await generate_sql_correction(
@@ -325,16 +538,14 @@ class VCommerceAgent:
                         model=self._llm_model,
                     )
                 except (ValueError, LLMParseError):
-                    return AgentResponse(
-                        text=self._GENERIC_ERROR_MSG,
-                        data=None,
-                        chart=None,
+                    return self._make_error_response(
+                        code=ErrorCode.SQL_PARSE_ERROR,
+                        stage="sql_generation",
                         sql=sql,
-                        error=True,
-                        out_of_scope=False,
-                        truncated=False,
-                        error_code=ErrorCode.SQL_PARSE_ERROR,
+                        retryable=True,
                     )
+                except LLMError as exc:
+                    return self._make_llm_error_response(exc, sql=sql)
                 await asyncio.sleep(1 * (2 ** attempt))
 
         # Etapa 4: executar SQL
@@ -342,42 +553,40 @@ class VCommerceAgent:
             rows, truncated = await self._db.execute_query(sql)
         except (RuntimeError, TimeoutError) as exc:
             err_code = ErrorCode.EXECUTION_TIMEOUT if isinstance(exc, TimeoutError) else ErrorCode.DB_EXECUTION_ERROR
-            return AgentResponse(
-                text=self._GENERIC_ERROR_MSG,
-                data=None,
-                chart=None,
+            return self._make_error_response(
+                code=err_code,
+                stage="database",
                 sql=sql,
-                error=True,
-                out_of_scope=False,
-                truncated=False,
-                error_code=err_code,
+                retryable=isinstance(exc, TimeoutError),
             )
 
         # Etapa 5: gerar insight
-        insight = await generate_insight(
-            question, rows, sql, history=self._history, model=self._llm_model
-        )
+        try:
+            insight = await generate_insight(
+                question, rows, sql, history=self._history, model=self._llm_model
+            )
+        except LLMParseError:
+            return self._make_error_response(
+                code=ErrorCode.INSIGHT_PARSE_ERROR,
+                stage="insight_generation",
+                sql=sql,
+                retryable=True,
+            )
+        except LLMError as exc:
+            return self._make_llm_error_response(exc, sql=sql)
 
         # Etapa 6: montar resposta
-        chart = None
-        chart_data = insight.get("chart")
-        if isinstance(chart_data, dict):
-            try:
-                chart = ChartSuggestion(
-                    type=chart_data.get("type", "bar"),
-                    x_axis=chart_data.get("x_axis"),
-                    y_axis=chart_data.get("y_axis"),
-                    title=chart_data.get("title", ""),
-                )
-            except (TypeError, KeyError):
-                chart = None
+        presentation = self._build_presentation(insight, sql)
+        chart = self._build_chart(insight.get("chart"), rows)
 
         response = AgentResponse(
-            text=insight["text"],
-            data=insight.get("data"),
+            status="success",
+            text=_build_text_from_presentation(presentation),
+            presentation=presentation,
+            data=rows,
             chart=chart,
             sql=sql,
-            error=False,
+            error=None,
             out_of_scope=False,
             truncated=truncated,
         )

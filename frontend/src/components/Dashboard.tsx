@@ -4,7 +4,8 @@ import { KPICard } from './KPICard'
 import { RevenueChart } from './RevenueChart'
 import { SatisfactionChart } from './SatisfactionChart'
 import { OperationsChart } from './OperationsChart'
-import { QuickActions } from './QuickActions' // Import the new component
+import { QuickActions } from './QuickActions'
+import { ChatIADrawer } from './ChatIADrawer'
 
 const kpiData = [
   {
@@ -81,8 +82,10 @@ export function Dashboard() {
       {/* Operations Chart and Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <OperationsChart />
-        <QuickActions /> {/* Added the new QuickActions component here */}
+        <QuickActions />
       </div>
+
+      <ChatIADrawer />
     </div>
   )
 }

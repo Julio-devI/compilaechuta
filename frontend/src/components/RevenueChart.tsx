@@ -1,22 +1,16 @@
+import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts'
 import { TrendingUp } from 'lucide-react'
-
-const data = [
-  { month: 'Jan', value: 200, active: false },
-  { month: 'Fev', value: 400, active: false },
-  { month: 'Mar', value: 90, active: false },
-  { month: 'Abr', value: 110, active: false },
-  { month: 'Mai', value: 450, active: false },
-  { month: 'Jun', value: 150, active: false },
-  { month: 'Jul', value: 200, active: true },
-  { month: 'Ago', value: 300, active: false },
-  { month: 'Set', value: 400, active: false },
-  { month: 'Out', value: 200, active: false },
-  { month: 'Nov', value: 600, active: false },
-  { month: 'Dez', value: 720, active: false },
-]
+import type { RevenueDataPoint } from '../services/dashboardService'
+import { getRevenueData } from '../services/dashboardService'
 
 export function RevenueChart() {
+  const [data, setData] = useState<RevenueDataPoint[]>([])
+
+  useEffect(() => {
+    getRevenueData().then(setData)
+  }, [])
+
   return (
     <div className="bg-card rounded-2xl p-6 border border-border shadow-sm">
       {/* Header */}
@@ -28,38 +22,32 @@ export function RevenueChart() {
       <p className="text-sm text-muted mb-6">Evolução de Faturamento — clique para detalhar</p>
 
       {/* Chart */}
-      <div className="h-[300px]">
+      <div className="h-75">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
             barCategoryGap="10%"
-            margin={{
-              top: 5,
-              right: 5, // Adjusted left margin for Y-axis labels
-            }}
+            margin={{ top: 5, right: 5 }}
           >
-            <XAxis 
-              dataKey="month" 
+            <XAxis
+              dataKey="month"
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#64748B', fontSize: 12 }}
             />
             <YAxis
               type="number"
-              domain={[0, 720]} // Set domain up to 720k
-              ticks={[0, 200, 400, 720]} // Specific ticks as requested
-              tickFormatter={(value) => `${value}k`} // Add 'k' suffix
+              domain={[0, 720]}
+              ticks={[0, 200, 400, 720]}
+              tickFormatter={(value) => `${value}k`}
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#64748B', fontSize: 12 }}
             />
-            <Bar 
-              dataKey="value" 
-              radius={[6, 6, 0, 0]}
-            >
+            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
               {data.map((entry, index) => (
-                <Cell 
-                  key={`cell-${index}`} 
+                <Cell
+                  key={`cell-${index}`}
                   fill={entry.active ? '#0D47A1' : '#1E5EFF'}
                   opacity={entry.value === 0 ? 0.2 : 1}
                 />

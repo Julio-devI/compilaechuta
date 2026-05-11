@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, Sparkles, TrendingUp, Users, BarChart, Search, X, Settings, MessageSquare, Plus } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import type { ConversaHistorico, ChatQuickAction, ChatRespostas } from '../services/chatService'
+import { getConversasHistorico, getChatQuickActions, getChatRespostas, resolveResposta } from '../services/chatService'
 
 interface Message {
   id: number
@@ -8,34 +11,11 @@ interface Message {
   timestamp: string
 }
 
-interface Conversa {
-  id: number
-  titulo: string
-  timestamp: string
-}
-
-const conversasHistorico: Conversa[] = [
-  { id: 1, titulo: 'Localizar lista de Clientes VP no Risco de Churn', timestamp: '14:30' },
-  { id: 2, titulo: 'Histórico Comportamento do Cliente Russell Grant', timestamp: '13:15' },
-  { id: 3, titulo: 'Fatores de Comparações Recorrentes do Cliente', timestamp: '11:45' },
-  { id: 4, titulo: 'Evolução de Retorno Mensal/Mais Estratégico', timestamp: '10:20' },
-  { id: 5, titulo: 'Análise dos Fatores de Qualidade Cancelamento do Inventário', timestamp: 'Ontem' },
-  { id: 6, titulo: 'Mapeamento de Pedidos Atrasados da Região de SP', timestamp: 'Ontem' },
-  { id: 7, titulo: 'Novo departamento de Entregas/Prazo do Prazo', timestamp: 'Seg' },
-]
-
-const quickActions = [
-  { icon: TrendingUp, texto: 'O que está vendendo mais?' },
-  { icon: MessageSquare, texto: 'Resumir esta página' },
-  { icon: Users, texto: 'Perguntas sobre vendas' },
-  { icon: BarChart, texto: 'Analisar resultados desta semana' },
-]
-
-const respostas: Record<string, string> = {
-  receita: 'Com base nos dados do último mês, a receita total foi de R$ 350.000, representando um aumento de 12,5% em comparação ao mês anterior.\n\nOs principais contribuidores foram:\n• Eletrônicos: R$ 125.000 (35,7%)\n• Informática: R$ 87.500 (25%)\n• Áudio: R$ 63.000 (18%)\n\nO ticket médio subiu para R$ 285,00, indicando que os clientes estão comprando produtos de maior valor.',
-  clientes: 'Esta semana tivemos 234 novos clientes cadastrados, um aumento de 15% em relação à semana anterior.\n\nDistribuição por região:\n• Sudeste: 45%\n• Sul: 25%\n• Nordeste: 18%\n• Centro-Oeste: 8%\n• Norte: 4%\n\nTaxa de conversão: 3,2% (acima da média do setor)',
-  produtos: 'Os Top 5 produtos mais vendidos deste mês são:\n\n1. Smartphone Galaxy S24 - 892 unidades (R$ 3.8M)\n2. Notebook Dell Inspiron - 456 unidades (R$ 1.6M)\n3. Fone Bluetooth JBL - 1.234 unidades (R$ 369k)\n4. Console PS5 - 567 unidades (R$ 2.5M)\n5. Smart TV 55" LG - 234 unidades (R$ 655k)\n\nDestaque: Fones Bluetooth tiveram aumento de 45% nas vendas!',
-  analise: 'Análise completa do desempenho de vendas:\n\nMétricas Principais:\n• Receita Total: R$ 4.2M (+18,5% YoY)\n• Pedidos: 310.000 (+12,3%)\n• Ticket Médio: R$ 285 (+8,2%)\n• Taxa de Conversão: 3,8%\n\nPontos de Atenção:\n• Estoque de Fones JBL está baixo (12 unidades)\n• Taxa de cancelamento subiu 0,5%\n\nRecomendações:\n1. Reabastecer estoque de produtos populares\n2. Investir em campanhas para região Norte\n3. Melhorar processo de entrega',
+const iconMap: Record<ChatQuickAction['iconName'], LucideIcon> = {
+  TrendingUp,
+  MessageSquare,
+  Users,
+  BarChart,
 }
 
 export function ChatIA() {
@@ -44,7 +24,16 @@ export function ChatIA() {
   const [isTyping, setIsTyping] = useState(false)
   const [conversaAtiva, setConversaAtiva] = useState<number | null>(null)
   const [searchHistorico, setSearchHistorico] = useState('')
+  const [conversasHistorico, setConversasHistorico] = useState<ConversaHistorico[]>([])
+  const [quickActions, setQuickActions] = useState<ChatQuickAction[]>([])
+  const [respostas, setRespostas] = useState<ChatRespostas>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    getConversasHistorico().then(setConversasHistorico)
+    getChatQuickActions().then(setQuickActions)
+    getChatRespostas().then(setRespostas)
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -68,14 +57,7 @@ export function ChatIA() {
     setIsTyping(true)
 
     setTimeout(() => {
-      const lower = currentInput.toLowerCase()
-      let resposta = 'Entendi sua pergunta! Deixe-me analisar os dados disponíveis. Posso ajudar com informações sobre vendas, clientes, produtos e muito mais. Poderia ser mais específico?'
-
-      if (lower.includes('receita') || lower.includes('faturamento')) resposta = respostas.receita
-      else if (lower.includes('cliente')) resposta = respostas.clientes
-      else if (lower.includes('produto') || lower.includes('vendido') || lower.includes('vendendo')) resposta = respostas.produtos
-      else if (lower.includes('análise') || lower.includes('desempenho') || lower.includes('resultado')) resposta = respostas.analise
-
+      const resposta = resolveResposta(currentInput, respostas)
       setMensagens(prev => [
         ...prev,
         {
@@ -237,7 +219,7 @@ export function ChatIA() {
               <p className="text-sm text-muted mb-8">Pergunte qualquer coisa sobre seu negócio</p>
               <div className="grid grid-cols-2 gap-3 w-full max-w-md">
                 {quickActions.map((action, i) => {
-                  const Icon = action.icon
+                  const Icon = iconMap[action.iconName]
                   return (
                     <button
                       key={i}

@@ -12,8 +12,6 @@ Pré-requisito: variavel de ambiente GEMINI_API_KEY configurada no .env
 """
 
 import asyncio
-import os
-import sqlite3
 import sys
 import tempfile
 import time
@@ -33,166 +31,152 @@ from tests.integration.smoke_test_db import create_test_db
 
 async def _run_smoke_test(db_path: str) -> None:
     from src.agent import VCommerceAgent
-
-    agent = VCommerceAgent(db_path=db_path)
-
-    # 5 perguntas de fluxo feliz cobrindo diferentes domínios e tipos de saída.
-    # NAO inclui guardrails (testados em smoke_test_guardrails.py) nem fora do escopo.
-    questions = [
-        # 1. Vendas - Receita por regiao (JOIN + SUM, retorna tabela + grafico bar)
-        "Qual a receita total por regiao?",
-        # 2. Vendas - Ticket medio (AVG escalar, retorna valor unico)
-        "Qual o ticket medio dos pedidos?",
-        # 3. Suporte - Tempo medio de resolucao (AVG escalar, outra tabela)
-        "Qual o tempo medio de resolucao dos tickets?",
-        # 4. Clientes - Segmentacao (COUNT + GROUP BY, retorna tabela + grafico bar)
-        "Quantos clientes existem em cada segmento?",
-        # 5. Clientes - Filtro por regiao (SELECT + WHERE, retorna tabela)
-        "Quais clientes sao da regiao Sudeste?",
-    ]
-
     from tests.integration.smoke_test_config import (
-        BATCH_SIZE,
-        DELAY_BETWEEN_BATCHES_SECONDS,
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
+        configure_llm_retries_for_smoke_tests,
+        ensure_daily_budget,
+        wait_after_llm_interaction,
     )
+
+    configure_llm_retries_for_smoke_tests()
+    agent = VCommerceAgent(db_path=db_path)
+
+    # 5 perguntas de fluxo feliz cobrindo diferentes dominios e tipos de saida.
+    # NAO inclui guardrails (testados em smoke_test_guardrails.py) nem fora do escopo.
+    scenarios = [
+        {
+            "question": "Qual a receita total por regiao?",
+            "planned_calls": 2,
+        },
+        {
+            "question": "Qual o ticket medio dos pedidos?",
+            "planned_calls": 2,
+        },
+        {
+            "question": "Qual o tempo medio de resolucao dos tickets?",
+            "planned_calls": 2,
+        },
+        {
+            "question": "Quantos clientes existem em cada segmento?",
+            "planned_calls": 2,
+        },
+        {
+            "question": "Quais clientes sao da regiao Sudeste?",
+            "planned_calls": 2,
+        },
+    ]
 
     from src.core.exceptions import LLMQuotaError
 
     total_start = time.perf_counter()
     max_duration = MAX_DURATION_SECONDS
-    batch_size = BATCH_SIZE
-    delay_between_batches = DELAY_BETWEEN_BATCHES_SECONDS
 
     results = []
     api_calls = 0
-    quota_exhausted = False
 
-    for i in range(0, len(questions), batch_size):
-        batch = questions[i:i + batch_size]
-        batch_num = (i // batch_size) + 1
-        total_batches = (len(questions) + batch_size - 1) // batch_size
+    print(f"\nOrcamento planejado: {sum(s['planned_calls'] for s in scenarios)}/{MAX_API_CALLS_PER_DAY} chamadas")
 
-        print(f"\n{'=' * 60}")
-        print(f"LOTE {batch_num}/{total_batches}")
-        print(f"{'=' * 60}")
+    for idx, scenario in enumerate(scenarios):
+        question = scenario["question"]
+        planned_calls = scenario["planned_calls"]
+        is_last = idx == len(scenarios) - 1
 
-        for idx, question in enumerate(batch):
-            # Verifica timeout global
-            elapsed_total = time.perf_counter() - total_start
-            if elapsed_total >= max_duration:
-                print(f"\n[TIMEOUT] Limite de 10 minutos atingido. Encerrando teste.")
-                _print_summary(results, questions, api_calls)
-                return
+        elapsed_total = time.perf_counter() - total_start
+        if elapsed_total >= max_duration:
+            print(f"\n[TIMEOUT] Limite de {max_duration}s atingido. Encerrando teste.")
+            _print_summary(results, scenarios, api_calls)
+            return
 
-            print(f"\nPergunta: {question}")
-            print("-" * 60)
+        if not ensure_daily_budget(api_calls, planned_calls):
+            print(
+                f"\n[ORCAMENTO ESGOTADO] Proximo cenario exigiria "
+                f"{api_calls + planned_calls}/{MAX_API_CALLS_PER_DAY} chamadas."
+            )
+            _print_summary(results, scenarios, api_calls)
+            return
 
-            start = time.perf_counter()
-            try:
-                response = await agent.ask(question)
-            except LLMQuotaError as exc:
-                elapsed = time.perf_counter() - start
-                print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {exc}")
-                print("\n[!] A chave de API atingiu o limite diario de 20 requisicoes.")
-                print("[!] O teste sera encerrado. Execute novamente amanha ou use outra chave.")
-                quota_exhausted = True
-                _print_summary(results, questions, api_calls)
-                return
-            except Exception as exc:
-                elapsed = time.perf_counter() - start
-                error_msg = str(exc)
-                # Fallback: detecta quota por mensagem
-                if "Limite diario" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {error_msg}")
-                    print("\n[!] A chave de API atingiu o limite diario de 20 requisicoes.")
-                    print("[!] O teste sera encerrado. Execute novamente amanha ou use outra chave.")
-                    quota_exhausted = True
-                    _print_summary(results, questions, api_calls)
-                    return
-                print(f"[ERRO] ({elapsed:.2f}s): {exc}")
-                results.append({
-                    "question": question,
-                    "status": "ERRO",
-                    "elapsed": elapsed,
-                    "error": error_msg,
-                })
-                api_calls += 1
-                continue
+        print(f"\nPergunta {idx + 1}/{len(scenarios)}: {question}")
+        print("-" * 60)
 
+        start = time.perf_counter()
+        try:
+            response = await agent.ask(question)
+        except LLMQuotaError as exc:
             elapsed = time.perf_counter() - start
+            print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {exc}")
+            _print_summary(results, scenarios, api_calls)
+            return
+        except Exception as exc:
+            elapsed = time.perf_counter() - start
+            error_msg = str(exc)
+            if "Limite diario" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {error_msg}")
+                _print_summary(results, scenarios, api_calls)
+                return
+            print(f"[ERRO] ({elapsed:.2f}s): {exc}")
+            api_calls += planned_calls
+            results.append({
+                "question": question,
+                "status": "ERRO",
+                "elapsed": elapsed,
+                "error": error_msg,
+            })
+            await wait_after_llm_interaction(planned_calls, is_last)
+            continue
 
-            # Estima chamadas API
-            if elapsed < 0.5:
-                calls = 0  # Bloqueado em guardrail pre-LLM
-            elif response.out_of_scope:
-                calls = 1
-            else:
-                calls = 2  # SQL + insight
-            api_calls += calls
+        elapsed = time.perf_counter() - start
+        api_calls += planned_calls
 
-            if response.out_of_scope:
-                print(f"[FORA DO ESCOPO] ({elapsed:.2f}s)")
-                print(f"   Texto: {response.text[:200]}")
-                results.append({
-                    "question": question,
-                    "status": "FORA_DO_ESCOPO",
-                    "elapsed": elapsed,
-                    "sql": "",
-                })
-            elif response.error:
-                print(f"[ERRO] ({elapsed:.2f}s)")
-                print(f"   Texto: {response.text[:200]}")
-                print(f"   SQL  : {response.sql[:100] if response.sql else ''}")
-                results.append({
-                    "question": question,
-                    "status": "ERRO",
-                    "elapsed": elapsed,
-                    "error": response.text,
-                    "sql": response.sql,
-                })
-            else:
-                print(f"[SUCESSO] ({elapsed:.2f}s)")
-                print(f"   SQL  : {response.sql[:120]}...")
-                print(f"   Texto: {response.text[:200]}...")
-                if response.data:
-                    print(f"   Dados: {len(response.data)} linha(s)")
-                if response.chart:
-                    print(
-                        f"   Grafico: {response.chart.type} "
-                        f"(x={response.chart.x_axis}, y={response.chart.y_axis})"
-                    )
-                results.append({
-                    "question": question,
-                    "status": "SUCESSO",
-                    "elapsed": elapsed,
-                    "sql": response.sql,
-                    "data_rows": len(response.data) if response.data else 0,
-                    "chart_type": response.chart.type if response.chart else None,
-                })
+        if response.out_of_scope:
+            print(f"[FORA DO ESCOPO] ({elapsed:.2f}s)")
+            print(f"   Texto: {response.text[:200]}")
+            results.append({
+                "question": question,
+                "status": "FORA_DO_ESCOPO",
+                "elapsed": elapsed,
+                "sql": "",
+            })
+        elif response.error:
+            print(f"[ERRO] ({elapsed:.2f}s)")
+            print(f"   Texto: {response.text[:200]}")
+            print(f"   SQL  : {response.sql[:100] if response.sql else ''}")
+            results.append({
+                "question": question,
+                "status": "ERRO",
+                "elapsed": elapsed,
+                "error": response.text,
+                "sql": response.sql,
+            })
+        else:
+            print(f"[SUCESSO] ({elapsed:.2f}s)")
+            print(f"   SQL  : {response.sql[:120]}...")
+            print(f"   Texto: {response.text[:200]}...")
+            if response.data:
+                print(f"   Dados: {len(response.data)} linha(s)")
+            if response.chart:
+                print(
+                    f"   Grafico: {response.chart.type} "
+                    f"(x={response.chart.x_axis}, y={response.chart.y_axis})"
+                )
+            results.append({
+                "question": question,
+                "status": "SUCESSO",
+                "elapsed": elapsed,
+                "sql": response.sql,
+                "data_rows": len(response.data) if response.data else 0,
+                "chart_type": response.chart.type if response.chart else None,
+            })
 
-            print(f"   Chamadas API: {calls} | Total acumulado: {api_calls}/{MAX_API_CALLS_PER_DAY}")
-
-        # Aguarda entre lotes (exceto apos o ultimo)
-        if i + batch_size < len(questions):
-            elapsed_total = time.perf_counter() - total_start
-            remaining = max_duration - elapsed_total
-            wait_time = min(delay_between_batches, remaining)
-
-            if wait_time > 0:
-                print(f"\n[AGUARDANDO] {wait_time:.0f}s para respeitar o rate limit...")
-                await asyncio.sleep(wait_time)
-            else:
-                print(f"\n[TIMEOUT] Tempo restante insuficiente. Encerrando.")
-                break
+        print(f"   Chamadas API planejadas: {planned_calls} | Total: {api_calls}/{MAX_API_CALLS_PER_DAY}")
+        await wait_after_llm_interaction(planned_calls, is_last)
 
     total_elapsed = time.perf_counter() - total_start
     print(f"\n{'=' * 60}")
     print(f"TESTE FINALIZADO em {total_elapsed:.2f}s")
-    print(f"Chamadas API estimadas: {api_calls}/20")
+    print(f"Chamadas API planejadas: {api_calls}/{MAX_API_CALLS_PER_DAY}")
     print(f"{'=' * 60}")
-    _print_summary(results, questions, api_calls)
+    _print_summary(results, scenarios, api_calls)
 
 
 def _print_summary(results: list, all_questions: list, api_calls: int = 0) -> None:

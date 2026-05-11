@@ -297,27 +297,27 @@ export function Clientes() {
                   <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('nome')}>
                     <div className="flex items-center gap-2">Cliente <SortIcon columnKey="nome" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('status')}>
-                    <div className="flex items-center justify-center gap-2">Tipo de Cliente <SortIcon columnKey="status" /></div>
+                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('status')}>
+                    <div className="flex items-center gap-2">Tipo de Cliente <SortIcon columnKey="status" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('lvtTotal')}>
-                    <div className="flex items-center justify-center gap-2">LVT Total <SortIcon columnKey="lvtTotal" /></div>
+                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('lvtTotal')}>
+                    <div className="flex items-center gap-2">LVT Total <SortIcon columnKey="lvtTotal" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('ultimoPedido')}>
-                    <div className="flex items-center justify-center gap-2">Último Pedido <SortIcon columnKey="ultimoPedido" /></div>
+                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('ultimoPedido')}>
+                    <div className="flex items-center gap-2">Último Pedido <SortIcon columnKey="ultimoPedido" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('ticketMedio')}>
-                    <div className="flex items-center justify-center gap-2">Ticket médio <SortIcon columnKey="ticketMedio" /></div>
+                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('ticketMedio')}>
+                    <div className="flex items-center gap-2">Ticket médio <SortIcon columnKey="ticketMedio" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm text-center cursor-pointer" onClick={() => handleSort('segmento')}>
-                    <div className="flex items-center justify-center gap-2">Segmento <SortIcon columnKey="segmento" /></div>
+                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('segmento')}>
+                    <div className="flex items-center gap-2">Segmento <SortIcon columnKey="segmento" /></div>
                   </th>
-                  <th className="py-4 px-4 text-white font-medium text-sm text-right rounded-r-xl">Ações</th>
+                  <th className="py-4 px-4 text-white font-medium text-sm rounded-r-xl">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClientes.map((cliente) => (
-                  <tr key={cliente.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <tr key={cliente.id} className="border-b border-border hover:bg-[#1E5EFF]/5 dark:hover:bg-[#1E5EFF]/10 transition-colors">
                     <td className="py-4 px-4">
                       <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
                     </td>
@@ -327,7 +327,7 @@ export function Clientes() {
                         <span className="font-medium text-foreground text-sm">{cliente.nome}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-2 text-center">
+                    <td className="py-4 px-2">
                       <span className={`inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusStyles[cliente.status]}`}>
                         {cliente.status === 'VIP' && <Crown className="w-3 h-3" />}
                         {cliente.status === 'Recorrente' && <RotateCcw className="w-3 h-3" />}
@@ -335,13 +335,13 @@ export function Clientes() {
                         {cliente.status}
                       </span>
                     </td>
-                    <td className="py-4 px-2 text-center text-sm font-medium text-foreground">{cliente.lvtTotal}</td>
-                    <td className="py-4 px-2 text-center text-sm font-medium text-foreground">{cliente.ultimoPedido}</td>
-                    <td className="py-4 px-2 text-center text-sm font-medium text-foreground">{cliente.ticketMedio}</td>
-                    <td className="py-4 px-2 text-center">
+                    <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.lvtTotal}</td>
+                    <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.ultimoPedido}</td>
+                    <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.ticketMedio}</td>
+                    <td className="py-4 px-2">
                       <span className={`px-4 py-1 rounded-full text-xs font-bold border ${cliente.segmento === 'Moda' ? 'border-[#38BDF8] text-[#0369A1]' : 'border-[#3B82F6] text-[#1E40AF]'}`}>{cliente.segmento}</span>
                     </td>
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-4 px-4">
                       <button 
                         className="text-sm font-medium text-foreground hover:underline cursor-pointer"
                         onClick={() => {

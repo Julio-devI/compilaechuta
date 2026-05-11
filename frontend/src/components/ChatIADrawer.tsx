@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Maximize2, Send, Bot, Sparkles, HelpCircle, FileText, Zap, Lightbulb, History } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import type { ChatQuickAction, ChatRespostas } from '../services/chatService'
+import { getChatQuickActions, getChatRespostas, resolveResposta } from '../services/chatService'
 
 interface Message {
   id: number
@@ -9,18 +12,11 @@ interface Message {
   timestamp: string
 }
 
-const quickActions = [
-  { icon: HelpCircle, texto: 'O que esta assistente AI pode fazer?' },
-  { icon: FileText, texto: 'Resuma esta página' },
-  { icon: Zap, texto: 'Sugira perguntas sobre vendas' },
-  { icon: Lightbulb, texto: 'Analise os resultados desta semana' },
-]
-
-const respostas: Record<string, string> = {
-  receita: 'Com base nos dados do último mês, a receita total foi de R$ 350.000, representando um aumento de 12,5% em comparação ao mês anterior. Os principais contribuidores foram Eletrônicos (35,7%), Informática (25%) e Áudio (18%).',
-  clientes: 'Esta semana tivemos 234 novos clientes cadastrados, um aumento de 15% em relação à semana anterior. A taxa de conversão está em 3,2%, acima da média do setor.',
-  produtos: 'Os produtos mais vendidos este mês são: Smartphone Galaxy S24 (892 un.), Notebook Dell Inspiron (456 un.), Fone Bluetooth JBL (1.234 un.), Console PS5 (567 un.) e Smart TV LG 55" (234 un.).',
-  analise: 'Métricas principais: Receita R$ 4.2M (+18,5%), Pedidos 310.000 (+12,3%), Ticket Médio R$ 285 (+8,2%), Conversão 3,8%. Ponto de atenção: estoque de Fones JBL baixo (12 unidades).',
+const iconMap: Record<ChatQuickAction['iconName'], LucideIcon> = {
+  TrendingUp: Zap,
+  MessageSquare: FileText,
+  Users: HelpCircle,
+  BarChart: Lightbulb,
 }
 
 export function ChatIADrawer() {
@@ -28,8 +24,15 @@ export function ChatIADrawer() {
   const [mensagens, setMensagens] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [quickActions, setQuickActions] = useState<ChatQuickAction[]>([])
+  const [respostas, setRespostas] = useState<ChatRespostas>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    getChatQuickActions().then(setQuickActions)
+    getChatRespostas().then(setRespostas)
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -53,14 +56,7 @@ export function ChatIADrawer() {
     setIsTyping(true)
 
     setTimeout(() => {
-      const lower = currentInput.toLowerCase()
-      let resposta = 'Entendi! Posso ajudar com informações sobre vendas, clientes, produtos e muito mais. Poderia ser mais específico?'
-
-      if (lower.includes('receita') || lower.includes('faturamento')) resposta = respostas.receita
-      else if (lower.includes('cliente')) resposta = respostas.clientes
-      else if (lower.includes('produto') || lower.includes('vendido') || lower.includes('vendendo')) resposta = respostas.produtos
-      else if (lower.includes('análise') || lower.includes('desempenho') || lower.includes('resultado')) resposta = respostas.analise
-
+      const resposta = resolveResposta(currentInput, respostas)
       setMensagens(prev => [
         ...prev,
         {
@@ -136,7 +132,7 @@ export function ChatIADrawer() {
 
             <div className="space-y-1">
               {quickActions.map((action, i) => {
-                const Icon = action.icon
+                const Icon = iconMap[action.iconName]
                 return (
                   <button
                     key={i}

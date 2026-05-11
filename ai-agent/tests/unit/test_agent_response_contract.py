@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.agent import VCommerceAgent
+from src.agent import VCommerceAgent, _default_source_label
 from src.core.exceptions import (
     ErrorCode,
     LLMAuthenticationError,
@@ -46,6 +46,17 @@ def _fake_insight(chart=None, extra=None):
     if extra:
         payload.update(extra)
     return payload
+
+
+def _set_fake_descriptions(agent: VCommerceAgent) -> None:
+    agent._descriptions = {
+        "tables": {
+            "dim_cliente": {
+                "display_name": "clientes",
+                "description": "Dados cadastrais e métricas de clientes.",
+            }
+        }
+    }
 
 
 @pytest.mark.asyncio
@@ -172,6 +183,7 @@ def test_extract_sources_filters_cte_names():
             "dim_cliente": {"columns": []},
         }
     }
+    _set_fake_descriptions(agent)
 
     sql = """
     WITH clientes_sudeste AS (
@@ -182,7 +194,50 @@ def test_extract_sources_filters_cte_names():
 
     sources = agent._extract_sources(sql)
 
-    assert [source.table for source in sources] == ["dim_cliente"]
+    assert [source.table for source in sources] == ["clientes"]
+    assert sources[0].label == "clientes"
+    assert sources[0].description == "Dados cadastrais e métricas de clientes."
+
+
+def test_default_source_label_infers_business_aliases():
+    assert _default_source_label("dim_cliente_vip") == "clientes vip"
+    assert _default_source_label("fato_pedidos_atrasados") == "pedidos atrasados"
+    assert _default_source_label("gold_receita_mensal") == "receita mensal"
+    assert _default_source_label("vw_satisfacao_agente") == "satisfação agente"
+    assert _default_source_label("fato_avaliacoes_pedido") == "avaliações pedidos"
+
+
+def test_presentation_sanitizes_physical_table_names():
+    agent = VCommerceAgent(db_path=":memory:")
+    agent._technical_schema = {
+        "tables": {
+            "dim_cliente": {"columns": []},
+        }
+    }
+    _set_fake_descriptions(agent)
+
+    insight = _fake_insight(
+        extra={
+            "activity": "Analisei dim_cliente.",
+            "answer_sections": [
+                {
+                    "title": "Dados dim_cliente",
+                    "content": "A tabela dim_cliente retornou 10 registros.",
+                }
+            ],
+            "sources_summary": {"text": "Fonte: dim_cliente."},
+        }
+    )
+
+    presentation = agent._build_presentation(
+        insight, "SELECT total FROM dim_cliente"
+    )
+
+    assert presentation.activity == "Analisei clientes."
+    assert presentation.answer_sections[0].title == "Dados clientes"
+    assert "dim_cliente" not in presentation.answer_sections[0].content
+    assert presentation.sources_summary is not None
+    assert presentation.sources_summary.text == "Fonte de dados consultada: clientes."
 
 
 @pytest.mark.asyncio
@@ -200,6 +255,7 @@ async def test_success_keeps_data_from_database_and_ignores_llm_data(monkeypatch
         return _fake_insight(extra={"data": [{"total": 999}]})
 
     monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions(agent)
     monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
     monkeypatch.setattr("src.agent.apply_layer_2", lambda sql, *_args: sql)
     monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
@@ -214,7 +270,7 @@ async def test_success_keeps_data_from_database_and_ignores_llm_data(monkeypatch
     assert response.presentation is not None
     assert response.presentation.activity.startswith("Analisei")
     assert response.presentation.sources_summary is not None
-    assert response.presentation.sources_summary.tables[0].table == "dim_cliente"
+    assert response.presentation.sources_summary.tables[0].table == "clientes"
     assert agent._history[1]["sql"] == response.sql
 
 

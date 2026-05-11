@@ -20,7 +20,7 @@ Dados retornados pelo banco (JSON):
 5. Números inteiros devem usar separador de milhar (ex: 1.234).
 6. O campo `activity` deve ser uma frase curta explicando o que foi analisado.
 7. O campo `answer_sections` deve conter uma seção para cada item relevante consultado. Use títulos curtos, como "Cliente", "Produto", "Ticket Aberto", "Status do Atendimento", "Resultado" ou "Resumo".
-8. O campo `sources_summary.text` deve resumir em linguagem natural quais fontes de dados/tabelas foram consultadas, sem expor SQL.
+8. O campo `sources_summary.text` deve resumir em linguagem natural quais fontes de dados foram consultadas, sem expor SQL nem nomes físicos de tabelas. Use nomes de negócio como "clientes", "produtos", "vendas", "tickets de suporte" ou "avaliações".
 9. Se a consulta retornar zero linhas, explique em uma seção que nenhum resultado foi encontrado e sugira possíveis motivos baseados nos filtros da consulta.
 10. Quando houver histórico de conversa, mantenha coerência com as respostas anteriores. Não repita insights já fornecidos, a menos que o usuário peça.
 

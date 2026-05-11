@@ -121,6 +121,7 @@ Regras do contrato:
 - Em sucesso sem linhas, `data` é `[]`.
 - Em erro ou fora de escopo sem execução, `data` é `None`.
 - `presentation` contém a resposta textual estruturada para UI: comentário inicial, seções e resumo de fontes.
+- `presentation.sources_summary.tables[].table` e `label` usam aliases de negócio. O agente prioriza `display_name` em `schema_descriptions.json` e, se ausente, infere um nome seguro removendo prefixos técnicos como `dim_`, `fato_` e `gold_`.
 - `chart` é apenas sugestão. Se o tipo ou os eixos não forem compatíveis com `data`, o agente retorna `chart=None`.
 
 ## Estrutura

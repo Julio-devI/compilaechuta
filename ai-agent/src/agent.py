@@ -133,6 +133,46 @@ def _build_text_from_presentation(presentation: ResponsePresentation | None) -> 
     return "\n\n".join(part for part in parts if part)
 
 
+def _default_source_label(table_name: str) -> str:
+    """Gera um nome exibível quando o JSON de metadados não define alias."""
+    label = table_name.lower()
+    prefixes = (
+        "dim_",
+        "fato_",
+        "fact_",
+        "gold_",
+        "silver_",
+        "bronze_",
+        "dm_",
+        "mart_",
+        "vw_",
+        "view_",
+        "tbl_",
+    )
+    for prefix in prefixes:
+        if label.startswith(prefix):
+            label = label[len(prefix):]
+            break
+
+    replacements = {
+        "avaliacao": "avaliação",
+        "avaliacoes": "avaliações",
+        "satisfacao": "satisfação",
+        "navegacao": "navegação",
+        "regiao": "região",
+        "ticket": "tickets",
+        "cliente": "clientes",
+        "produto": "produtos",
+        "pedido": "pedidos",
+        "venda": "vendas",
+        "problema": "problemas",
+    }
+    words = [replacements.get(word, word) for word in label.split("_") if word]
+    if not words:
+        return table_name
+    return " ".join(words)
+
+
 class VCommerceAgent:
     """Agente Text-to-SQL para o domínio V-Commerce."""
 
@@ -375,7 +415,7 @@ class VCommerceAgent:
         )
 
     def _extract_sources(self, sql: str) -> list[DataSource]:
-        """Extrai tabelas do SQL validado e enriquece com metadados de negócio."""
+        """Extrai tabelas do SQL validado e expõe aliases seguros de negócio."""
         try:
             tree = parse_one(sql, read="sqlite")
         except Exception:
@@ -394,14 +434,30 @@ class VCommerceAgent:
         sources: list[DataSource] = []
         for table_name in table_names:
             meta = tables_meta.get(table_name, {})
+            display_name = str(
+                meta.get("display_name") or _default_source_label(table_name)
+            )
             sources.append(
                 DataSource(
-                    table=table_name,
-                    label=table_name,
+                    table=display_name,
+                    label=display_name,
                     description=meta.get("description"),
                 )
             )
         return sources
+
+    def _sanitize_display_text(self, text: str) -> str:
+        """Substitui nomes físicos de tabelas por aliases de negócio."""
+        tables_meta = (self._descriptions or {}).get("tables", {})
+        sanitized = text
+        for table_name, meta in sorted(
+            tables_meta.items(), key=lambda item: len(item[0]), reverse=True
+        ):
+            display_name = str(
+                meta.get("display_name") or _default_source_label(table_name)
+            )
+            sanitized = sanitized.replace(table_name, display_name)
+        return sanitized
 
     def _build_sources_summary(
         self, insight: dict[str, Any], sql: str
@@ -411,8 +467,8 @@ class VCommerceAgent:
         raw_summary = insight.get("sources_summary")
         text = ""
         if isinstance(raw_summary, dict) and isinstance(raw_summary.get("text"), str):
-            text = raw_summary["text"].strip()
-        if not text and sources:
+            text = self._sanitize_display_text(raw_summary["text"].strip())
+        if sources:
             names = ", ".join(source.table for source in sources)
             text = f"Fonte de dados consultada: {names}."
         if not text and not sources:
@@ -425,13 +481,13 @@ class VCommerceAgent:
         """Converte o JSON da Chamada 2 para dataclasses públicas."""
         sections = [
             ResponseSection(
-                title=str(section["title"]),
-                content=str(section["content"]),
+                title=self._sanitize_display_text(str(section["title"])),
+                content=self._sanitize_display_text(str(section["content"])),
             )
             for section in insight["answer_sections"]
         ]
         return ResponsePresentation(
-            activity=str(insight["activity"]),
+            activity=self._sanitize_display_text(str(insight["activity"])),
             answer_sections=sections,
             sources_summary=self._build_sources_summary(insight, sql),
         )

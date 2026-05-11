@@ -27,22 +27,22 @@ export function Dashboard() {
   }, [])
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Title */}
-      <h1 className="text-5xl font-bold text-[#020854] dark:text-foreground mb-6">Dashboard</h1>
+      <h1 className="text-3xl font-bold text-[#020854] dark:text-foreground mb-3">Dashboard</h1>
 
       {/* Filter Tabs */}
       <FilterTabs />
 
       {/* Current View Info */}
-      <div className="mt-6 mb-8">
-        <p className="text-muted">
+      <div className="mt-3 mb-4">
+        <p className="text-muted text-sm">
           Você está visualizando <span className="font-semibold text-foreground">Últimos 30 Dias</span>
         </p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">
         {kpiData.map((kpi) => {
           const Icon = iconMap[kpi.iconName]
           return (
@@ -52,7 +52,7 @@ export function Dashboard() {
               value={kpi.value}
               change={kpi.change}
               changeLabel={kpi.changeLabel}
-              icon={<Icon className={`w-6 h-6 ${kpi.iconColor}`} />}
+              icon={<Icon className={`w-4 h-4 ${kpi.iconColor}`} />}
               iconBgColor={kpi.iconBgColor}
             />
           )
@@ -60,13 +60,13 @@ export function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
         <RevenueChart />
         <SatisfactionChart />
       </div>
 
       {/* Operations Chart and Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <OperationsChart />
         <QuickActions />
       </div>

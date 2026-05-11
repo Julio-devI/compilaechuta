@@ -14,14 +14,14 @@ export function KPICard({ title, value, change, icon, iconBgColor }: KPICardProp
   const isPositive = change >= 0
 
   return (
-    <div className="bg-card rounded-4xl p-5 border border-border shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-3xl p-3.5 border border-border shadow-sm hover:shadow-md transition-shadow">
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", iconBgColor)}>
+      <div className="flex items-start justify-between mb-2">
+        <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", iconBgColor)}>
           {icon}
         </div>
         <div className={cn(
-          "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+          "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium",
           isPositive ? "bg-success-light text-success" : "bg-danger-light text-danger"
         )}>
           {isPositive ? (
@@ -34,14 +34,14 @@ export function KPICard({ title, value, change, icon, iconBgColor }: KPICardProp
       </div>
 
       {/* Title */}
-      <p className="text-sm text-muted mb-1">{title}</p>
+      <p className="text-xs text-muted mb-1">{title}</p>
 
       {/* Value */}
-      <p className="text-4xl font-bold text-[#020854] dark:text-foreground mb-3">{value}</p>
+      <p className="text-2xl font-bold text-[#020854] dark:text-foreground mb-2">{value}</p>
 
       {/* Action Link */}
-      <button className="flex items-center gap-1 text-sm text-muted font-medium underline">
-        <ArrowUpRight className="w-4 h-4" />
+      <button className="flex items-center gap-1 text-xs text-muted font-medium underline">
+        <ArrowUpRight className="w-3 h-3" />
         <span>Acessar mais detalhes</span>
       </button>
     </div>

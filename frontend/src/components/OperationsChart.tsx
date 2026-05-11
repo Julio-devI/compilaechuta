@@ -12,15 +12,15 @@ export function OperationsChart() {
   }, [])
 
   return (
-    <div className="bg-card rounded-2xl p-6 border lg:col-span-2 border-border shadow-sm flex flex-col">
+    <div className="bg-card rounded-2xl p-4 border lg:col-span-2 border-border shadow-sm flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <Truck className="w-4 h-4 text-muted" />
+        <Truck className="w-3.5 h-3.5 text-muted" />
         <span className="text-xs font-medium text-muted uppercase tracking-wider">Operações</span>
       </div>
-      <h3 className="text-2xl font-semibold text-[#020854] dark:text-foreground mb-1">Distribuição de pedidos</h3>
-      <p>Status x indicador de entrega</p>
-      <div className="h-75">
+      <h3 className="text-lg font-semibold text-[#020854] dark:text-foreground mb-0.5">Distribuição de pedidos</h3>
+      <p className="text-xs text-muted">Status x indicador de entrega</p>
+      <div className="h-56">
         <ResponsiveContainer width="100%" height="90%">
           <BarChart
             data={data}
@@ -62,7 +62,7 @@ export function OperationsChart() {
       </div>
 
       <div className="flex justify-end mt-4">
-        <button className="flex items-center gap-2 py-3 rounded-full bg-[#1E5EFF] text-white font-medium text-sm hover:bg-[#0D47A1] transition-colors px-6">
+        <button className="flex items-center gap-2 py-1.5 rounded-full bg-[#1E5EFF] text-white font-medium text-xs hover:bg-[#0D47A1] transition-colors px-4">
           <span>Acessar pedidos críticos</span>
           <ArrowUpRight className="w-4 h-4" />
         </button>

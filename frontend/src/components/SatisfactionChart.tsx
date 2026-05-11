@@ -17,18 +17,18 @@ export function SatisfactionChart() {
 
   return (
     <div
-      className="flex flex-col items-start p-6 gap-2.5 rounded-[30px] bg-card border border-border"
+      className="flex flex-col items-start p-4 gap-1.5 rounded-3xl bg-card border border-border"
       style={{ boxShadow: '0 4px 24px -8px rgba(2, 2, 85, 0.08)' }}
     >
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Users className="w-4 h-4 text-muted" />
-        <span className="text-sm font-medium text-muted uppercase tracking-wider">Clientes</span>
+        <Users className="w-3.5 h-3.5 text-muted" />
+        <span className="text-xs font-medium text-muted uppercase tracking-wider">Clientes</span>
       </div>
-      <h3 className="text-2xl font-semibold text-[#020854] dark:text-foreground">Taxa de Satisfação</h3>
-      <p className="text-sm text-muted">Exibição de dados média — clique para detalhar</p>
+      <h3 className="text-lg font-semibold text-[#020854] dark:text-foreground">Taxa de Satisfação</h3>
+      <p className="text-xs text-muted">Exibição de dados média — clique para detalhar</p>
 
-      <div className="h-50 w-full">
+      <div className="h-36 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={barChartData}

@@ -1,45 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Filter, Eye, Package, Truck, CheckCircle, Clock, XCircle, TrendingUp } from 'lucide-react'
+import type { Pedido, PedidoStatus } from '../services/orderService'
+import { getPedidos, pedidoStatusConfig, pagamentoLabels } from '../services/orderService'
 
-interface Pedido {
-  id: string
-  cliente: string
-  produtos: number
-  valor: string
-  data: string
-  status: 'pendente' | 'processando' | 'enviado' | 'entregue' | 'cancelado'
-  pagamento: 'pix' | 'cartao' | 'boleto'
-  avatar: string
-}
-
-const pedidos: Pedido[] = [
-  { id: '#PED-001234', cliente: 'Maria Silva', produtos: 3, valor: 'R$ 459,90', data: '18/01/2024 14:32', status: 'entregue', pagamento: 'pix', avatar: 'MS' },
-  { id: '#PED-001235', cliente: 'João Santos', produtos: 1, valor: 'R$ 189,00', data: '18/01/2024 13:15', status: 'enviado', pagamento: 'cartao', avatar: 'JS' },
-  { id: '#PED-001236', cliente: 'Ana Oliveira', produtos: 5, valor: 'R$ 892,50', data: '18/01/2024 11:45', status: 'processando', pagamento: 'cartao', avatar: 'AO' },
-  { id: '#PED-001237', cliente: 'Carlos Ferreira', produtos: 2, valor: 'R$ 328,00', data: '18/01/2024 10:20', status: 'pendente', pagamento: 'boleto', avatar: 'CF' },
-  { id: '#PED-001238', cliente: 'Beatriz Lima', produtos: 4, valor: 'R$ 1.245,00', data: '17/01/2024 18:50', status: 'entregue', pagamento: 'pix', avatar: 'BL' },
-  { id: '#PED-001239', cliente: 'Roberto Costa', produtos: 1, valor: 'R$ 99,90', data: '17/01/2024 16:30', status: 'cancelado', pagamento: 'cartao', avatar: 'RC' },
-  { id: '#PED-001240', cliente: 'Fernanda Alves', produtos: 6, valor: 'R$ 1.567,80', data: '17/01/2024 14:15', status: 'enviado', pagamento: 'pix', avatar: 'FA' },
-  { id: '#PED-001241', cliente: 'Pedro Mendes', produtos: 2, valor: 'R$ 445,00', data: '17/01/2024 11:00', status: 'entregue', pagamento: 'cartao', avatar: 'PM' },
-]
-
-const statusConfig = {
-  pendente: { color: 'bg-[#FFD60A]/10 text-[#B8860B]', icon: Clock, label: 'Pendente' },
-  processando: { color: 'bg-[#1E5EFF]/10 text-[#1E5EFF]', icon: Package, label: 'Processando' },
-  enviado: { color: 'bg-[#8B5CF6]/10 text-[#8B5CF6]', icon: Truck, label: 'Enviado' },
-  entregue: { color: 'bg-[#00C48C]/10 text-[#00C48C]', icon: CheckCircle, label: 'Entregue' },
-  cancelado: { color: 'bg-[#FF4757]/10 text-[#FF4757]', icon: XCircle, label: 'Cancelado' },
-}
-
-const pagamentoLabels = {
-  pix: 'PIX',
-  cartao: 'Cartão',
-  boleto: 'Boleto'
+const statusConfig: Record<PedidoStatus, { color: string; icon: React.ElementType; label: string }> = {
+  pendente:    { ...pedidoStatusConfig.pendente,    icon: Clock },
+  processando: { ...pedidoStatusConfig.processando, icon: Package },
+  enviado:     { ...pedidoStatusConfig.enviado,     icon: Truck },
+  entregue:    { ...pedidoStatusConfig.entregue,    icon: CheckCircle },
+  cancelado:   { ...pedidoStatusConfig.cancelado,   icon: XCircle },
 }
 
 export function Pedidos() {
+  const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('todos')
+
+  useEffect(() => {
+    getPedidos().then(setPedidos)
+  }, [])
 
   const filteredPedidos = pedidos.filter(pedido => {
     const matchesSearch = pedido.id.toLowerCase().includes(searchTerm.toLowerCase()) ||

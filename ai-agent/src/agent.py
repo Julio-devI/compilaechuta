@@ -18,11 +18,14 @@ from src.core.exceptions import (
     GuardrailError,
     LLMAuthenticationError,
     LLMError,
+    LLMInternalError,
+    LLMInvalidRequestError,
     LLMParseError,
     LLMQuotaError,
     LLMRateLimitError,
     LLMTimeoutError,
     LLMUnavailableError,
+    LLMUnknownError,
 )
 from src.security.guardrails import (
     apply_layer_2,
@@ -335,15 +338,36 @@ class VCommerceAgent:
 
     def _make_llm_error_response(self, exc: LLMError, *, sql: str = "") -> AgentResponse:
         """Converte falhas esperadas do LLM em erro estruturado."""
+        code = ErrorCode.LLM_UNKNOWN_ERROR
         retryable = isinstance(
             exc, (LLMRateLimitError, LLMTimeoutError, LLMUnavailableError)
         )
-        if isinstance(exc, LLMQuotaError):
-            retryable = False
         if isinstance(exc, LLMAuthenticationError):
+            code = ErrorCode.LLM_AUTHENTICATION_ERROR
+            retryable = False
+        elif isinstance(exc, LLMQuotaError):
+            code = ErrorCode.LLM_QUOTA_ERROR
+            retryable = False
+        elif isinstance(exc, LLMRateLimitError):
+            code = ErrorCode.LLM_RATE_LIMIT_ERROR
+            retryable = True
+        elif isinstance(exc, LLMTimeoutError):
+            code = ErrorCode.LLM_TIMEOUT_ERROR
+            retryable = True
+        elif isinstance(exc, LLMUnavailableError):
+            code = ErrorCode.LLM_UNAVAILABLE_ERROR
+            retryable = True
+        elif isinstance(exc, LLMInvalidRequestError):
+            code = ErrorCode.LLM_INVALID_REQUEST_ERROR
+            retryable = False
+        elif isinstance(exc, LLMInternalError):
+            code = ErrorCode.LLM_INTERNAL_ERROR
+            retryable = True
+        elif isinstance(exc, LLMUnknownError):
+            code = ErrorCode.LLM_UNKNOWN_ERROR
             retryable = False
         return self._make_error_response(
-            code=ErrorCode.LLM_ERROR,
+            code=code,
             stage="llm",
             sql=sql,
             message=str(exc) or self._GENERIC_ERROR_MSG,
@@ -361,7 +385,9 @@ class VCommerceAgent:
             {
                 table.name
                 for table in tree.find_all(exp.Table)
-                if table.name and table.name not in self._excluded_tables
+                if table.name
+                and table.name in set((self._technical_schema or {}).get("tables", {}))
+                and table.name not in self._excluded_tables
             }
         )
         tables_meta = (self._descriptions or {}).get("tables", {})
@@ -475,6 +501,7 @@ class VCommerceAgent:
         # Etapa 1: carregar schema
         try:
             schema, technical_schema = await self._load_schema()
+            self._technical_schema = technical_schema
         except (FileNotFoundError, RuntimeError, ValueError):
             return self._make_error_response(
                 code=ErrorCode.SCHEMA_LOAD_ERROR,

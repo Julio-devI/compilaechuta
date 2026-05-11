@@ -352,8 +352,8 @@
 
 - **Contexto:** O backend precisa consumir respostas previsíveis do agente e o frontend precisa renderizar seções alinhadas ao layout do Figma, sem depender de parsing de texto livre.
 
-- **Decisão:** `AgentResponse` passa a expor `status`, `presentation`, `data`, `chart`, `sql`, `error`, `out_of_scope` e `truncated`. O campo `error` sempre existe no contrato como objeto estruturado ou `null`. O SQL continua sendo enviado ao backend como metadado técnico, mas não faz parte da apresentação ao usuário. O campo `data` é preenchido exclusivamente com linhas retornadas pelo banco após execução do SQL validado; a Chamada 2 gera apenas apresentação textual e sugestão de gráfico.
+- **Decisão:** `AgentResponse` passa a expor `status`, `presentation`, `data`, `chart`, `sql`, `error`, `out_of_scope` e `truncated`. O campo `error` sempre existe no contrato como objeto estruturado ou `null`, usando códigos específicos para falhas de guardrail, banco, parsing e LLM. O SQL continua sendo enviado ao backend como metadado técnico, mas não faz parte da apresentação ao usuário. O campo `data` é preenchido exclusivamente com linhas retornadas pelo banco após execução do SQL validado; a Chamada 2 gera apenas apresentação textual e sugestão de gráfico.
 
 - **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
 
-- **Implicações:** O backend passa a consumir um contrato mais estável e consegue distinguir sucesso, erro e fora de escopo via `status`. O frontend pode renderizar `presentation` sem interpretar texto livre. A Chamada 2 deixa de ser fonte de verdade para dados, reduzindo risco de alucinação ou divergência entre resultado SQL e visualização.
+- **Implicações:** O backend passa a consumir um contrato mais estável e consegue distinguir sucesso, erro e fora de escopo via `status`. Falhas do provedor LLM podem ser tratadas por código específico, como autenticação, rate limit, quota, timeout e indisponibilidade. O frontend pode renderizar `presentation` sem interpretar texto livre. A Chamada 2 deixa de ser fonte de verdade para dados, reduzindo risco de alucinação ou divergência entre resultado SQL e visualização.

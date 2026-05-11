@@ -3,7 +3,18 @@
 import pytest
 
 from src.agent import VCommerceAgent
-from src.core.exceptions import ErrorCode, LLMParseError
+from src.core.exceptions import (
+    ErrorCode,
+    LLMAuthenticationError,
+    LLMInternalError,
+    LLMInvalidRequestError,
+    LLMParseError,
+    LLMQuotaError,
+    LLMRateLimitError,
+    LLMTimeoutError,
+    LLMUnavailableError,
+    LLMUnknownError,
+)
 from src.llm import insight_generator
 
 
@@ -93,6 +104,85 @@ async def test_sql_validation_failure_returns_structured_error(monkeypatch):
     assert response.error is not None
     assert response.error.stage == "sql_validation"
     assert response.error.retryable is False
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_code", "retryable"),
+    [
+        (
+            LLMAuthenticationError("Chave inválida."),
+            ErrorCode.LLM_AUTHENTICATION_ERROR,
+            False,
+        ),
+        (
+            LLMRateLimitError("Limite por minuto atingido."),
+            ErrorCode.LLM_RATE_LIMIT_ERROR,
+            True,
+        ),
+        (
+            LLMQuotaError("Limite diário atingido."),
+            ErrorCode.LLM_QUOTA_ERROR,
+            False,
+        ),
+        (
+            LLMTimeoutError("Tempo excedido."),
+            ErrorCode.LLM_TIMEOUT_ERROR,
+            True,
+        ),
+        (
+            LLMUnavailableError("Serviço indisponível."),
+            ErrorCode.LLM_UNAVAILABLE_ERROR,
+            True,
+        ),
+        (
+            LLMInvalidRequestError("Requisição inválida."),
+            ErrorCode.LLM_INVALID_REQUEST_ERROR,
+            False,
+        ),
+        (
+            LLMInternalError("Erro interno."),
+            ErrorCode.LLM_INTERNAL_ERROR,
+            True,
+        ),
+        (
+            LLMUnknownError("Erro desconhecido."),
+            ErrorCode.LLM_UNKNOWN_ERROR,
+            False,
+        ),
+    ],
+)
+def test_llm_errors_keep_specific_public_codes(exc, expected_code, retryable):
+    agent = VCommerceAgent(db_path=":memory:")
+
+    response = agent._make_llm_error_response(exc, sql="SELECT 1")
+
+    assert response.status == "error"
+    assert response.error is not None
+    assert response.error.code == expected_code
+    assert response.error.stage == "llm"
+    assert response.error.message == str(exc)
+    assert response.error.retryable is retryable
+    assert response.sql == "SELECT 1"
+
+
+def test_extract_sources_filters_cte_names():
+    agent = VCommerceAgent(db_path=":memory:")
+    agent._technical_schema = {
+        "tables": {
+            "dim_cliente": {"columns": []},
+        }
+    }
+
+    sql = """
+    WITH clientes_sudeste AS (
+        SELECT id_cliente FROM dim_cliente WHERE regiao = 'Sudeste'
+    )
+    SELECT COUNT(*) AS total_clientes FROM clientes_sudeste;
+    """
+
+    sources = agent._extract_sources(sql)
+
+    assert [source.table for source in sources] == ["dim_cliente"]
 
 
 @pytest.mark.asyncio

@@ -31,6 +31,14 @@ resp1 = asyncio.run(agent.ask('Quais os 10 produtos mais vendidos?'))
 resp2 = asyncio.run(agent.ask('E apenas na região Sul?'))  # Pergunta de follow-up
 print(resp2.text)
 
+if resp2.status == "success" and resp2.presentation:
+    print(resp2.presentation.activity)
+    for section in resp2.presentation.answer_sections:
+        print(section.title, section.content)
+
+if resp2.error:
+    print(resp2.error.code, resp2.error.message)
+
 # Persistência de sessão (opcional para o backend)
 history = agent.export_history()  # Retorna list[dict] serializável
 # ... salva em Redis/Banco de dados ...
@@ -40,6 +48,80 @@ agent.import_history(history)
 # Inicia nova conversa
 agent.clear_history()
 ```
+
+## Contrato de Resposta
+
+`VCommerceAgent.ask(question)` retorna um `AgentResponse` com contrato estável para o backend:
+
+```python
+@dataclass
+class ChartSuggestion:
+    type: Literal["bar", "line", "pie", "area"]
+    x_axis: str | None
+    y_axis: str | None
+    title: str
+
+@dataclass
+class ResponseSection:
+    title: str
+    content: str
+
+@dataclass
+class DataSource:
+    table: str
+    label: str | None
+    description: str | None
+
+@dataclass
+class SourcesSummary:
+    text: str
+    tables: list[DataSource]
+
+@dataclass
+class ResponsePresentation:
+    activity: str
+    answer_sections: list[ResponseSection]
+    sources_summary: SourcesSummary | None
+
+@dataclass
+class ResponseError:
+    code: str
+    message: str
+    stage: Literal[
+        "input",
+        "schema",
+        "sql_generation",
+        "sql_validation",
+        "database",
+        "insight_generation",
+        "llm",
+    ]
+    retryable: bool
+
+@dataclass
+class AgentResponse:
+    status: Literal["success", "error", "out_of_scope"]
+    text: str
+    presentation: ResponsePresentation | None
+    data: list[dict] | None
+    chart: ChartSuggestion | None
+    sql: str
+    error: ResponseError | None
+    out_of_scope: bool
+    truncated: bool = False
+```
+
+Regras do contrato:
+
+- `status` define o estado principal: `success`, `error` ou `out_of_scope`.
+- `error` é sempre `None` em sucesso e fora de escopo; em falha contém `ResponseError`.
+- `sql` é metadado técnico para o backend, útil para auditoria e debug. Não deve ser renderizado no frontend.
+- `data` sempre vem do banco após execução do SQL validado. A Chamada 2 não decide, altera nem sintetiza dados.
+- Em sucesso com resultado escalar, `data` continua sendo lista de dicts, ex.: `[{"receita_total": 12345.67}]`.
+- Em sucesso sem linhas, `data` é `[]`.
+- Em erro ou fora de escopo sem execução, `data` é `None`.
+- `presentation` contém a resposta textual estruturada para UI: comentário inicial, seções e resumo de fontes.
+- `chart` é apenas sugestão. Se o tipo ou os eixos não forem compatíveis com `data`, o agente retorna `chart=None`.
 
 ## Estrutura
 
@@ -106,22 +188,32 @@ python tests/integration/smoke_test_memory.py
 
 ## Guardrails e Códigos de Erro
 
-Para garantir o "Error Opacity" no frontend, todas as violações de segurança retornam a mesma mensagem amigável para o usuário final: *"Não foi possível processar sua pergunta. Tente reformulá-la."* 
+Para garantir opacidade de erro no frontend, violações de segurança continuam usando mensagem amigável genérica: *"Não foi possível processar sua pergunta. Tente reformulá-la."*
 
-No entanto, o agente repassa um `error_code` silencioso no `AgentResponse` (acessível apenas pelo backend) permitindo auditoria, logs e ações preventivas (como timeout de usuários infratores).
+O backend recebe detalhes em `AgentResponse.error`, com `code`, `stage`, `message` e `retryable`. A mensagem é em português para que o desenvolvedor consiga diagnosticar a falha sem consultar documentação externa.
 
-| Camada | Função Interna | Error Code (`AgentResponse.error_code`) | Descrição |
-| :--- | :--- | :--- | :--- |
-| **1 (Input)** | `validate_empty_input` | `EMPTY_INPUT` | Input nulo ou somente espaços em branco. |
-| **1 (Input)** | `validate_input_length` | `INPUT_TOO_LONG` | Excedeu `MAX_INPUT_CHARS`. |
-| **1 (Input)** | `validate_prompt_injection`| `PROMPT_INJECTION` | Regex barrou ataque de persona ou exfiltração. |
-| **2 (SQL)** | `validate_destructive_queries`| `DESTRUCTIVE_QUERY` | AST barrou instrução não-SELECT. |
-| **2 (SQL)** | `validate_multiple_statements`| `MULTIPLE_STATEMENTS` | Múltiplos statements injetados (`;`). |
-| **2 (SQL)** | `validate_table_column_allowlist`| `SCHEMA_VIOLATION_ALLOWLIST`| Uso de tabela/coluna inexistente no schema. |
-| **2 (SQL)** | `validate_semantic_schema` | `SCHEMA_VIOLATION_SEMANTIC` | Coluna não pertence à tabela no JOIN/FROM. |
-| **2 (SQL)** | `sqlglot.parse_one` | `SQL_PARSE_ERROR` | LLM alucinou sintaxe irrecuperável. |
-| **3 (DB)** | `Database.execute_query` | `EXECUTION_TIMEOUT` | Query demorou acima de `QUERY_TIMEOUT_SECONDS`. |
-| **3 (DB)** | `Database.execute_query` | `DB_EXECUTION_ERROR` | Banco bloqueou (ex: modo read-only ou erro interno). |
+| Stage | Código (`ResponseError.code`) | Retry | Descrição |
+| :--- | :--- | :---: | :--- |
+| `input` | `EMPTY_INPUT` | Não | Input nulo ou somente espaços em branco. |
+| `input` | `INPUT_TOO_LONG` | Não | Pergunta excedeu `MAX_INPUT_CHARS`. |
+| `input` | `PROMPT_INJECTION` | Não | Regex barrou ataque de persona ou exfiltração. |
+| `schema` | `SCHEMA_LOAD_ERROR` | Não | Falha ao carregar schema técnico ou metadados de negócio. |
+| `sql_generation` | `SQL_PARSE_ERROR` | Sim | Chamada 1 retornou SQL inválido ou malformado. |
+| `sql_validation` | `DESTRUCTIVE_QUERY` | Não | Guardrail bloqueou instrução não-SELECT. |
+| `sql_validation` | `MULTIPLE_STATEMENTS` | Não | Guardrail detectou múltiplos statements. |
+| `sql_validation` | `SCHEMA_VIOLATION_ALLOWLIST` | Não | SQL usa tabela ou coluna inexistente no schema permitido. |
+| `sql_validation` | `SCHEMA_VIOLATION_SEMANTIC` | Não | SQL referencia coluna fora da tabela/alias correto. |
+| `database` | `EXECUTION_TIMEOUT` | Sim | Query excedeu `QUERY_TIMEOUT_SECONDS`. |
+| `database` | `DB_EXECUTION_ERROR` | Não | SQLite recusou ou falhou ao executar a query. |
+| `insight_generation` | `INSIGHT_PARSE_ERROR` | Sim | Chamada 2 retornou JSON malformado ou fora do contrato após retries. |
+| `llm` | `LLM_AUTHENTICATION_ERROR` | Não | Chave ausente, inválida, expirada ou sem permissão para o modelo. |
+| `llm` | `LLM_RATE_LIMIT_ERROR` | Sim | Limite de requisições por minuto atingido. Aguarde antes de tentar novamente. |
+| `llm` | `LLM_QUOTA_ERROR` | Não | Quota diária ou de plano atingida. Nova tentativa imediata tende a falhar. |
+| `llm` | `LLM_TIMEOUT_ERROR` | Sim | API Gemini demorou demais para responder. |
+| `llm` | `LLM_UNAVAILABLE_ERROR` | Sim | Serviço Gemini temporariamente indisponível. |
+| `llm` | `LLM_INVALID_REQUEST_ERROR` | Não | Requisição inválida, modelo inexistente ou prompt fora dos limites aceitos. |
+| `llm` | `LLM_INTERNAL_ERROR` | Sim | Erro interno/transiente no provedor. |
+| `llm` | `LLM_UNKNOWN_ERROR` | Não | Falha não categorizada ao chamar o LLM. |
 
 ## Limitações Conhecidas
 

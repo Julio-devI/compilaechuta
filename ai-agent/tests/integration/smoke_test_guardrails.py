@@ -5,7 +5,7 @@ Maximiza o uso da janela de 20 req/dia do free tier Gemini.
 Cenarios escolhidos para consumir ate 20 chamadas API no total.
 
 As configuracoes compartilhadas (limites, timeouts, delays) estao em
-smoke_test_config.py para garantir consistencia entre todos os smoke tests.
+smoke_tests_config.py para garantir consistencia entre todos os smoke tests.
 """
 
 import asyncio
@@ -24,7 +24,7 @@ from tests.integration.smoke_test_db import create_test_db
 async def _run_guardrails_smoke_test(db_path: str) -> None:
     from src.agent import VCommerceAgent
     from src.core.exceptions import LLMQuotaError
-    from tests.integration.smoke_test_config import (
+    from tests.integration.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
         configure_llm_retries_for_smoke_tests,
@@ -218,36 +218,38 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
         elapsed = time.perf_counter() - start
         api_calls += planned_calls
 
-        if response.out_of_scope:
+        if response.status == "out_of_scope":
             got_status = "FORA_DO_ESCOPO"
-        elif response.error:
+        elif response.status == "error":
             got_status = "ERRO"
         else:
             got_status = "SUCESSO"
 
-        is_empty = not response.data and got_status == "SUCESSO"
+        is_empty = not response.user_response.data and got_status == "SUCESSO"
 
         passed = got_status == scenario["expected_status"]
         if scenario.get("expected_empty"):
             passed = passed and is_empty
         if scenario.get("check_sql_contains"):
-            passed = passed and scenario["check_sql_contains"] in (response.sql or "")
+            passed = passed and scenario["check_sql_contains"] in (
+                response.developer_debug.sql or ""
+            )
         if scenario.get("expected_error_code"):
             passed = (
                 passed
-                and response.error is not None
-                and response.error.code == scenario["expected_error_code"]
+                and response.developer_debug.error is not None
+                and response.developer_debug.error.code == scenario["expected_error_code"]
             )
 
         status_icon = "[PASSOU]" if passed else "[FALHOU]"
         print(f"{status_icon} ({elapsed:.2f}s) -> Status: {got_status}")
-        if response.error:
-            print(f"   Error Code: {response.error.code}")
-        print(f"   Texto: {response.text[:200]}...")
-        if response.sql:
-            print(f"   SQL  : {response.sql[:120]}...")
-        if response.data is not None:
-            print(f"   Dados: {len(response.data)} linha(s)")
+        if response.developer_debug.error:
+            print(f"   Error Code: {response.developer_debug.error.code}")
+        print(f"   Texto: {response.user_response.answer_text[:200]}...")
+        if response.developer_debug.sql:
+            print(f"   SQL  : {response.developer_debug.sql[:120]}...")
+        if response.user_response.data is not None:
+            print(f"   Dados: {len(response.user_response.data)} linha(s)")
         print(
             f"   Chamadas API planejadas: {planned_calls} | "
             f"Total: {api_calls}/{MAX_API_CALLS_PER_DAY}"
@@ -259,9 +261,13 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
             "got": got_status,
             "passed": passed,
             "elapsed": elapsed,
-            "text": response.text,
-            "sql": response.sql,
-            "data_rows": len(response.data) if response.data else 0,
+            "text": response.user_response.answer_text,
+            "sql": response.developer_debug.sql,
+            "data_rows": (
+                len(response.user_response.data)
+                if response.user_response.data
+                else 0
+            ),
             "is_empty": is_empty,
         })
 
@@ -276,7 +282,7 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
 
 
 def _print_summary(results: list, all_scenarios: list, api_calls: int) -> None:
-    from tests.integration.smoke_test_config import MAX_API_CALLS_PER_DAY
+    from tests.integration.smoke_tests_config import MAX_API_CALLS_PER_DAY
 
     print("\n--- RESUMO DOS GUARDRAILS ---")
     passed = sum(1 for r in results if r.get("passed"))

@@ -10,7 +10,7 @@ import {
   Settings,
   LogOut
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -20,7 +20,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Clientes', path: '/clientes' },
   { icon: ShoppingCart, label: 'Pedidos', path: '/pedidos' },
   { icon: Package, label: 'Produtos', path: '/produtos' },
@@ -35,10 +35,10 @@ const bottomNavItems: NavItem[] = [
 
 export function Sidebar() {
   const [isHovered, setIsHovered] = useState(false); // State to track hover
+  const navigate = useNavigate()
 
   const handleLogout = () => {
-    // Logout logic
-    console.log('Logout')
+    navigate('/login')
   }
 
   return (
@@ -48,8 +48,8 @@ export function Sidebar() {
         isHovered ? "w-64" : "w-20" // Dynamic width based on hover
       )}
       style={{
-        backgroundColor: isHovered ? 'rgba(199, 201, 217, 0.60)' : 'rgba(199, 201, 217, 0.30)', // Adjust transparency on hover
-        backdropFilter: isHovered ? 'blur(10px)' : 'none', // Glass effect
+        backgroundColor: isHovered ? 'var(--sidebar-glass-hover)' : 'var(--sidebar-glass-default)',
+        backdropFilter: isHovered ? 'blur(10px)' : 'none',
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -64,21 +64,27 @@ export function Sidebar() {
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 flex flex-col items-center gap-2 w-full"> {/* Added w-full */}
+      <nav className={cn(
+        "flex-1 flex flex-col items-center gap-2 w-full transition-all duration-300",
+        isHovered ? "px-3" : ""
+      )}>
         {navItems.map((item) => (
           <NavButton key={item.label} item={item} isSidebarHovered={isHovered} />
         ))}
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="flex flex-col items-center gap-2 mt-auto w-full"> {/* Added w-full */}
+      <div className={cn(
+        "flex flex-col items-center gap-2 mt-auto w-full transition-all duration-300",
+        isHovered ? "px-3" : ""
+      )}>
         {bottomNavItems.map((item) => (
           <NavButton key={item.label} item={item} isSidebarHovered={isHovered} />
         ))}
         <button
           onClick={handleLogout}
           className={cn(
-            "h-12 rounded-xl flex items-center transition-all duration-200 group", // Added group for hover state
+            "h-12 rounded-xl flex items-center transition-all duration-200 group",
             isHovered ? "w-full px-4 justify-start" : "w-12 justify-center",
             "hover:bg-[#ADE9FF] bg-transparent"
           )}

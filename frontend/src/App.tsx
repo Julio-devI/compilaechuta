@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
 import { Dashboard } from './components/Dashboard'
@@ -10,11 +10,15 @@ import { Relatorios } from './pages/Relatorios'
 import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
+import { EsqueciSenha } from './pages/EsqueciSenha'
 import { Cadastro } from './pages/Cadastro'
+import { CadastroProduto } from './pages/CadastroProduto'
+import {ThemeProvider} from "./contexts/ThemeContext";
+import { Toaster } from 'sonner'
 
 function AppLayout() {
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-background">
       <Sidebar />
       <div className="ml-20">
         <Header />
@@ -28,22 +32,28 @@ function AppLayout() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/cadastro" element={<Cadastro />} />
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/clientes" element={<Clientes />} />
-          <Route path="/pedidos" element={<Pedidos />} />
-          <Route path="/produtos" element={<Produtos />} />
-          <Route path="/suporte" element={<Suporte />} />
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/chat-ia" element={<ChatIA />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+      <ThemeProvider>
+        <Toaster position="top-right" richColors />
+        <BrowserRouter>
+          <Routes>
+            <Route index element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+            <Route path="/cadastro" element={<Cadastro />} />
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/clientes" element={<Clientes />} />
+              <Route path="/pedidos" element={<Pedidos />} />
+              <Route path="/produtos" element={<Produtos />} />
+              <Route path="/produtos/novo" element={<CadastroProduto />} />
+              <Route path="/suporte" element={<Suporte />} />
+              <Route path="/relatorios" element={<Relatorios />} />
+              <Route path="/chat-ia" element={<ChatIA />} />
+              <Route path="/configuracoes" element={<Configuracoes />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
   )
 }
 

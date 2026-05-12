@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
-import { ThemeProvider } from './contexts/ThemeContext'
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
 import { Dashboard } from './components/Dashboard'
@@ -12,6 +11,7 @@ import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
 import { Cadastro } from './pages/Cadastro'
+import { CadastroProduto } from './pages/CadastroProduto'
 
 function AppLayout() {
   return (
@@ -29,24 +29,23 @@ function AppLayout() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/cadastro" element={<Cadastro />} />
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/pedidos" element={<Pedidos />} />
-            <Route path="/produtos" element={<Produtos />} />
-            <Route path="/suporte" element={<Suporte />} />
-            <Route path="/relatorios" element={<Relatorios />} />
-            <Route path="/chat-ia" element={<ChatIA />} />
-            <Route path="/configuracoes" element={<Configuracoes />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </ThemeProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/cadastro" element={<Cadastro />} />
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/clientes" element={<Clientes />} />
+          <Route path="/pedidos" element={<Pedidos />} />
+          <Route path="/produtos" element={<Produtos />} />
+          <Route path="/produtos/novo" element={<CadastroProduto />} />
+          <Route path="/suporte" element={<Suporte />} />
+          <Route path="/relatorios" element={<Relatorios />} />
+          <Route path="/chat-ia" element={<ChatIA />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
 

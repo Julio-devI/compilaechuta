@@ -390,9 +390,20 @@ export function Clientes() {
 
       {/* Modal de Detalhes do Cliente */}
       {showModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+  <div 
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
+    onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        setShowModal(false);
+      }
+    }}
+  >
     {/* Container Principal com Scroll e Altura Máxima */}
-    <div className="w-[800px] max-h-[95vh] bg-cardrounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto">
+
+    <div 
+      className="w-[800px] max-h-[95vh] bg-white rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto"
+      onClick={(e) => e.stopPropagation()}
+    >
 
       {/* O conteúdo interno precisa de um wrapper para o padding não bugar com o scroll */}
       <div className="p-5">

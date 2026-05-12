@@ -297,7 +297,9 @@ export function Clientes() {
                     </td>
                     <td className="py-4 px-2">
                       <div className="flex items-center gap-3">
-                        <img src={cliente.avatar} alt={cliente.nome} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
+                    <div className="w-10 h-10 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-xl font-medium mb-1">
+                      {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
+                    </div>
                         <span className="font-medium text-foreground text-sm">{cliente.nome}</span>
                       </div>
                     </td>
@@ -337,7 +339,9 @@ export function Clientes() {
               <div key={cliente.id} className="bg-card p-6 rounded-2xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow">
                 <div>
                   <div className="flex items-center gap-4 mb-4">
-                    <img src={cliente.avatar} alt={cliente.nome} className="w-16 h-16 rounded-full object-cover" />
+                    <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-3xl font-medium mb-1">
+                      {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
+                    </div>
                     <div className="flex-1">
                       <h3 className="font-bold text-lg text-[#020854] dark:text-foreground">{cliente.nome}</h3>
                       <p className="text-sm text-gray-500">{cliente.cidade}</p>

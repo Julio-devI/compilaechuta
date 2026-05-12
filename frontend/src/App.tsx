@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
 import { Dashboard } from './components/Dashboard'
@@ -34,6 +34,7 @@ function App() {
       <ThemeProvider>
         <BrowserRouter>
           <Routes>
+            <Route index element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/cadastro" element={<Cadastro />} />

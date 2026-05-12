@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
-from app.models.pedido import Pedido
+from app.models.orders import Pedido
 
 
 def _apply_filters(stmt, model, data_inicio=None, data_fim=None, categoria=None):

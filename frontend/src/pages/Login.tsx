@@ -109,25 +109,6 @@ export function Login() {
               >
                 Login
               </button>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-[#E2E8F0]" />
-                <span className="text-xs sm:text-sm text-[#1565C0] font-medium whitespace-nowrap">
-                  Ou continue com
-                </span>
-                <div className="flex-1 h-px bg-[#E2E8F0]" />
-              </div>
-
-              {/* Google button */}
-              <button
-                type="button"
-                className="w-full h-11 sm:h-12 rounded-full flex items-center justify-center gap-3 text-sm font-semibold text-[#37474F] hover:bg-[#EBEBEB] transition-colors"
-                style={{ background: '#F5F5F5' }}
-              >
-                <GoogleIcon />
-                Entrar com o Google
-              </button>
             </div>
 
             {/* Sign up */}

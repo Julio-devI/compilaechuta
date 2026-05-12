@@ -97,7 +97,7 @@ export function Clientes() {
         <div className="h-3 bg-gray-200 rounded w-4/6"></div>
         <div className="h-3 bg-gray-200 rounded w-3/6"></div>
       </div>
-      <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+      <div className="mt-6 pt-4 border-t border-border flex justify-end">
         <div className="h-8 w-24 bg-gray-200 rounded-full"></div>
       </div>
     </div>
@@ -170,7 +170,7 @@ export function Clientes() {
         </div>
 
         {showFilters && (
-          <div className="px-8 pb-8 pt-4 grid grid-cols-12 gap-y-8 gap-x-12 border-t border-[#F1F5F9] animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="px-8 pb-8 pt-4 grid grid-cols-12 gap-y-8 gap-x-12 border-t border-border animate-in fade-in slide-in-from-top-2 duration-300">
             {/* SKU Produto */}
             <div className="col-span-4">
               <div className="flex items-center gap-2 mb-3 font-bold text-foreground">
@@ -344,27 +344,27 @@ export function Clientes() {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-bold text-lg text-[#020854] dark:text-foreground">{cliente.nome}</h3>
-                      <p className="text-sm text-gray-500">{cliente.cidade}</p>
+                      <p className="text-sm text-muted-foreground">{cliente.cidade}</p>
                     </div>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">LVT Total</span>
+                      <span className="text-muted-foreground">LVT Total</span>
                       <span className="font-medium text-foreground">{cliente.lvtTotal}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Ticket Médio</span>
+                      <span className="text-muted-foreground">Ticket Médio</span>
                       <span className="font-medium text-foreground">{cliente.ticketMedio}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Status</span>
+                      <span className="text-muted-foreground">Status</span>
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusStyles[cliente.status]}`}>
                         {cliente.status}
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+                <div className="mt-6 pt-4 border-t border-border flex justify-end">
                   <button 
                     className="text-sm font-medium text-foreground hover:underline"
                     onClick={() => {
@@ -405,7 +405,7 @@ export function Clientes() {
     {/* Container Principal com Scroll e Altura Máxima */}
 
     <div 
-      className="w-[800px] max-h-[95vh] bg-white rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto"
+      className="w-[800px] max-h-[95vh] bg-card rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto"
       onClick={(e) => e.stopPropagation()}
     >
 
@@ -416,9 +416,9 @@ export function Clientes() {
         <div className="absolute top-6 right-8 flex flex-col items-end gap-4">
           <button
             onClick={() => setShowModal(false)}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1 hover:bg-background rounded-full transition-colors"
           >
-            <X className="w-8 h-8 text-black" />
+            <X className="w-8 h-8 text-foreground" />
           </button>
         </div>
 
@@ -452,7 +452,7 @@ export function Clientes() {
         </div>
 
         {/* Seção Produtos & Performance */}
-        <div className="border border-gray-100 rounded-[35px] p-5 shadow-sm bg-card">
+        <div className="border border-border rounded-[35px] p-5 shadow-sm bg-card">
           <span className="text-[#1E5EFF] text-xs font-bold tracking-widest uppercase mb-2 block">
             Informações Gerais
           </span>
@@ -461,7 +461,7 @@ export function Clientes() {
           <div className="space-y-4">
             {/* Produto 1 */}
             <div className="bg-background rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-cardrounded-xl flex items-center justify-center border border-gray-100">
+              <div className="w-12 h-12 bg-cardrounded-xl flex items-center justify-center border border-border">
                 <Box className="w-6 h-6 text-black" />
               </div>
               <div className="flex-1">
@@ -484,7 +484,7 @@ export function Clientes() {
 
             {/* Produto 2 */}
             <div className="bg-background rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-cardrounded-xl flex items-center justify-center border border-gray-100">
+              <div className="w-12 h-12 bg-cardrounded-xl flex items-center justify-center border border-border">
                 <Box className="w-6 h-6 text-black" />
               </div>
               <div className="flex-1">

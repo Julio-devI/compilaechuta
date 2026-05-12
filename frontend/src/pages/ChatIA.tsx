@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Send, Bot, Sparkles, TrendingUp, Users, BarChart, Search, X, Settings, MessageSquare, Plus } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ConversaHistorico, ChatQuickAction, ChatRespostas } from '../services/chatService'
@@ -19,6 +20,7 @@ const iconMap: Record<ChatQuickAction['iconName'], LucideIcon> = {
 }
 
 export function ChatIA() {
+  const navigate = useNavigate()
   const [mensagens, setMensagens] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -115,11 +117,7 @@ export function ChatIA() {
         </p>
 
         <div className="flex items-center gap-1">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted hover:text-foreground rounded-lg transition-colors hover:bg-(--chat-item-hover)">
-            <Settings className="w-3.5 h-3.5" />
-            Opções
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted hover:text-foreground rounded-lg transition-colors hover:bg-(--chat-item-hover)">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted hover:text-foreground rounded-lg transition-colors hover:bg-(--chat-item-hover)">
             <X className="w-3.5 h-3.5" />
             Fechar
           </button>

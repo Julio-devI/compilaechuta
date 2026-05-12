@@ -56,7 +56,7 @@ export function Pedidos() {
   };
 
   const PedidoCardSkeleton = () => (
-    <div className="bg-white p-6 rounded-3xl border border-slate-100 animate-pulse flex flex-col justify-between h-full">
+    <div className="bg-card p-6 rounded-3xl border border-border animate-pulse flex flex-col justify-between h-full">
       <div>
         <div className="flex justify-between items-start mb-4">
           <div className="flex flex-col gap-2 w-1/2">
@@ -67,7 +67,7 @@ export function Pedidos() {
         </div>
 
 
-        <div className="bg-[#F1F5F9] rounded-2xl p-4 mb-4 space-y-2">
+        <div className="bg-background rounded-2xl p-4 mb-4 space-y-2">
           <div className="h-5 bg-slate-200 rounded w-3/4"></div>
           <div className="h-3 bg-slate-200 rounded w-1/2"></div>
         </div>
@@ -84,7 +84,7 @@ export function Pedidos() {
         </div>
       </div>
 
-      <div className="mt-6 pt-4 border-t border-slate-100">
+      <div className="mt-6 pt-4 border-t border-border">
         <div className="flex items-center gap-1 justify-center">
           {[1, 2, 3, 4, 5].map((step) => (
             <div key={step} className="flex items-center">
@@ -98,48 +98,48 @@ export function Pedidos() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-8 font-sans text-slate-900">
-      <h1 className="text-4xl font-bold text-[#020854] mb-8">Pedidos</h1>
+    <div className="min-h-screen bg-background p-8 font-sans text-foreground">
+      <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground mb-8">Pedidos</h1>
 
       {/* 1. Database Search Card */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border-0 mb-6">
+      <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6">
         <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2 text-slate-700 font-bold">
-            <span className="p-1.5 bg-slate-100 rounded-lg flex items-center justify-center">
-              <Database className="w-5 h-5 text-slate-600" />
+          <div className="flex items-center gap-2 text-foreground font-bold">
+            <span className="p-1.5 bg-background rounded-lg flex items-center justify-center">
+              <Database className="w-5 h-5 text-muted-foreground" />
             </span>
             Consultar Database
           </div>
-          <div className="text-sm font-semibold text-slate-500">
+          <div className="text-sm font-semibold text-muted-foreground">
             Total <span className="text-blue-700 ml-2 font-black">300.000</span>
           </div>
         </div>
 
         <div className="relative">
-          <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <Search className="w-5 h-5 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por ID do pedido, cliente ou SKU..."
-            className="w-full pl-12 pr-4 py-4 bg-[#F1F5F9] rounded-2xl border-none text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full pl-12 pr-4 py-4 bg-background rounded-2xl border-none text-foreground focus:ring-2 focus:ring-blue-500 outline-none"
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            <span className="text-slate-400 text-sm">Exibindo</span>
+            <span className="text-muted-foreground text-sm">Exibindo</span>
             <span className="bg-sky-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">6</span>
           </div>
         </div>
       </div>
 
       {/* 2. Seção de Filtros (Conforme Imagem) */}
-      <div className="bg-white rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
+      <div className="bg-card rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
         <div className="p-6 flex justify-between items-center">
           <button
             onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
-            className="flex items-center gap-2 font-bold text-slate-800 border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
+            className="flex items-center gap-2 font-bold text-foreground border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
           >
             {isFiltrosOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
             {isFiltrosOpen ? 'Esconder Filtros' : 'Mostrar Filtros'}
           </button>
-          {isFiltrosOpen ? <Minimize2 className="w-5 h-5 text-slate-400" /> : <Maximize2 className="w-5 h-5 text-slate-400" />}
+          {isFiltrosOpen ? <Minimize2 className="w-5 h-5 text-muted-foreground" /> : <Maximize2 className="w-5 h-5 text-muted-foreground" />}
         </div>
 
         {isFiltrosOpen && (
@@ -147,34 +147,34 @@ export function Pedidos() {
             {/* Coluna Esquerda */}
             <div className="space-y-6">
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Box className="w-4 h-4" /> SKU Produto
                 </label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-[#F1F5F9] rounded-2xl border-none text-slate-400 outline-none appearance-none cursor-pointer">
+                  <select className="w-full p-4 bg-background rounded-2xl border-none text-muted-foreground outline-none appearance-none cursor-pointer">
                     <option>Todos os Produtos</option>
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Filter className="w-4 h-4" /> Status
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <StatusChip label="Compra" color="bg-[#F2F2F5] text-purple-600" dot="bg-purple-500" />
-                  <StatusChip label="Processamento" color="bg-[#F2F2F5] text-orange-600" dot="bg-orange-500" />
-                  <StatusChip label="Enviado" color="bg-[#F2F2F5] text-yellow-500" dot="bg-yellow-400" />
-                  <StatusChip label="Em Trânsito" color="bg-[#F2F2F5] text-blue-600" dot="bg-blue-500" />
-                  <StatusChip label="Atrasado" color="bg-[#F2F2F5] text-red-600" dot="bg-red-500" />
-                  <StatusChip label="Entregue" color="bg-[#F2F2F5] text-green-600" dot="bg-green-500" />
-                  <StatusChip label="Cancelado" color="bg-[#F2F2F5] text-slate-800" dot="bg-[#020854]" />
+                  <StatusChip label="Compra" color="bg-background dark:bg-card text-purple-600" dot="bg-purple-500" />
+                  <StatusChip label="Processamento" color="bg-background dark:bg-card text-orange-600" dot="bg-orange-500" />
+                  <StatusChip label="Enviado" color="bg-background dark:bg-card text-yellow-500" dot="bg-yellow-400" />
+                  <StatusChip label="Em Trânsito" color="bg-background dark:bg-card text-blue-600" dot="bg-blue-500" />
+                  <StatusChip label="Atrasado" color="bg-background dark:bg-card text-red-600" dot="bg-red-500" />
+                  <StatusChip label="Entregue" color="bg-background dark:bg-card text-green-600" dot="bg-green-500" />
+                  <StatusChip label="Cancelado" color="bg-background dark:bg-card text-foreground" dot="bg-[#020854]" />
                 </div>
               </div>
 
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Calendar className="w-4 h-4" /> Tipo de Cliente
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -200,25 +200,25 @@ export function Pedidos() {
             {/* Coluna Direita */}
             <div className="space-y-6">
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Calendar className="w-4 h-4" /> Período de Abertura
                 </label>
                 <div className="flex gap-2">
                   <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Todos</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Hoje</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Últimos 7 dias</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Personalizado</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Hoje</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Últimos 7 dias</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Personalizado</button>
                 </div>
               </div>
 
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Ticket className="w-4 h-4" /> Ticket
                 </label>
                 <div className="flex gap-2">
                   <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Não tem</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Aberto</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Finalizado</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Aberto</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Finalizado</button>
                 </div>
               </div>
             </div>
@@ -228,18 +228,18 @@ export function Pedidos() {
 
       {/* 3. Tabela Header */}
       <div className="flex justify-between items-end mb-6">
-        <h2 className="text-2xl font-bold text-[#020854]">3 Pedidos Encontrados</h2>
-        <div className="flex items-center gap-2 bg-slate-200 p-1 rounded-xl">
-          <button 
+        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">3 Pedidos Encontrados</h2>
+        <div className="flex items-center gap-2 bg-slate-200 dark:bg-border p-1 rounded-xl">
+          <button
             onClick={() => handleViewChange('tabela')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'tabela' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-300'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'tabela' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-slate-300 dark:hover:bg-background'}`}
           >
             <Table className="w-4 h-4" />
             Tabela
           </button>
-          <button 
+          <button
             onClick={() => handleViewChange('grade')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'grade' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-300'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'grade' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-slate-300 dark:hover:bg-background'}`}
           >
             <Grid className="w-4 h-4" />
             Grade
@@ -272,19 +272,19 @@ export function Pedidos() {
                 {pedidosMock.map((pedido, idx) => (
                   <tr
                     key={idx}
-                    className="bg-white group cursor-pointer hover:bg-[#F2F2F5] transition-colors"
+                    className="bg-card group cursor-pointer hover:bg-background transition-colors"
                     onClick={() => setPedidoSelecionado(pedido)}
                   >
                     <td className="py-4 px-6 rounded-l-2xl border-0">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-blue-900 text-lg">{pedido.id}</span>
+                          <span className="font-black text-blue-900 dark:text-blue-300 text-lg">{pedido.id}</span>
                           <span className="text-[#FFD700] text-[10px] font-black flex items-center gap-1">
                             # {pedido.ticket} TICKET
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-[10px] font-bold">
-                          <span className="flex items-center gap-1 text-slate-400">
+                          <span className="flex items-center gap-1 text-muted-foreground">
                             <History className="w-3 h-3" /> {pedido.tempoAberto}
                           </span>
                           <span className="flex items-center gap-1 text-red-500 uppercase italic">
@@ -295,12 +295,12 @@ export function Pedidos() {
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                      <div className="bg-[#F1F5F9] rounded-2xl p-4 flex items-center justify-between min-w-[240px]">
+                      <div className="bg-background rounded-2xl p-4 flex items-center justify-between min-w-[240px]">
                         <div className="flex flex-col">
-                          <span className="font-black text-[#020854] text-base leading-tight">
+                          <span className="font-black text-[#020854] dark:text-foreground text-base leading-tight">
                             {pedido.cliente}
                           </span>
-                          <span className="text-slate-500 text-sm font-medium">
+                          <span className="text-muted-foreground text-sm font-medium">
                             {pedido.cidade}, {pedido.estado}
                           </span>
                         </div>
@@ -314,18 +314,18 @@ export function Pedidos() {
                     </td>
 
                     <td className="py-4 px-6 border-0 text-[11px]">
-                      <div className="text-slate-400 leading-tight font-medium">
+                      <div className="text-muted-foreground leading-tight font-medium">
                         Comprado em:<br />
-                        <span className="text-slate-600 font-bold">{pedido.data}</span>
+                        <span className="text-foreground font-bold">{pedido.data}</span>
                       </div>
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                      <span className="text-slate-500 font-bold text-sm">{pedido.produtos} itens</span>
+                      <span className="text-muted-foreground font-bold text-sm">{pedido.produtos} itens</span>
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                      <span className="text-blue-900 font-black text-lg">{pedido.valor}</span>
+                      <span className="text-blue-900 dark:text-blue-300 font-black text-lg">{pedido.valor}</span>
                     </td>
 
                     <td className="py-4 px-6 rounded-r-2xl border-0">
@@ -341,11 +341,11 @@ export function Pedidos() {
                               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 
                                 ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' : 
                                   step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' : 
-                                  'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                                  'bg-background border-border text-muted-foreground'}`}>
                                 {step < pedido.progresso ? <CheckCircle2 className="w-4 h-4" /> : step}
                               </div>
                               {step < 5 && (
-                                <div className={`w-3 h-0.5 ${step < pedido.progresso ? 'bg-blue-900' : 'bg-slate-200'}`} />
+                                <div className={`w-3 h-0.5 ${step < pedido.progresso ? 'bg-blue-900' : 'bg-border'}`} />
                               )}
                             </div>
                           ))}
@@ -362,48 +362,48 @@ export function Pedidos() {
             {pedidosMock.map((pedido) => (
               <div 
                 key={pedido.id} 
-                className="bg-white p-6 rounded-3xl border border-slate-100 flex flex-col justify-between hover:shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] transition-shadow cursor-pointer h-full"
+                className="bg-card p-6 rounded-3xl border border-border flex flex-col justify-between hover:shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] transition-shadow cursor-pointer h-full"
                 onClick={() => setPedidoSelecionado(pedido)}
               >
                 <div>
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex flex-col gap-1">
-                      <span className="font-black text-blue-900 text-xl">{pedido.id}</span>
-                      <span className="text-slate-400 text-xs font-bold">{pedido.data}</span>
+                      <span className="font-black text-blue-900 dark:text-blue-300 text-xl">{pedido.id}</span>
+                      <span className="text-muted-foreground text-xs font-bold">{pedido.data}</span>
                     </div>
                     <span className="bg-red-500 text-white px-3 py-1 rounded-full text-[10px] font-black">
                       {pedido.status.toUpperCase()}
                     </span>
                   </div>
                   
-                  <div className="bg-[#F1F5F9] rounded-2xl p-4 mb-4">
-                    <h3 className="font-black text-[#020854] text-lg">{pedido.cliente}</h3>
-                    <p className="text-slate-500 text-sm font-medium">{pedido.cidade}, {pedido.estado}</p>
+                  <div className="bg-background rounded-2xl p-4 mb-4">
+                    <h3 className="font-black text-[#020854] dark:text-foreground text-lg">{pedido.cliente}</h3>
+                    <p className="text-muted-foreground text-sm font-medium">{pedido.cidade}, {pedido.estado}</p>
                   </div>
 
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 font-bold">Produtos</span>
-                      <span className="font-medium text-slate-700">{pedido.produtos} itens</span>
+                      <span className="text-muted-foreground font-bold">Produtos</span>
+                      <span className="font-medium text-foreground">{pedido.produtos} itens</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 font-bold">Valor Total</span>
-                      <span className="font-black text-blue-900 text-lg">{pedido.valor}</span>
+                      <span className="text-muted-foreground font-bold">Valor Total</span>
+                      <span className="font-black text-blue-900 dark:text-blue-300 text-lg">{pedido.valor}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="mt-6 pt-4 border-t border-slate-100">
+                <div className="mt-6 pt-4 border-t border-border">
                   <div className="flex items-center gap-1 justify-center">
                     {[1, 2, 3, 4, 5].map((step) => (
                       <div key={step} className="flex items-center">
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 
                           ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' : 
                             step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' : 
-                            'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                            'bg-background border-border text-muted-foreground'}`}>
                           {step < pedido.progresso ? <CheckCircle2 className="w-3 h-3" /> : step}
                         </div>
-                        {step < 5 && <div className={`w-3 h-0.5 ${step < pedido.progresso ? 'bg-blue-900' : 'bg-slate-200'}`} />}
+                        {step < 5 && <div className={`w-3 h-0.5 ${step < pedido.progresso ? 'bg-blue-900' : 'bg-border'}`} />}
                       </div>
                     ))}
                   </div>

@@ -7,8 +7,8 @@ Esta suite cobre o parser de SQL, a validação sintática mínima
 
 import pytest
 
-from src.core import config
-from src.llm.sql_generator import (
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.llm.sql_generator import (
     _extract_out_of_scope,
     _strip_sql_comments,
     _validate_sql_response,

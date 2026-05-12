@@ -9,7 +9,7 @@ validação semântica de schema.
 
 import pytest
 
-from src.security.guardrails import (
+from vcommerce_ai_agent.security.guardrails import (
     add_limit_if_missing,
     apply_layer_2,
     validate_destructive_queries,
@@ -20,8 +20,8 @@ from src.security.guardrails import (
     validate_semantic_schema,
     validate_table_column_allowlist,
 )
-from src.core.exceptions import GuardrailError
-from src.core.config import MAX_INPUT_CHARS
+from vcommerce_ai_agent.core.exceptions import GuardrailError
+from vcommerce_ai_agent.core.config import MAX_INPUT_CHARS
 
 
 # Fixture compartilhada para testes de allowlist e semântica
@@ -462,6 +462,44 @@ def test_semantic_accepts_subquery_column():
     sql = (
         "SELECT nome_cliente FROM dim_cliente WHERE id_cliente IN "
         "(SELECT id_cliente FROM fato_vendas WHERE valor_total_venda > 100)"
+    )
+    validate_semantic_schema(sql, _ALLOWLIST)
+
+
+def test_semantic_accepts_reused_alias_in_nested_scope():
+    """Alias reutilizado em subquery não deve sobrescrever o escopo externo."""
+    sql = (
+        "SELECT t.nome_cliente FROM dim_cliente t "
+        "WHERE EXISTS ("
+        "SELECT 1 FROM fato_vendas t WHERE t.id_cliente > 0"
+        ")"
+    )
+    validate_semantic_schema(sql, _ALLOWLIST)
+
+
+def test_semantic_rejects_wrong_column_with_reused_alias_in_nested_scope():
+    """Coluna deve ser validada contra o alias do escopo correto."""
+    sql = (
+        "SELECT t.valor_total_venda FROM dim_cliente t "
+        "WHERE EXISTS ("
+        "SELECT 1 FROM fato_vendas t WHERE t.id_cliente > 0"
+        ")"
+    )
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_semantic_schema(sql, _ALLOWLIST)
+    assert "valor_total_venda" in str(exc_info.value)
+    assert exc_info.value.error_code == "SCHEMA_VIOLATION_SEMANTIC"
+
+
+def test_semantic_accepts_reused_alias_in_distinct_ctes():
+    """Aliases iguais em CTEs distintas devem ser isolados por escopo."""
+    sql = (
+        "WITH clientes AS ("
+        "SELECT t.nome_cliente FROM dim_cliente t"
+        "), vendas AS ("
+        "SELECT t.valor_total_venda FROM fato_vendas t"
+        ") "
+        "SELECT nome_cliente FROM clientes"
     )
     validate_semantic_schema(sql, _ALLOWLIST)
 

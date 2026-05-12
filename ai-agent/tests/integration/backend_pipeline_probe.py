@@ -16,6 +16,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 DEFAULT_QUESTION = (
     "Quais são as 5 categorias de produto com maior receita total em pedidos "
@@ -41,11 +42,11 @@ async def _run(
     max_rows: int,
     max_tokens_sql: int,
 ) -> dict[str, Any]:
-    from src.core import config
+    from vcommerce_ai_agent.core import config
 
     config.MAX_TOKENS_SQL = max_tokens_sql
 
-    from src.agent import VCommerceAgent
+    from vcommerce_ai_agent.agent import VCommerceAgent
 
     agent = VCommerceAgent(
         db_path=db_path,

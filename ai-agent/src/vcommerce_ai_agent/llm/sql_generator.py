@@ -8,9 +8,9 @@ Responsável por montar o prompt com o schema do banco, invocar o LLM
 import re
 from pathlib import Path
 
-from src.core import config
-from src.core.exceptions import LLMParseError
-from src.llm.llm_client import LLMAgent
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.exceptions import LLMParseError
+from vcommerce_ai_agent.llm.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_system.txt"
 _CORRECTION_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_correction_system.txt"

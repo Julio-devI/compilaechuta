@@ -17,8 +17,8 @@ from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.models.gemini import GeminiModel
 from pydantic_ai.settings import ModelSettings
 
-from src.core import config
-from src.core.exceptions import (
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.exceptions import (
     LLMAuthenticationError,
     LLMError,
     LLMInternalError,

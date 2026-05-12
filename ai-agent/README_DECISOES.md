@@ -290,7 +290,7 @@
 
 - **Justificativa:** Gerenciar contexto de conversa é responsabilidade natural do agente — ele já mantém estado interno (cache de schema). Centralizar a lógica de memória no ai-agent simplifica a integração para o backend (que só precisa chamar `ask()`) e garante que o formato do histórico injetado nos prompts seja controlado pelo módulo que sabe como usá-lo. O backend não precisa conhecer detalhes internos como a inclusão de SQL ou a estratégia de truncamento.
 
-- **Implicações:** O backend precisa criar uma instância de `VCommerceAgent` por sessão de chat (não pode compartilhar entre usuários). O histórico é mantido em memória e perdido se a instância for destruída, a menos que o backend utilize a API de export/import (DA-23).
+- **Implicações:** O backend não deve compartilhar uma instância stateful de `VCommerceAgent` entre usuários quando a memória estiver ativa. Para APIs HTTP, a fronteira detalhada em DA-34 recomenda que o backend persista o snapshot exportado pelo agente por `session_id`, restaure esse snapshot em uma instância isolada e aplique lock por sessão para controlar concorrência.
 
 ---
 
@@ -390,3 +390,30 @@
 - **Decisão:** Adicionar uma Camada 0 de validação de tipo em `ask()` — antes mesmo das guardrails — que retorna `AgentResponse` com `status="error"` e código `INVALID_INPUT_TYPE` quando `question` não é `str`. Além disso, garantir que todos os callers de erro em `ask()` passem `message=str(exc)` para `_make_error_response`, preservando a mensagem genérica em `user_response.answer_text` e o detalhe técnico em `developer_debug.error.message`.
 - **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
 - **Implicações:** O backend pode confiar que qualquer violação do contrato público retorna um `AgentResponse` estruturado em vez de propagar exceção de programação. Logs técnicos do backend passam a ter acesso ao detalhe completo da falha (ex.: mensagem da exceção de schema, timeout ou guardrail) sem expor informações sensíveis ou técnicas ao frontend. O fallback para mensagem genérica em `developer_debug.error.message` permanece caso um caller futuro omita o parâmetro.
+
+---
+
+### DA-32: Pacote Python Instalável Para Integração com Backend
+
+- **Contexto:** A integração anterior dependia de adicionar manualmente o diretório `ai-agent/` ao `PYTHONPATH`, e o pacote importável se chamava genericamente `src`, o que torna a integração com o backend mais frágil e menos explícita.
+- **Decisão:** Transformar o módulo em um pacote Python instalável via `pyproject.toml`, com nome de distribuição `vcommerce-ai-agent` e pacote importável `vcommerce_ai_agent`. A estrutura passa a ser `src/vcommerce_ai_agent/`, e a API pública principal é reexportada em `vcommerce_ai_agent.__init__`.
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Implicações:** O backend deve instalar o agente como dependência local, por exemplo com `pip install -e ../ai-agent`, e importar `VCommerceAgent` via `from vcommerce_ai_agent import VCommerceAgent`. Imports internos, testes e documentação passam a referenciar o pacote nomeado, reduzindo dependência de manipulação manual de path.
+
+---
+
+### DA-33: Descrições de Schema Configuráveis Pelo Backend
+
+- **Contexto:** O arquivo `schema_descriptions.json` contém aliases, descrições e exemplos usados pelo LLM para interpretar o schema técnico extraído do SQLite. Em produção, tabelas e colunas podem mudar, ou novos aliases podem ser necessários sem alteração de código do pacote instalável.
+- **Decisão:** Adicionar o parâmetro `schema_descriptions_path` ao `VCommerceAgent`, permitindo que o backend informe um JSON externo de descrições do schema. O arquivo padrão empacotado continua existindo como fallback quando o parâmetro não é informado. O carregamento valida a estrutura do JSON antes de usá-lo.
+- **Justificativa:** O backend precisa conseguir atualizar descrições, aliases e exemplos quando tabelas ou colunas mudarem, sem editar arquivos dentro do pacote instalado nem depender de nova versão do módulo para ajustes de metadados de negócio.
+- **Implicações:** O backend pode manter o arquivo de descrições como configuração própria e chamar `invalidate_schema()` após alterações em runtime. Se o JSON externo estiver ausente, malformado ou fora da estrutura esperada, o agente retorna erro estruturado na etapa `schema` com código `SCHEMA_LOAD_ERROR`.
+
+---
+
+### DA-34: Fronteira Entre Memória de Conversa e Concorrência
+
+- **Contexto:** O agente mantém memória de conversa internamente para resolver perguntas de follow-up, mas a aplicação backend pode atender múltiplas sessões e múltiplas requisições simultâneas.
+- **Decisão:** O `ai-agent` é responsável por manejar a memória de conversa: formato do histórico, validação, truncamento, injeção nos prompts, atualização após respostas bem-sucedidas e exportação/importação do snapshot. O backend é responsável por concorrência e ciclo de vida da sessão: associação por `session_id`, persistência do snapshot, isolamento entre usuários, expiração e lock por sessão.
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Implicações:** O backend deve tratar o histórico exportado pelo agente como dado opaco e não editar manualmente seu conteúdo. Em APIs HTTP, o fluxo recomendado é recuperar o histórico por `session_id`, instanciar/restaurar o agente, chamar `ask()`, persistir `export_history()` e serializar requisições simultâneas da mesma sessão com lock. Uma instância global compartilhada de `VCommerceAgent` não deve ser usada para conversas de múltiplos usuários com memória ativa.

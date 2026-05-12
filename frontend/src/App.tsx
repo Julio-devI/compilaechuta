@@ -14,6 +14,7 @@ import { EsqueciSenha } from './pages/EsqueciSenha'
 import { Cadastro } from './pages/Cadastro'
 import { CadastroProduto } from './pages/CadastroProduto'
 import {ThemeProvider} from "./contexts/ThemeContext";
+import { Toaster } from 'sonner'
 
 function AppLayout() {
   return (
@@ -32,6 +33,7 @@ function AppLayout() {
 function App() {
   return (
       <ThemeProvider>
+        <Toaster position="top-right" richColors />
         <BrowserRouter>
           <Routes>
             <Route index element={<Navigate to="/login" replace />} />
@@ -39,7 +41,7 @@ function App() {
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/cadastro" element={<Cadastro />} />
             <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/pedidos" element={<Pedidos />} />
               <Route path="/produtos" element={<Produtos />} />

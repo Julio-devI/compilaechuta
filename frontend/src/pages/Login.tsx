@@ -1,12 +1,33 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
+import { toast } from 'sonner'
 import { SplashScreen } from '../components/SplashScreen'
 import { DecorativePanel } from '../components/DecorativePanel'
 
 export function Login() {
+  const navigate = useNavigate()
   const [splashDone, setSplashDone] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
+  const handleLogin = () => {
+    if (!email.trim() && !password.trim()) {
+      toast.error('Preencha o email e a senha para continuar.')
+      return
+    }
+    if (!email.trim()) {
+      toast.error('Informe seu email.')
+      return
+    }
+    if (!password.trim()) {
+      toast.error('Informe sua senha.')
+      return
+    }
+    navigate('/dashboard')
+  }
 
   return (
     <>
@@ -55,6 +76,8 @@ export function Login() {
                 </label>
                 <input
                   type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
                   placeholder="Digite seu email..."
                   className="w-full h-11 sm:h-12 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
                   style={{ background: '#F5F5F5', border: 'none' }}
@@ -69,6 +92,9 @@ export function Login() {
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
                     placeholder="Digite sua senha..."
                     className="w-full h-11 sm:h-12 px-4 pr-12 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
                     style={{ background: '#F5F5F5', border: 'none' }}
@@ -102,6 +128,7 @@ export function Login() {
               {/* Login button */}
               <button
                 type="button"
+                onClick={handleLogin}
                 className="w-full h-11 sm:h-12 rounded-full text-white font-bold text-base transition-colors mt-1"
                 style={{ background: '#1565C0' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#1251A3')}

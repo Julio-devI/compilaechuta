@@ -232,6 +232,29 @@ def _strip_out_of_scope_marker(text: str) -> str:
     return stripped or "Não consigo responder essa pergunta com os dados disponíveis."
 
 
+_HIDDEN_TABLE_SCOPE_PATTERNS = (
+    re.compile(
+        r"\btabelas?\b.{0,120}\b(ocult[ao]s?|intern[ao]s?|"
+        r"n[aã]o\s+listad[ao]s?|fora\s+do\s+schema)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\b(ocult[ao]s?|intern[ao]s?|n[aã]o\s+listad[ao]s?|"
+        r"fora\s+do\s+schema)\b.{0,120}\btabelas?\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\btables?\b.{0,120}\b(hidden|internal|unlisted|outside\s+the\s+schema)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+)
+
+
+def _is_hidden_table_scope_request(question: str) -> bool:
+    """Detecta pedidos por tabelas ocultas/internas fora do schema autorizado."""
+    return any(pattern.search(question) for pattern in _HIDDEN_TABLE_SCOPE_PATTERNS)
+
+
 class VCommerceAgent:
     """Agente Text-to-SQL para o domínio V-Commerce."""
 
@@ -796,6 +819,13 @@ class VCommerceAgent:
                 message=str(exc),
                 retryable=False,
                 total_time_ms=_elapsed_ms(total_start),
+            )
+
+        if _is_hidden_table_scope_request(question):
+            return _make_out_of_scope_response(
+                f"{config.OUT_OF_SCOPE_MARKER} "
+                "Não posso consultar tabelas ocultas, internas ou não listadas "
+                "no schema disponível."
             )
 
         # Etapa 1: carregar schema

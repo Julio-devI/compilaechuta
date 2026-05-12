@@ -215,8 +215,15 @@ def validate_table_column_allowlist(
     for cols in allowlist.values():
         allowed_columns.update(cols)
 
+    select_aliases: set[str] = set()
+    for node in parsed.find_all(exp.Alias):
+        if isinstance(node.parent, (exp.Select, exp.Subquery)):
+            select_aliases.add(node.alias)
+
     for col in parsed.find_all(exp.Column):
         if col.name == "*":
+            continue
+        if col.name in select_aliases:
             continue
         if col.name not in allowed_columns:
             raise GuardrailError(

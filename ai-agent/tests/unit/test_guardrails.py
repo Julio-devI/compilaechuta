@@ -26,7 +26,7 @@ from src.core.config import MAX_INPUT_CHARS
 
 # Fixture compartilhada para testes de allowlist e semântica
 _ALLOWLIST = {
-    "dim_cliente": {"id_cliente", "nome_cliente", "regiao", "email"},
+    "dim_cliente": {"id_cliente", "nome_cliente", "regiao", "segmento_rfm", "email"},
     "fato_vendas": {"id_pedido", "id_cliente", "valor_total_venda", "id_data", "status"},
     "dim_produto": {"id_produto", "nome_produto", "categoria", "preco"},
 }
@@ -218,6 +218,24 @@ def test_allowlist_rejects_column_in_cte_select():
 def test_allowlist_allows_count_star():
     """COUNT(*) deve passar sem erro na validação de colunas."""
     sql = "SELECT COUNT(*) FROM fato_vendas"
+    validate_table_column_allowlist(sql, _ALLOWLIST)
+
+
+def test_allowlist_accepts_order_by_select_alias():
+    """ORDER BY pode referenciar alias calculado no SELECT."""
+    sql = (
+        "SELECT SUM(valor_total_venda) AS receita_total "
+        "FROM fato_vendas ORDER BY receita_total DESC"
+    )
+    validate_table_column_allowlist(sql, _ALLOWLIST)
+
+
+def test_allowlist_accepts_group_by_query_ordered_by_count_alias():
+    """Rankings agrupados podem ordenar por alias agregado."""
+    sql = (
+        "SELECT segmento_rfm AS segmento_cliente, COUNT(id_cliente) AS total_clientes "
+        "FROM dim_cliente GROUP BY segmento_rfm ORDER BY total_clientes DESC"
+    )
     validate_table_column_allowlist(sql, _ALLOWLIST)
 
 

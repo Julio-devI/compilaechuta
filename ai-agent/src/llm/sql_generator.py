@@ -14,6 +14,10 @@ from src.llm.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_system.txt"
 _CORRECTION_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_correction_system.txt"
+_OUT_OF_SCOPE_RE = re.compile(
+    rf"\b{re.escape(config.OUT_OF_SCOPE_MARKER)}\b\s*[:\-]?\s*(.*)",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _load_system_prompt(schema: str, history_text: str = "") -> str:
@@ -39,6 +43,21 @@ def _extract_sql(raw: str) -> str:
     if match:
         return match.group(1).strip()
     return raw.strip()
+
+
+def _extract_out_of_scope(raw: str) -> str | None:
+    """Extrai marcador FORA_DO_ESCOPO mesmo quando envelopado em markdown."""
+    text = raw.strip()
+    fenced = re.search(r"```\w*\s*(.*?)\s*```", text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+
+    match = _OUT_OF_SCOPE_RE.search(text)
+    if not match:
+        return None
+
+    reason = match.group(1).strip()
+    return f"{config.OUT_OF_SCOPE_MARKER} {reason}".strip()
 
 
 def _strip_sql_comments(sql: str) -> str:
@@ -83,8 +102,7 @@ def _validate_sql_response(raw: str) -> None:
     a chamada automaticamente.
     """
     # Marcador de fora do escopo é válido — não deve disparar retry
-    stripped = raw.strip()
-    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
+    if _extract_out_of_scope(raw) is not None:
         return
 
     sql = _extract_sql(raw)
@@ -162,9 +180,9 @@ async def generate_sql(
     raw_output = result.output
 
     # Detecta marcador de fora do escopo antes de qualquer parsing
-    stripped = raw_output.strip()
-    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
-        return stripped, result.tokens_used
+    out_of_scope = _extract_out_of_scope(raw_output)
+    if out_of_scope is not None:
+        return out_of_scope, result.tokens_used
 
     sql = _extract_sql(raw_output)
     _validate_syntax(sql)
@@ -229,9 +247,9 @@ async def generate_sql_correction(
     result = await agent.run(question, validator=_validate_sql_response)
     raw_output = result.output
 
-    stripped = raw_output.strip()
-    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
-        return stripped, result.tokens_used
+    out_of_scope = _extract_out_of_scope(raw_output)
+    if out_of_scope is not None:
+        return out_of_scope, result.tokens_used
 
     corrected = _extract_sql(raw_output)
     _validate_syntax(corrected)

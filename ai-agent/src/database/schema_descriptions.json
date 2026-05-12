@@ -297,7 +297,7 @@
       }
     },
     "dim_tempo": {
-      "display_name": "tempo",
+      "display_name": "Calendário",
       "description": "Dimensão de tempo para análise temporal (dia, mês, ano, trimestre).",
       "columns": {
         "id_data": {

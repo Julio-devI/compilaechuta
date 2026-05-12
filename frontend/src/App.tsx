@@ -12,6 +12,7 @@ import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
 import { Cadastro } from './pages/Cadastro'
 import { CadastroProduto } from './pages/CadastroProduto'
+import { EditarProduto } from './pages/EditarProduto'
 import {ThemeProvider} from "./contexts/ThemeContext";
 
 function AppLayout() {
@@ -41,6 +42,7 @@ function App() {
               <Route path="/pedidos" element={<Pedidos />} />
               <Route path="/produtos" element={<Produtos />} />
               <Route path="/produtos/novo" element={<CadastroProduto />} />
+              <Route path="/produtos/editar/:id" element={<EditarProduto />} />
               <Route path="/suporte" element={<Suporte />} />
               <Route path="/relatorios" element={<Relatorios />} />
               <Route path="/chat-ia" element={<ChatIA />} />

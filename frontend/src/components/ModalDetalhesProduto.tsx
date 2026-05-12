@@ -1,6 +1,7 @@
-import { X, Package, Tag, DollarSign, BarChart2, Hash, ArrowUpRight } from 'lucide-react'
+import { X, Package, DollarSign, BarChart2, Hash, ArrowUpRight, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MouseEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface ModalProps {
   isOpen: boolean
@@ -9,6 +10,8 @@ interface ModalProps {
 }
 
 export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
+  const navigate = useNavigate()
+
   if (!isOpen || !produto) return null
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
@@ -16,6 +19,18 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
       onClose();
     }
   };
+
+  const handleEditClick = () => {
+    navigate(`/produtos/editar/${produto.id}`)
+  }
+
+  const handleDeleteClick = () => {
+    // Implementar lógica de exclusão aqui
+    console.log(`Excluir produto com ID: ${produto.id}`);
+    // Após a exclusão, você pode fechar o modal e/ou redirecionar
+    onClose();
+    // navigate('/produtos'); // Opcional: redirecionar para a lista de produtos
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -61,7 +76,7 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               
               {/* Coluna Esquerda: Imagem e Ações */}
-              <div className="md:col-span-1 space-y-6">
+              <div className="md:col-span-1 space-y-3"> {/* Ajustado gap para 3 */}
                 <div className="w-full aspect-square rounded-3xl overflow-hidden border border-slate-200 relative group">
                   <img src={produto.imagem} alt={produto.nome} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                   <span className={`absolute top-4 right-4 px-3 py-1.5 rounded-full text-xs font-black shadow-md ${getStatusColor(produto.status)}`}>
@@ -70,11 +85,20 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
                 </div>
 
                 <div className="space-y-3">
-                  <button className="w-full bg-[#1E5EFF] text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm">
+                  <button 
+                    onClick={handleEditClick}
+                    className="w-full bg-[#1E5EFF] text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm"
+                  >
                     Editar Produto
                   </button>
                   <button className="w-full bg-white text-slate-700 border border-slate-200 py-3.5 rounded-xl font-bold hover:bg-slate-50 transition-colors">
                     Ver na Loja <ArrowUpRight className="w-4 h-4 inline ml-1" />
+                  </button>
+                  <button 
+                    onClick={handleDeleteClick}
+                    className="w-full bg-red-500 text-white py-3.5 rounded-xl font-bold hover:bg-red-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-5 h-5" /> Excluir Produto
                   </button>
                 </div>
               </div>

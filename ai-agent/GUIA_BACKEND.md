@@ -27,7 +27,7 @@ O agente não cria tabelas, não popula dados e não gerencia migrações. O ban
 - Dependências instaladas a partir do pacote local `ai-agent/pyproject.toml`.
 - Banco SQLite Gold já criado e populado.
 - Variável `GEMINI_API_KEY` disponível no ambiente do processo. Em desenvolvimento local, ela pode vir do `.env` do backend carregado antes do import ou do `.env` do `ai-agent`.
-- Caminho do banco informado pelo backend no parâmetro `db_path` ou via variável `DB_PATH`.
+- Caminho do banco informado explicitamente em `VCommerceAgent(db_path=...)`. Se usar `DB_PATH`, o backend deve ler a variável e repassar o valor ao construtor.
 - Opcionalmente, arquivo externo de descrições do schema informado via `schema_descriptions_path`.
 
 Variáveis reconhecidas:
@@ -37,16 +37,6 @@ Variáveis reconhecidas:
 | `GEMINI_API_KEY` | Chave obrigatória para chamadas ao Gemini. A falha aparece como erro estruturado `LLM_AUTHENTICATION_ERROR`. |
 | `DB_PATH` | Caminho padrão do SQLite, caso o backend opte por ler do ambiente e repassar ao agente. |
 | `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2. Padrão atual: `0.3`. |
-
-Constantes internas relevantes:
-
-| Constante | Valor atual | Uso |
-|---|---:|---|
-| `LLM_MODEL` | `gemini-2.5-flash` | Modelo padrão. Pode ser sobrescrito no construtor. |
-| `QUERY_TIMEOUT_SECONDS` | `10` | Timeout padrão de execução SQL. |
-| `MAX_ROWS` | `1000` | Máximo de linhas retornadas ao backend. |
-| `MAX_INPUT_CHARS` | `500` | Tamanho máximo da pergunta. |
-| `MAX_HISTORY_TURNS` | `20` | Máximo de pares pergunta/resposta mantidos em memória. |
 
 ## Instalação e Importação no Backend
 
@@ -76,19 +66,64 @@ Também é possível importar do módulo interno se o backend preferir:
 from vcommerce_ai_agent.agent import VCommerceAgent
 ```
 
-## Instanciação do Agente
+## Onde Configurar as Variáveis de Ambiente
 
-Assinatura validada:
+Quando o `ai-agent` é consumido como dependência local do backend, as variáveis devem ficar no ambiente do próprio backend: `.env` do backend em desenvolvimento local, secrets/variáveis do container em homologação e produção, ou qualquer mecanismo equivalente já usado pelo backend.
+
+Não é necessário manter um `.env` específico para o `ai-agent` nesse cenário. O arquivo `ai-agent/.env` continua útil apenas para execução isolada do módulo, por exemplo smoke tests ou testes manuais rodados diretamente dentro de `ai-agent/`.
+
+O ponto importante é que `GEMINI_API_KEY` e `LLM_TEMPERATURE_INSIGHT`, quando usada, precisam estar disponíveis antes do primeiro import de `vcommerce_ai_agent`, porque o módulo lê essas variáveis durante o carregamento de `vcommerce_ai_agent.core.config`.
+
+Exemplo com `python-dotenv` no bootstrap do backend:
 
 ```python
-agent = VCommerceAgent(
+from dotenv import load_dotenv
+
+load_dotenv()  # carrega o .env do backend
+
+from vcommerce_ai_agent import VCommerceAgent
+```
+
+Configuração recomendada no `.env` do backend:
+
+```env
+GEMINI_API_KEY=sua-chave-aqui
+DB_PATH=/app/data/vcommerce.db
+SCHEMA_DESCRIPTIONS_PATH=/app/config/schema_descriptions.json
+LLM_TEMPERATURE_INSIGHT=0.3
+```
+
+Observações importantes:
+
+- `GEMINI_API_KEY` é lida diretamente pelo módulo do agente.
+- `LLM_TEMPERATURE_INSIGHT` também é lida diretamente pelo módulo do agente e é opcional.
+- `DB_PATH` não é usado automaticamente pelo construtor; o backend deve ler essa variável e repassar em `VCommerceAgent(db_path=...)`.
+- `SCHEMA_DESCRIPTIONS_PATH` é uma convenção recomendada para o backend; o agente só usa esse caminho quando ele é repassado em `schema_descriptions_path=...`.
+
+Constantes internas relevantes:
+
+| Constante | Valor padrão | Uso |
+|---|---:|---|
+| `LLM_MODEL` | `gemini-2.5-flash` | Modelo padrão. Pode ser sobrescrito no construtor. |
+| `QUERY_TIMEOUT_SECONDS` | `10` | Timeout padrão de execução SQL. |
+| `MAX_ROWS` | `1000` | Máximo de linhas retornadas ao backend. |
+| `MAX_INPUT_CHARS` | `500` | Tamanho máximo da pergunta. |
+| `MAX_HISTORY_TURNS` | `20` | Máximo de pares pergunta/resposta mantidos em memória. |
+
+## Instanciação do Agente
+
+Assinatura do construtor:
+
+```python
+def __init__(
+    self,
     db_path: str,
     excluded_tables: set[str] | None = None,
     max_rows: int = 1000,
     query_timeout_seconds: int = 10,
     llm_model: str = "gemini-2.5-flash",
     schema_descriptions_path: str | Path | None = None,
-)
+) -> None:
 ```
 
 Parâmetros:
@@ -117,63 +152,6 @@ agent = VCommerceAgent(
 ```
 
 Para APIs HTTP com múltiplas sessões de chat, a memória de conversa é responsabilidade do agente, mas a concorrência é responsabilidade do backend. O backend deve persistir o histórico exportado pelo agente como um dado opaco associado ao `session_id`, serializar chamadas concorrentes da mesma sessão e restaurar o histórico antes de chamar `ask()`.
-
-## Descrições do Schema
-
-O agente sempre extrai o schema técnico diretamente do SQLite. O arquivo `schema_descriptions.json` complementa esse schema com conhecimento de negócio:
-
-- `display_name`: alias exibível/empresarial da tabela.
-- `description`: descrição da tabela ou coluna.
-- `columns`: metadados das colunas.
-- `examples`: exemplos de valores para orientar o LLM.
-
-O pacote inclui um arquivo padrão em `src/vcommerce_ai_agent/database/schema_descriptions.json`, mas em produção o backend deve preferir um arquivo externo configurável:
-
-```python
-agent = VCommerceAgent(
-    db_path="/app/data/vcommerce.db",
-    schema_descriptions_path="/app/config/schema_descriptions.json",
-)
-```
-
-Estrutura esperada:
-
-```json
-{
-  "tables": {
-    "dim_cliente": {
-      "display_name": "clientes",
-      "description": "Dimensão com dados cadastrais e métricas de clientes.",
-      "columns": {
-        "nome_cliente": {
-          "description": "Nome completo do cliente.",
-          "examples": ["Ana Souza", "João Silva"]
-        }
-      }
-    }
-  }
-}
-```
-
-Validações aplicadas no carregamento:
-
-- O arquivo deve ser JSON válido.
-- O campo `tables` é obrigatório e deve ser um objeto.
-- Cada tabela deve ter metadados em objeto.
-- `display_name` e `description`, quando presentes, devem ser strings.
-- `columns`, quando presente, deve ser objeto.
-- Cada coluna deve ter metadados em objeto.
-- `examples`, quando presente, deve ser lista.
-
-Se a estrutura for inválida, `ask()` retorna `status="error"` com `developer_debug.error.stage == "schema"` e `code == "SCHEMA_LOAD_ERROR"`.
-
-Quando o backend alterar o arquivo externo em runtime, chame:
-
-```python
-agent.invalidate_schema()
-```
-
-Isso força o recarregamento do schema técnico e das descrições na próxima pergunta.
 
 ## Funções Públicas Disponíveis
 
@@ -315,6 +293,55 @@ async with lock_by_session(session_id):
 
 Uma instância global compartilhada de `VCommerceAgent` não deve ser usada para conversas de múltiplos usuários se a memória estiver ativa, porque `_history` é estado da instância. O backend pode criar uma instância por request e restaurar o histórico, ou manter instâncias por sessão desde que também controle expiração e lock por `session_id`.
 
+## Serialização
+
+As respostas são `dataclasses`. Para converter em JSON:
+
+```python
+from dataclasses import asdict
+
+payload = asdict(response)
+```
+
+## Exemplo de Endpoint FastAPI
+
+Exemplo ilustrativo. Ajuste nomes de schemas HTTP ao padrão do backend.
+
+```python
+from dataclasses import asdict
+from typing import Any
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+
+from vcommerce_ai_agent import VCommerceAgent
+
+router = APIRouter()
+
+
+class AskRequest(BaseModel):
+    question: str
+    history: list[dict[str, str | None]] | None = None
+
+
+@router.post("/ai-agent/ask")
+async def ask_agent(payload: AskRequest) -> dict[str, Any]:
+    agent = VCommerceAgent(db_path="/caminho/para/vcommerce.db")
+
+    if payload.history is not None:
+        agent.import_history(payload.history)
+
+    response = await agent.ask(payload.question)
+    history = agent.export_history()
+
+    return {
+        "response": asdict(response),
+        "history": history,
+    }
+```
+
+O exemplo acima mostra o agente recebendo o histórico pela request apenas para simplificar. Em produção, prefira buscar e salvar o histórico em storage do backend por `session_id`, aplicando lock por sessão conforme descrito na seção de memória e concorrência.
+
 ## Contrato de Resposta
 
 `ask()` retorna:
@@ -442,6 +469,7 @@ class ResponseError:
 | `sql_generation` | `SQL_PARSE_ERROR` | Sim | LLM retornou SQL inválido/malformado. |
 | `sql_validation` | `DESTRUCTIVE_QUERY` | Não | SQL não é leitura segura. |
 | `sql_validation` | `MULTIPLE_STATEMENTS` | Não | SQL contém mais de um statement. |
+| `sql_validation` | `SQL_PARSE_ERROR` | Não | SQL não pôde ser parseado durante a validação de segurança após tentativas de correção. |
 | `sql_validation` | `SCHEMA_VIOLATION_ALLOWLIST` | Não | SQL usa tabela/coluna fora do schema permitido. |
 | `sql_validation` | `SCHEMA_VIOLATION_SEMANTIC` | Não | SQL referencia coluna fora da tabela/alias correto. |
 | `database` | `EXECUTION_TIMEOUT` | Sim | Query excedeu timeout configurado. |
@@ -455,60 +483,6 @@ class ResponseError:
 | `llm` | `LLM_INVALID_REQUEST_ERROR` | Não | Requisição inválida ou modelo indisponível. |
 | `llm` | `LLM_INTERNAL_ERROR` | Sim | Erro interno do provedor. |
 | `llm` | `LLM_UNKNOWN_ERROR` | Não | Falha não categorizada. |
-
-## Exemplo de Endpoint FastAPI
-
-Exemplo ilustrativo. Ajuste nomes de schemas HTTP ao padrão do backend.
-
-```python
-from dataclasses import asdict
-from typing import Any
-
-from fastapi import APIRouter
-from pydantic import BaseModel
-
-from vcommerce_ai_agent import VCommerceAgent
-
-router = APIRouter()
-
-
-class AskRequest(BaseModel):
-    question: str
-    history: list[dict[str, str | None]] | None = None
-
-
-@router.post("/ai-agent/ask")
-async def ask_agent(payload: AskRequest) -> dict[str, Any]:
-    agent = VCommerceAgent(db_path="/caminho/para/vcommerce.db")
-
-    if payload.history is not None:
-        agent.import_history(payload.history)
-
-    response = await agent.ask(payload.question)
-    history = agent.export_history()
-
-    return {
-        "response": asdict(response),
-        "history": history,
-    }
-```
-
-O exemplo acima mostra o agente recebendo o histórico pela request apenas para simplificar. Em produção, prefira buscar e salvar o histórico em storage do backend por `session_id`, aplicando lock por sessão conforme descrito na seção de memória e concorrência.
-
-## Segurança e Guardrails
-
-O agente aplica validações em camadas:
-
-- Input vazio, longo demais ou tipo inválido.
-- Detecção de prompt injection e pedido de exfiltração de instruções.
-- Bloqueio de operações destrutivas como `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA` e `VACUUM`.
-- Bloqueio de múltiplos statements.
-- Bloqueio de tabelas/colunas fora do allowlist extraído do schema real.
-- Validação semântica de colunas por tabela/alias.
-- Adição automática de `LIMIT` quando a query não possui limite.
-- Execução SQLite em modo read-only para arquivos em disco.
-
-O backend ainda deve manter seus próprios controles de autenticação, autorização, rate limit por usuário e auditoria.
 
 ## Tratamento Recomendado no Backend
 
@@ -534,17 +508,102 @@ Pode expor no frontend:
 - `user_response.chart`.
 - `user_response.truncated`.
 
-## Serialização
+## Descrições do Schema
 
-As respostas são `dataclasses`. Para converter em JSON:
+O agente sempre extrai o schema técnico diretamente do SQLite. O arquivo `schema_descriptions.json` complementa esse schema com conhecimento de negócio:
+
+- `display_name`: alias exibível/empresarial da tabela.
+- `description`: descrição da tabela ou coluna.
+- `columns`: metadados das colunas.
+- `examples`: exemplos de valores para orientar o LLM.
+
+O pacote inclui um arquivo padrão em `src/vcommerce_ai_agent/database/schema_descriptions.json`, mas em produção o backend deve preferir um arquivo externo configurável:
 
 ```python
-from dataclasses import asdict
-
-payload = asdict(response)
+agent = VCommerceAgent(
+    db_path="/app/data/vcommerce.db",
+    schema_descriptions_path="/app/config/schema_descriptions.json",
+)
 ```
 
-Se o backend usa Pydantic, também pode criar modelos HTTP próprios espelhando o contrato. Mantenha os campos aninhados `user_response` e `developer_debug`; os testes garantem que campos legados de topo, como `text`, `sql`, `data` e `error`, não fazem parte do contrato atual.
+Estrutura esperada:
+
+- A raiz do JSON deve conter obrigatoriamente o objeto `tables`.
+- As chaves dentro de `tables` devem ser os nomes físicos das tabelas no SQLite.
+- As chaves dentro de `columns` devem ser os nomes físicos das colunas no SQLite.
+- `display_name`, `description`, `columns` e `examples` são metadados opcionais, mas recomendados para melhorar a qualidade do SQL e dos textos de fonte.
+
+Exemplo curto e completo:
+
+```json
+{
+  "tables": {
+    "fato_vendas": {
+      "display_name": "vendas",
+      "description": "Tabela fato com vendas realizadas.",
+      "columns": {
+        "id_cliente": {
+          "description": "Chave estrangeira para a tabela dim_cliente.",
+          "examples": [101, 102]
+        },
+        "valor_total_venda": {
+          "description": "Valor total da venda em reais.",
+          "examples": [129.9, 259.8]
+        }
+      }
+    },
+    "dim_cliente": {
+      "display_name": "clientes",
+      "description": "Dimensão com dados cadastrais dos clientes.",
+      "columns": {
+        "id_cliente": {
+          "description": "Identificador único do cliente.",
+          "examples": [101, 102]
+        },
+        "regiao": {
+          "description": "Região comercial do cliente.",
+          "examples": ["Sul", "Sudeste"]
+        }
+      }
+    }
+  }
+}
+```
+
+Validações aplicadas no carregamento:
+
+- O arquivo deve ser JSON válido.
+- O campo `tables` é obrigatório e deve ser um objeto.
+- Cada tabela deve ter metadados em objeto.
+- `display_name` e `description`, quando presentes, devem ser strings.
+- `columns`, quando presente, deve ser objeto.
+- Cada coluna deve ter metadados em objeto.
+- `examples`, quando presente, deve ser lista.
+
+Se a estrutura for inválida, `ask()` retorna `status="error"` com `developer_debug.error.stage == "schema"` e `code == "SCHEMA_LOAD_ERROR"`.
+
+Quando o backend alterar o arquivo externo em runtime, chame:
+
+```python
+agent.invalidate_schema()
+```
+
+Isso força o recarregamento do schema técnico e das descrições na próxima pergunta.
+
+## Segurança e Guardrails
+
+O agente aplica validações em camadas:
+
+- Input vazio, longo demais ou tipo inválido.
+- Detecção de prompt injection e pedido de exfiltração de instruções.
+- Bloqueio de operações destrutivas como `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA` e `VACUUM`.
+- Bloqueio de múltiplos statements.
+- Bloqueio de tabelas/colunas fora do allowlist extraído do schema real.
+- Validação semântica de colunas por tabela/alias.
+- Adição automática de `LIMIT` quando a query não possui limite.
+- Execução SQLite em modo read-only para arquivos em disco.
+
+O backend ainda deve manter seus próprios controles de autenticação, autorização, rate limit por usuário e auditoria.
 
 ## Observações Operacionais
 

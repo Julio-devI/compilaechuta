@@ -4,12 +4,9 @@ import { useTheme, type Theme } from '../contexts/ThemeContext'
 
 const menuItems = [
   { id: 'perfil', icon: User, label: 'Perfil' },
-  { id: 'notificacoes', icon: Bell, label: 'Notificações' },
   { id: 'seguranca', icon: Shield, label: 'Segurança' },
   { id: 'aparencia', icon: Palette, label: 'Aparência' },
   { id: 'empresa', icon: Building, label: 'Empresa' },
-  { id: 'pagamentos', icon: CreditCard, label: 'Pagamentos' },
-  { id: 'idioma', icon: Globe, label: 'Idioma e Região' },
 ]
 
 const TEMA_OPTIONS: { label: string; value: Theme; preview: string }[] = [
@@ -153,46 +150,6 @@ export function Configuracoes() {
               </div>
             </div>
           )}
-
-          {/* Notificações */}
-          {activeSection === 'notificacoes' && (
-            <div>
-              <h2 className="text-xl font-bold text-foreground mb-6">Preferências de Notificações</h2>
-
-              <div className="space-y-6">
-                {[
-                  { field: 'notificacoesEmail', icon: Mail, iconColor: 'text-primary', iconBg: 'bg-primary/10', title: 'Notificações por E-mail', desc: 'Receba atualizações importantes por e-mail', checked: formData.notificacoesEmail },
-                  { field: 'notificacoesPush', icon: Bell, iconColor: 'text-success', iconBg: 'bg-success/10', title: 'Notificações Push', desc: 'Receba notificações em tempo real no navegador', checked: formData.notificacoesPush },
-                  { field: 'notificacoesSMS', icon: Phone, iconColor: 'text-[#8B5CF6]', iconBg: 'bg-[#8B5CF6]/10', title: 'Notificações SMS', desc: 'Receba alertas importantes por SMS', checked: formData.notificacoesSMS },
-                ].map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <div key={item.field} className="flex items-center justify-between p-4 bg-background rounded-xl">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 ${item.iconBg} rounded-xl flex items-center justify-center`}>
-                          <Icon className={`w-5 h-5 ${item.iconColor}`} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{item.title}</p>
-                          <p className="text-sm text-muted">{item.desc}</p>
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          onChange={(e) => handleChange(item.field, e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Segurança */}
           {activeSection === 'seguranca' && (
             <div>
@@ -315,18 +272,6 @@ export function Configuracoes() {
             </div>
           )}
 
-          {(activeSection === 'pagamentos' || activeSection === 'idioma') && (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center mx-auto mb-4">
-                  {activeSection === 'pagamentos'
-                    ? <CreditCard className="w-8 h-8 text-muted-foreground" />
-                    : <Globe className="w-8 h-8 text-muted-foreground" />}
-                </div>
-                <p className="text-muted">Esta seção está em desenvolvimento</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

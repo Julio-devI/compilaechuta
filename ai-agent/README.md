@@ -29,15 +29,12 @@ agent = VCommerceAgent(db_path='../backend/data/vcommerce.db')
 # O agente lembra automaticamente do contexto (stateful)
 resp1 = asyncio.run(agent.ask('Quais os 10 produtos mais vendidos?'))
 resp2 = asyncio.run(agent.ask('E apenas na região Sul?'))  # Pergunta de follow-up
-print(resp2.text)
+print(resp2.status)
+print(resp2.user_response.answer_text)
+print(resp2.user_response.sources_text)
 
-if resp2.status == "success" and resp2.presentation:
-    print(resp2.presentation.activity)
-    for section in resp2.presentation.answer_sections:
-        print(section.title, section.content)
-
-if resp2.error:
-    print(resp2.error.code, resp2.error.message)
+if resp2.developer_debug.error:
+    print(resp2.developer_debug.error.code, resp2.developer_debug.error.message)
 
 # Persistência de sessão (opcional para o backend)
 history = agent.export_history()  # Retorna list[dict] serializável
@@ -62,28 +59,6 @@ class ChartSuggestion:
     title: str
 
 @dataclass
-class ResponseSection:
-    title: str
-    content: str
-
-@dataclass
-class DataSource:
-    table: str
-    label: str | None
-    description: str | None
-
-@dataclass
-class SourcesSummary:
-    text: str
-    tables: list[DataSource]
-
-@dataclass
-class ResponsePresentation:
-    activity: str
-    answer_sections: list[ResponseSection]
-    sources_summary: SourcesSummary | None
-
-@dataclass
 class ResponseError:
     code: str
     message: str
@@ -99,29 +74,45 @@ class ResponseError:
     retryable: bool
 
 @dataclass
-class AgentResponse:
-    status: Literal["success", "error", "out_of_scope"]
-    text: str
-    presentation: ResponsePresentation | None
+class UserResponse:
+    answer_text: str
+    sources_text: str | None
     data: list[dict] | None
     chart: ChartSuggestion | None
+    truncated: bool
+
+@dataclass
+class DeveloperDebug:
     sql: str
     error: ResponseError | None
-    out_of_scope: bool
-    truncated: bool = False
+    total_time_ms: float | None = None
+    sql_generation_time_ms: float | None = None
+    query_execution_time_ms: float | None = None
+    insight_generation_time_ms: float | None = None
+    tokens_used: int | None = None
+
+@dataclass
+class AgentResponse:
+    status: Literal["success", "error", "out_of_scope"]
+    user_response: UserResponse
+    developer_debug: DeveloperDebug
 ```
 
 Regras do contrato:
 
 - `status` define o estado principal: `success`, `error` ou `out_of_scope`.
-- `error` é sempre `None` em sucesso e fora de escopo; em falha contém `ResponseError`.
-- `sql` é metadado técnico para o backend, útil para auditoria e debug. Não deve ser renderizado no frontend.
+- `status == "out_of_scope"` substitui o antigo booleano `out_of_scope`.
+- `user_response` agrupa apenas dados seguros para o frontend: `answer_text`, `sources_text`, `data`, `chart` e `truncated`.
+- `user_response.answer_text` contém a resposta analítica principal. Em erro técnico, contém mensagem genérica segura. Em fora de escopo, contém a explicação sem o marcador técnico `FORA_DO_ESCOPO`.
+- `user_response.sources_text` contém um bloco curto em linguagem empresarial explicando de onde vieram os dados consultados, no estilo `Fonte de dados consultada: Cruzamento da base de Vendas com Produtos e Calendário (...)`, ou `None` quando não houver fontes aplicáveis.
+- `developer_debug` agrupa dados técnicos para logs e auditoria: `sql`, `error`, tempos de execução (`total_time_ms`, `sql_generation_time_ms`, `query_execution_time_ms`, `insight_generation_time_ms`) e consumo de tokens (`tokens_used`).
+- `developer_debug.sql` é metadado técnico bruto para o backend, útil para auditoria, debug e reexecução. Não é sanitizado, pode conter quebras de linha e nomes físicos de tabelas, e não deve ser renderizado no frontend.
+- `developer_debug.error` é sempre `None` em sucesso e fora de escopo; em falhas esperadas de uso normal contém `ResponseError` com `code`, `stage`, `message` e `retryable`.
 - `data` sempre vem do banco após execução do SQL validado. A Chamada 2 não decide, altera nem sintetiza dados.
 - Em sucesso com resultado escalar, `data` continua sendo lista de dicts, ex.: `[{"receita_total": 12345.67}]`.
 - Em sucesso sem linhas, `data` é `[]`.
 - Em erro ou fora de escopo sem execução, `data` é `None`.
-- `presentation` contém a resposta textual estruturada para UI: comentário inicial, seções e resumo de fontes.
-- `presentation.sources_summary.tables[].table` e `label` usam aliases de negócio. O agente prioriza `display_name` em `schema_descriptions.json` e, se ausente, infere um nome seguro removendo prefixos técnicos como `dim_`, `fato_` e `gold_`.
+- Textos humanos (`answer_text`, `sources_text` e títulos de gráfico) não devem expor nomes físicos nem prefixos técnicos de tabelas. Essa regra não se aplica ao campo técnico `developer_debug.sql`.
 - `chart` é apenas sugestão. Se o tipo ou os eixos não forem compatíveis com `data`, o agente retorna `chart=None`.
 
 ## Estrutura
@@ -177,7 +168,7 @@ python tests/integration/smoke_test_memory.py
    - **Edge cases:** Pergunta fora do escopo (piada), pergunta ambígua ("Qual a receita?")
 4. **Remove o banco temporário** automaticamente ao final (bloco `try/finally`).
 
-> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Perguntas de fluxo feliz disparam 2 chamadas ao LLM (geração de SQL + geração de insight), perguntas fora do escopo normalmente disparam 1 chamada, e bloqueios pré-LLM disparam 0 chamadas. Cada script valida o orçamento antes de executar o próximo cenário e não deve ultrapassar 20 requisições planejadas por chave. Para reduzir estouro de quota, os smoke tests usam 1 tentativa por chamada LLM; retries continuam habilitados no agente em uso normal. Os limites dos smoke tests são constantes hardcoded e centralizadas em `tests/integration/smoke_test_config.py`, pois refletem limites fixos do free tier.
+> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Perguntas de fluxo feliz disparam 2 chamadas ao LLM (geração de SQL + geração de insight), perguntas fora do escopo normalmente disparam 1 chamada, e bloqueios pré-LLM disparam 0 chamadas. Cada script valida o orçamento antes de executar o próximo cenário e não deve ultrapassar 20 requisições planejadas por chave. Para reduzir estouro de quota, os smoke tests usam 1 tentativa por chamada LLM; retries continuam habilitados no agente em uso normal. Os limites dos smoke tests são constantes hardcoded e centralizadas em `tests/integration/smoke_tests_config.py`, pois refletem limites fixos do free tier.
 
 ## Variáveis de Ambiente
 
@@ -189,14 +180,15 @@ python tests/integration/smoke_test_memory.py
 
 ## Guardrails e Códigos de Erro
 
-Para garantir opacidade de erro no frontend, violações de segurança continuam usando mensagem amigável genérica: *"Não foi possível processar sua pergunta. Tente reformulá-la."*
+Para garantir opacidade de erro no frontend, falhas técnicas continuam usando mensagem amigável genérica em `user_response.answer_text`: *"Não foi possível processar sua pergunta. Tente reformulá-la."*
 
-O backend recebe detalhes em `AgentResponse.error`, com `code`, `stage`, `message` e `retryable`. A mensagem é em português para que o desenvolvedor consiga diagnosticar a falha sem consultar documentação externa.
+O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, `stage`, `message` e `retryable`. A mensagem é em português para que o desenvolvedor consiga diagnosticar a falha sem consultar documentação externa.
 
 | Stage | Código (`ResponseError.code`) | Retry | Descrição |
 | :--- | :--- | :---: | :--- |
 | `input` | `EMPTY_INPUT` | Não | Input nulo ou somente espaços em branco. |
 | `input` | `INPUT_TOO_LONG` | Não | Pergunta excedeu `MAX_INPUT_CHARS`. |
+| `input` | `INVALID_INPUT_TYPE` | Não | Tipo do parâmetro `question` diferente de `str`. |
 | `input` | `PROMPT_INJECTION` | Não | Regex barrou ataque de persona ou exfiltração. |
 | `schema` | `SCHEMA_LOAD_ERROR` | Não | Falha ao carregar schema técnico ou metadados de negócio. |
 | `sql_generation` | `SQL_PARSE_ERROR` | Sim | Chamada 1 retornou SQL inválido ou malformado. |

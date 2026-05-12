@@ -11,6 +11,7 @@ import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
 import { Cadastro } from './pages/Cadastro'
+import { CadastroProduto } from './pages/CadastroProduto'
 
 function AppLayout() {
   return (
@@ -37,6 +38,7 @@ function App() {
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/produtos" element={<Produtos />} />
+          <Route path="/produtos/novo" element={<CadastroProduto />} />
           <Route path="/suporte" element={<Suporte />} />
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/chat-ia" element={<ChatIA />} />

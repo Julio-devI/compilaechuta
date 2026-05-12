@@ -1,8 +1,14 @@
 import { useState } from 'react'
-import { Search, Filter, Plus, MoreHorizontal, Package, TrendingUp, TrendingDown, Star, Grid3X3, List } from 'lucide-react'
-
+import {
+  Search, Maximize2, Minimize2, ChevronDown, ChevronUp, Box, Calendar,
+  Filter, Table, Grid, Plus, Download
+} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
+  
+// --- Interfaces ---
 interface Produto {
-  id: number
+  id: string
   nome: string
   sku: string
   categoria: string
@@ -10,280 +16,304 @@ interface Produto {
   estoque: number
   vendidos: number
   avaliacao: number
-  status: 'ativo' | 'inativo' | 'baixo_estoque'
+  status: 'Ativo' | 'Inativo' | 'Baixo Estoque'
   imagem: string
   tendencia: 'up' | 'down' | 'stable'
 }
 
-const produtos: Produto[] = [
-  { id: 1, nome: 'Smartphone Galaxy S24', sku: 'SKU-001234', categoria: 'Eletrônicos', preco: 'R$ 4.299,00', estoque: 145, vendidos: 892, avaliacao: 4.8, status: 'ativo', imagem: '📱', tendencia: 'up' },
-  { id: 2, nome: 'Notebook Dell Inspiron', sku: 'SKU-001235', categoria: 'Informática', preco: 'R$ 3.599,00', estoque: 67, vendidos: 456, avaliacao: 4.6, status: 'ativo', imagem: '💻', tendencia: 'up' },
-  { id: 3, nome: 'Fone Bluetooth JBL', sku: 'SKU-001236', categoria: 'Áudio', preco: 'R$ 299,00', estoque: 12, vendidos: 1234, avaliacao: 4.7, status: 'baixo_estoque', imagem: '🎧', tendencia: 'up' },
-  { id: 4, nome: 'Smart TV 55" LG', sku: 'SKU-001237', categoria: 'Eletrônicos', preco: 'R$ 2.799,00', estoque: 89, vendidos: 234, avaliacao: 4.5, status: 'ativo', imagem: '📺', tendencia: 'stable' },
-  { id: 5, nome: 'Câmera Canon EOS', sku: 'SKU-001238', categoria: 'Fotografia', preco: 'R$ 5.999,00', estoque: 23, vendidos: 78, avaliacao: 4.9, status: 'ativo', imagem: '📷', tendencia: 'down' },
-  { id: 6, nome: 'Tablet iPad Pro', sku: 'SKU-001239', categoria: 'Informática', preco: 'R$ 7.499,00', estoque: 0, vendidos: 345, avaliacao: 4.8, status: 'inativo', imagem: '📲', tendencia: 'down' },
-  { id: 7, nome: 'Console PS5', sku: 'SKU-001240', categoria: 'Games', preco: 'R$ 4.499,00', estoque: 34, vendidos: 567, avaliacao: 4.9, status: 'ativo', imagem: '🎮', tendencia: 'up' },
-  { id: 8, nome: 'Smartwatch Apple', sku: 'SKU-001241', categoria: 'Wearables', preco: 'R$ 3.299,00', estoque: 56, vendidos: 289, avaliacao: 4.7, status: 'ativo', imagem: '⌚', tendencia: 'stable' },
+// --- Mock de Dados ---
+const produtosMock: Produto[] = [
+  { id: '1', nome: 'Smartphone Galaxy S24', sku: 'SKU-001234', categoria: 'Eletrônicos', preco: 'R$ 4.299,00', estoque: 145, vendidos: 892, avaliacao: 4.8, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=150&q=80', tendencia: 'up' },
+  { id: '2', nome: 'Notebook Dell Inspiron', sku: 'SKU-001235', categoria: 'Informática', preco: 'R$ 3.599,00', estoque: 67, vendidos: 456, avaliacao: 4.6, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=150&q=80', tendencia: 'up' },
+  { id: '3', nome: 'Fone Bluetooth JBL', sku: 'SKU-001236', categoria: 'Áudio', preco: 'R$ 299,00', estoque: 12, vendidos: 1234, avaliacao: 4.7, status: 'Baixo Estoque', imagem: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=150&q=80', tendencia: 'up' },
+  { id: '4', nome: 'Smart TV 55" LG', sku: 'SKU-001237', categoria: 'Eletrônicos', preco: 'R$ 2.799,00', estoque: 89, vendidos: 234, avaliacao: 4.5, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=150&q=80', tendencia: 'stable' },
+  { id: '5', nome: 'Câmera Canon EOS', sku: 'SKU-001238', categoria: 'Fotografia', preco: 'R$ 5.999,00', estoque: 23, vendidos: 78, avaliacao: 4.9, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=150&q=80', tendencia: 'down' },
+  { id: '6', nome: 'Tablet iPad Pro', sku: 'SKU-001239', categoria: 'Informática', preco: 'R$ 7.499,00', estoque: 0, vendidos: 345, avaliacao: 4.8, status: 'Inativo', imagem: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=150&q=80', tendencia: 'down' },
 ]
 
-const statusConfig = {
-  ativo: { color: 'bg-[#00C48C]/10 text-[#00C48C]', label: 'Ativo' },
-  inativo: { color: 'bg-[#FF4757]/10 text-[#FF4757]', label: 'Inativo' },
-  baixo_estoque: { color: 'bg-[#FFD60A]/10 text-[#B8860B]', label: 'Baixo Estoque' },
-}
-
 export function Produtos() {
+  const navigate = useNavigate()
+  const [isFiltrosOpen, setIsFiltrosOpen] = useState(true)
+  const [viewMode, setViewMode] = useState<'tabela' | 'grade'>('tabela')
+  const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
-  const [filterStatus, setFilterStatus] = useState<string>('todos')
+  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
 
-  const filteredProdutos = produtos.filter(produto => {
-    const matchesSearch = produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         produto.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === 'todos' || produto.status === filterStatus
-    return matchesSearch && matchesFilter
-  })
+  const handleViewChange = (mode: 'tabela' | 'grade') => {
+    if (viewMode === mode) return;
+
+    setIsLoading(true);
+    setViewMode(mode);
+
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Ativo': return 'bg-[#DCFCE7] text-[#15803D]'
+      case 'Baixo Estoque': return 'bg-[#FEF9C3] text-[#A16207]'
+      case 'Inativo': return 'bg-[#FEE2E2] text-[#B91C1C]'
+      default: return 'bg-slate-100 text-slate-600'
+    }
+  }
+
+  const ProdutoCardSkeleton = () => (
+    <div className="bg-white p-6 rounded-3xl border border-slate-100 animate-pulse flex flex-col justify-between h-full">
+      <div>
+        <div className="w-full h-40 bg-slate-200 rounded-2xl mb-4"></div>
+        <div className="flex flex-col gap-2">
+          <div className="h-6 bg-slate-200 rounded w-full"></div>
+          <div className="h-3 bg-slate-200 rounded w-2/3"></div>
+        </div>
+        
+        <div className="mt-4 space-y-3">
+          <div className="flex justify-between items-center">
+            <div className="h-4 w-16 bg-slate-200 rounded"></div>
+            <div className="h-5 w-24 bg-slate-200 rounded"></div>
+          </div>
+          <div className="flex justify-between items-center">
+             <div className="h-4 w-20 bg-slate-200 rounded"></div>
+             <div className="h-5 w-20 bg-slate-200 rounded-full"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="p-8">
-      {/* Header */}
+    <div className="min-h-screen bg-[#F8FAFC] p-8 font-sans text-slate-900">
       <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Produtos</h1>
-          <p className="text-[#64748B] mt-1">Gerencie seu catálogo de produtos</p>
-        </div>
-        <button className="flex items-center gap-2 bg-[#1E5EFF] text-white px-4 py-2.5 rounded-xl font-medium hover:bg-[#1E5EFF]/90 transition-colors">
-          <Plus className="w-5 h-5" />
-          Novo Produto
-        </button>
+        <h1 className="text-4xl font-bold text-[#020854]">Produtos</h1>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[#64748B] text-sm">Total Produtos</p>
-              <p className="text-2xl font-bold text-[#1E293B] mt-1">2.456</p>
-            </div>
-            <div className="w-12 h-12 bg-[#1E5EFF]/10 rounded-xl flex items-center justify-center">
-              <Package className="w-6 h-6 text-[#1E5EFF]" />
-            </div>
-          </div>
+      {/* 1. Database Search Card */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
+         <div className="relative w-full max-w-2xl">
+          <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Buscar por nome do produto ou SKU..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-[#F1F5F9] rounded-full border-none text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+          />
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[#64748B] text-sm">Em Estoque</p>
-              <p className="text-2xl font-bold text-[#00C48C] mt-1">2.189</p>
-            </div>
-            <div className="w-12 h-12 bg-[#00C48C]/10 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-[#00C48C]" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[#64748B] text-sm">Baixo Estoque</p>
-              <p className="text-2xl font-bold text-[#B8860B] mt-1">156</p>
-            </div>
-            <div className="w-12 h-12 bg-[#FFD60A]/10 rounded-xl flex items-center justify-center">
-              <TrendingDown className="w-6 h-6 text-[#B8860B]" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[#64748B] text-sm">Sem Estoque</p>
-              <p className="text-2xl font-bold text-[#FF4757] mt-1">111</p>
-            </div>
-            <div className="w-12 h-12 bg-[#FF4757]/10 rounded-xl flex items-center justify-center">
-              <Package className="w-6 h-6 text-[#FF4757]" />
-            </div>
-          </div>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/produtos/novo')}
+            className="flex items-center gap-2 bg-[#1E5EFF] text-white px-6 py-4 rounded-full font-bold hover:bg-[#1E5EFF]/90 transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5" />
+            Novo Produto
+          </button>
+          <button className="flex items-center gap-2 px-6 py-4 bg-[#EBEBF0] rounded-full text-[#6B7588] font-bold hover:bg-[#E2E8F0] transition-colors">
+            <Download className="w-5 h-5" /> Exportar CSV
+          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0]">
-        <div className="p-4 flex items-center justify-between border-b border-[#E2E8F0]">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="w-5 h-5 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar produto ou SKU..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#1E5EFF]/20 focus:border-[#1E5EFF] w-80"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setFilterStatus('todos')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'todos' ? 'bg-[#1E5EFF] text-white' : 'bg-[#F8FAFC] text-[#64748B] hover:bg-[#E2E8F0]'}`}
-              >
-                Todos
-              </button>
-              <button
-                onClick={() => setFilterStatus('ativo')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'ativo' ? 'bg-[#1E5EFF] text-white' : 'bg-[#F8FAFC] text-[#64748B] hover:bg-[#E2E8F0]'}`}
-              >
-                Ativos
-              </button>
-              <button
-                onClick={() => setFilterStatus('baixo_estoque')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'baixo_estoque' ? 'bg-[#1E5EFF] text-white' : 'bg-[#F8FAFC] text-[#64748B] hover:bg-[#E2E8F0]'}`}
-              >
-                Baixo Estoque
-              </button>
-              <button
-                onClick={() => setFilterStatus('inativo')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'inativo' ? 'bg-[#1E5EFF] text-white' : 'bg-[#F8FAFC] text-[#64748B] hover:bg-[#E2E8F0]'}`}
-              >
-                Inativos
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-4 py-2.5 border border-[#E2E8F0] rounded-xl text-[#64748B] hover:bg-[#F8FAFC] transition-colors">
-              <Filter className="w-4 h-4" />
-              Filtros
-            </button>
-            <div className="flex items-center border border-[#E2E8F0] rounded-xl overflow-hidden">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2.5 transition-colors ${viewMode === 'list' ? 'bg-[#1E5EFF] text-white' : 'text-[#64748B] hover:bg-[#F8FAFC]'}`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2.5 transition-colors ${viewMode === 'grid' ? 'bg-[#1E5EFF] text-white' : 'text-[#64748B] hover:bg-[#F8FAFC]'}`}
-              >
-                <Grid3X3 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+      {/* 2. Seção de Filtros (Conforme Imagem) */}
+      <div className="bg-white rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
+        <div className="p-6 flex justify-between items-center">
+          <button
+            onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
+            className="flex items-center gap-2 font-bold text-slate-800 border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
+          >
+            {isFiltrosOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            {isFiltrosOpen ? 'Esconder Filtros' : 'Mostrar Filtros'}
+          </button>
+          {isFiltrosOpen ? <Minimize2 className="w-5 h-5 text-slate-400" /> : <Maximize2 className="w-5 h-5 text-slate-400" />}
         </div>
 
-        {viewMode === 'list' ? (
-          <>
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#E2E8F0]">
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">Produto</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">SKU</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">Categoria</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">Preço</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">Estoque</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">Vendidos</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">Avaliação</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm">Status</th>
-                    <th className="text-left py-4 px-6 text-[#64748B] font-medium text-sm"></th>
+        {isFiltrosOpen && (
+          <div className="px-8 pb-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
+            {/* Coluna Esquerda */}
+            <div className="space-y-6">
+              <div>
+                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                  <Box className="w-4 h-4" /> Categoria
+                </label>
+                <div className="relative">
+                  <select className="w-full p-4 bg-[#F1F5F9] rounded-2xl border-none text-slate-400 outline-none appearance-none cursor-pointer">
+                    <option>Todas as Categorias</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                  <Filter className="w-4 h-4" /> Status
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button className="bg-[#DCFCE7] text-[#15803D] px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 border-none hover:opacity-80 transition-opacity">Ativo</button>
+                  <button className="bg-[#FEF9C3] text-[#A16207] px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 border-none hover:opacity-80 transition-opacity">Baixo Estoque</button>
+                  <button className="bg-[#FEE2E2] text-[#B91C1C] px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 border-none hover:opacity-80 transition-opacity">Inativo</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna Direita */}
+            <div className="space-y-6">
+              <div>
+                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                  <Calendar className="w-4 h-4" /> Faixa de Preço
+                </label>
+                <div className="flex gap-2">
+                  <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Todos</button>
+                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Até R$ 100</button>
+                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">R$ 100 - R$ 500</button>
+                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Acima de R$ 500</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Tabela Header */}
+      <div className="flex justify-between items-end mb-6">
+        <h2 className="text-2xl font-bold text-[#020854]">{produtosMock.length} Produtos Encontrados</h2>
+        <div className="flex items-center gap-2 bg-slate-200 p-1 rounded-xl">
+          <button 
+            onClick={() => handleViewChange('tabela')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'tabela' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-300'}`}
+          >
+            <Table className="w-4 h-4" />
+            Tabela
+          </button>
+          <button 
+            onClick={() => handleViewChange('grade')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'grade' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-300'}`}
+          >
+            <Grid className="w-4 h-4" />
+            Grade
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Tabela de Conteúdo / Grid / Skeleton */}
+      <div className="w-full overflow-hidden">
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <ProdutoCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : viewMode === 'tabela' ? (
+          <div className="w-full overflow-x-auto bg-white rounded-3xl p-4 shadow-sm">
+            <table className="w-full border-separate border-spacing-y-2">
+              <thead>
+                <tr className="bg-[#020854] text-white">
+                  <th className="py-4 px-4 text-left rounded-l-xl">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
+                  </th>
+                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Produto</th>
+                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Categoria</th>
+                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Estoque</th>
+                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Vendidos</th>
+                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Preço</th>
+                  <th className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {produtosMock.map((produto, idx) => (
+                  <tr
+                    key={idx}
+                    className="bg-white group cursor-pointer hover:bg-[#F8FAFC] transition-colors border-b border-slate-100"
+                    onClick={() => setProdutoSelecionado(produto)}
+                  >
+                     <td className="py-4 px-4 rounded-l-2xl border-0">
+                      <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
+                    </td>
+                    <td className="py-4 px-6 border-0">
+                      <div className="flex items-center gap-4">
+                         <img src={produto.imagem} alt={produto.nome} className="w-12 h-12 rounded-xl object-cover border border-slate-200" />
+                        <div className="flex flex-col gap-1">
+                          <span className="font-black text-[#020854] text-base">{produto.nome}</span>
+                          <span className="text-slate-400 text-[10px] font-bold uppercase">{produto.sku}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-6 border-0">
+                       <span className="bg-sky-100 text-sky-700 border border-sky-200 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
+                         {produto.categoria}
+                       </span>
+                    </td>
+
+                    <td className="py-4 px-6 border-0">
+                       <span className="font-bold text-slate-600">{produto.estoque} un</span>
+                    </td>
+
+                    <td className="py-4 px-6 border-0">
+                       <span className="font-bold text-slate-600">{produto.vendidos}</span>
+                    </td>
+
+                    <td className="py-4 px-6 border-0">
+                      <span className="text-blue-900 font-black text-lg whitespace-nowrap">{produto.preco}</span>
+                    </td>
+
+                    <td className="py-4 px-6 rounded-r-2xl border-0">
+                       <span className={`px-3 py-1 rounded-full text-[10px] font-black whitespace-nowrap ${getStatusColor(produto.status)}`}>
+                        {produto.status.toUpperCase()}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredProdutos.map((produto) => (
-                    <tr key={produto.id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl bg-[#F8FAFC] flex items-center justify-center text-2xl">
-                            {produto.imagem}
-                          </div>
-                          <span className="font-medium text-[#1E293B]">{produto.nome}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-[#64748B] font-mono text-sm">{produto.sku}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-[#64748B]">{produto.categoria}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="font-medium text-[#1E293B]">{produto.preco}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium ${produto.estoque === 0 ? 'text-[#FF4757]' : produto.estoque < 20 ? 'text-[#B8860B]' : 'text-[#1E293B]'}`}>
-                            {produto.estoque}
-                          </span>
-                          {produto.tendencia === 'up' && <TrendingUp className="w-4 h-4 text-[#00C48C]" />}
-                          {produto.tendencia === 'down' && <TrendingDown className="w-4 h-4 text-[#FF4757]" />}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-[#1E293B]">{produto.vendidos}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-[#FFD60A] text-[#FFD60A]" />
-                          <span className="text-[#1E293B]">{produto.avaliacao}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusConfig[produto.status].color}`}>
-                          {statusConfig[produto.status].label}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <button className="p-2 hover:bg-[#E2E8F0] rounded-lg transition-colors">
-                          <MoreHorizontal className="w-5 h-5 text-[#64748B]" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <div className="p-6 grid grid-cols-4 gap-6">
-            {filteredProdutos.map((produto) => (
-              <div key={produto.id} className="border border-[#E2E8F0] rounded-2xl p-4 hover:shadow-lg transition-shadow">
-                <div className="w-full h-32 rounded-xl bg-[#F8FAFC] flex items-center justify-center text-5xl mb-4">
-                  {produto.imagem}
-                </div>
-                <h3 className="font-medium text-[#1E293B] mb-1">{produto.nome}</h3>
-                <p className="text-sm text-[#64748B] mb-2">{produto.categoria}</p>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-bold text-[#1E5EFF]">{produto.preco}</span>
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-[#FFD60A] text-[#FFD60A]" />
-                    <span className="text-sm text-[#64748B]">{produto.avaliacao}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {produtosMock.map((produto) => (
+              <div 
+                key={produto.id} 
+                className="bg-white p-6 rounded-3xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow cursor-pointer h-full"
+                onClick={() => setProdutoSelecionado(produto)}
+              >
+                <div>
+                  <div className="w-full h-48 rounded-2xl overflow-hidden mb-4 border border-slate-100 relative">
+                     <img src={produto.imagem} alt={produto.nome} className="w-full h-full object-cover" />
+                     <span className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-black shadow-sm ${getStatusColor(produto.status)}`}>
+                        {produto.status.toUpperCase()}
+                      </span>
                   </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#64748B]">Estoque: {produto.estoque}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[produto.status].color}`}>
-                    {statusConfig[produto.status].label}
-                  </span>
+                  
+                  <div className="mb-4">
+                    <h3 className="font-black text-[#020854] text-lg leading-tight mb-2">{produto.nome}</h3>
+                    <div className="flex items-center gap-2">
+                       <p className="text-slate-400 text-[10px] font-bold uppercase">{produto.sku}</p>
+                       <span className="bg-sky-100 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider">
+                         {produto.categoria}
+                       </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 font-bold">Estoque</span>
+                      <span className="font-bold text-slate-700">{produto.estoque} un</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 font-bold">Preço</span>
+                      <span className="font-black text-blue-900 text-lg">{produto.preco}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-
-        {/* Pagination */}
-        <div className="p-4 flex items-center justify-between border-t border-[#E2E8F0]">
-          <p className="text-sm text-[#64748B]">Mostrando {filteredProdutos.length} de {produtos.length} produtos</p>
-          <div className="flex items-center gap-2">
-            <button className="px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm text-[#64748B] hover:bg-[#F8FAFC] transition-colors">
-              Anterior
-            </button>
-            <button className="px-4 py-2 bg-[#1E5EFF] text-white rounded-lg text-sm font-medium">1</button>
-            <button className="px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm text-[#64748B] hover:bg-[#F8FAFC] transition-colors">2</button>
-            <button className="px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm text-[#64748B] hover:bg-[#F8FAFC] transition-colors">3</button>
-            <button className="px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm text-[#64748B] hover:bg-[#F8FAFC] transition-colors">
-              Próximo
-            </button>
-          </div>
-        </div>
       </div>
+
+      <ModalDetalhesProduto 
+        isOpen={!!produtoSelecionado} 
+        onClose={() => setProdutoSelecionado(null)} 
+        produto={produtoSelecionado} 
+      />
     </div>
   )
 }

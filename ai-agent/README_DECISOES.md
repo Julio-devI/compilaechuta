@@ -340,15 +340,3 @@
 - **Justificativa:** Conforme levantado pelo desenvolvedor, em um sistema real com múltiplos usuários, é necessário que o backend identifique a violação exata para poder aplicar tratativas punitivas adequadas (ex: aplicar *timeout* ou banimento automático em usuários que tentarem realizar *prompt injection* de forma maliciosa).
 
 - **Implicações:** O backend (consumidor do pacote `ai-agent`) passa a ter a capacidade de monitorar exatamente o motivo das falhas baseadas em segurança e infraestrutura local (ex: `PROMPT_INJECTION`, `EXECUTION_TIMEOUT`). Testes automatizados deverão ser atualizados para validar o `error_code`.
-
----
-
-### DA-27: Constantes Hardcoded para Limites dos Smoke Tests
-
-- **Contexto:** Os smoke tests precisam respeitar os limites do free tier da API Gemini: 20 requisições por dia e 5 requisições por minuto por chave.
-
-- **Decisão:** Manter os limites dos smoke tests como constantes hardcoded e centralizadas em `tests/integration/smoke_test_config.py`, sem leitura de `.env` ou variáveis `SMOKE_*`.
-
-- **Justificativa:** Por nunca mudarem.
-
-- **Implicações:** A execução dos smoke tests fica previsível e independente de configuração local para parâmetros de quota. Caso os limites do provedor mudem, a alteração deve ser feita diretamente em `smoke_test_config.py`.

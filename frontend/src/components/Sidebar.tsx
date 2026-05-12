@@ -10,7 +10,7 @@ import {
   Settings,
   LogOut
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -35,10 +35,10 @@ const bottomNavItems: NavItem[] = [
 
 export function Sidebar() {
   const [isHovered, setIsHovered] = useState(false); // State to track hover
+  const navigate = useNavigate()
 
   const handleLogout = () => {
-    // Logout logic
-    console.log('Logout')
+    navigate('/login')
   }
 
   return (

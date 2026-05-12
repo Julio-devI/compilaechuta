@@ -10,6 +10,7 @@ import { Relatorios } from './pages/Relatorios'
 import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
+import { EsqueciSenha } from './pages/EsqueciSenha'
 import { Cadastro } from './pages/Cadastro'
 import { CadastroProduto } from './pages/CadastroProduto'
 import {ThemeProvider} from "./contexts/ThemeContext";
@@ -34,6 +35,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/cadastro" element={<Cadastro />} />
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />

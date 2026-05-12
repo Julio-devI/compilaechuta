@@ -94,7 +94,7 @@ export function Login() {
                   />
                   <span className="text-sm text-[#64748B]">Lembrar senha</span>
                 </label>
-                <a href="#" className="text-sm font-semibold text-[#1565C0] whitespace-nowrap">
+                <a href="/esqueci-senha" className="text-sm font-semibold text-[#1565C0] whitespace-nowrap">
                   Esqueceu a senha?
                 </a>
               </div>

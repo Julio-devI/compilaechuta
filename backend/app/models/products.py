@@ -1,22 +1,26 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, event, text
+from datetime import datetime
 from app.core.database import Base
 
 class Produto(Base):
     __tablename__ = "dim_produto"
 
-    id_produto = Column(Integer, primary_key=True, index=True)
+    id_produto = Column(String, primary_key=True, index=True)
     nome_produto = Column(String, nullable=False)
-    fornecedor = Column(String, nullable=True)
-    data_cadastro_produto = Column(Date, nullable=True)
-    preco = Column(Float, nullable=True)
     categoria = Column(String, nullable=True)
-    ativo = Column(Boolean, default=True)
+    fornecedor = Column(String, nullable=True)
+    preco = Column(Float, nullable=True)
     peso_kg = Column(Float, nullable=True)
     estoque_disponivel = Column(Integer, default=0)
-    tem_estoque = Column(Boolean, default=False)
+    ativo = Column(Boolean, default=True)
     precisa_revisao = Column(Boolean, default=False)
-    qtd_total_vendas = Column(Integer, default=0)
+    data_cadastro_produto = Column(DateTime, default=datetime.utcnow)
+    total_pedidos = Column(Integer, default=0)
     receita_total = Column(Float, default=0.0)
-    qtd_tickets_gerados = Column(Integer, default=0)
-    nota_media_produto = Column(Float, nullable=True)
+    ticket_medio = Column(Float, default=0.0)
+    total_unidades_vendidas = Column(Integer, default=0)
+    total_avaliacoes = Column(Integer, default=0)
+    media_nota_produto = Column(Float, nullable=True)
+    media_nota_nps = Column(Float, nullable=True)
     pct_recomendacoes_sim = Column(Float, nullable=True)
+    total_tickets = Column(Integer, default=0)

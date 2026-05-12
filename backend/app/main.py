@@ -4,9 +4,17 @@ from app.core.config import settings
 
 from app.api.v1.clients import router as clientes_router
 from app.api.v1.tickets import router as tickets_router
+from app.api.v1.products import router as produtos_router
+from app.api.v1.categories import router as categorias_router
+from app.api.v1.orders import router as pedidos_router
+from app.api.v1.dashboards import router as dashboards_router
 
 import app.models.clients  # noqa: F401
 import app.models.tickets  # noqa: F401
+import app.models.products  # noqa: F401
+import app.models.category  # noqa: F401
+import app.models.orders  # noqa: F401
+
 
 app = FastAPI(
     title="V-Commerce CRM 360",
@@ -24,6 +32,10 @@ app.add_middleware(
 
 app.include_router(clientes_router, prefix="/clientes", tags=["Clientes"])
 app.include_router(tickets_router,  prefix="/tickets",  tags=["Tickets"])
+app.include_router(produtos_router, prefix="/produtos", tags=["Produtos"])
+app.include_router(categorias_router, prefix="/categorias", tags=["Categorias"])
+app.include_router(pedidos_router, prefix="/pedidos", tags=["Pedidos"])
+app.include_router(dashboards_router, prefix="/dashboards", tags=["Dashboards"])
 
 
 @app.get("/", tags=["Health"])

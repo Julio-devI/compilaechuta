@@ -5,7 +5,7 @@ Cobre funcionalidades stateful, truncamento, export/import e formatação de his
 
 import pytest
 
-from src.agent import VCommerceAgent, AgentResponse
+from src.agent import DeveloperDebug, UserResponse, VCommerceAgent, AgentResponse
 from src.core import config
 from src.core.exceptions import ErrorCode, LLMParseError
 from src.llm.sql_generator import format_history_for_sql
@@ -32,14 +32,17 @@ def test_append_to_history():
     agent = VCommerceAgent(db_path=":memory:")
     resp = AgentResponse(
         status="success",
-        text="Insight",
-        presentation=None,
-        data=[{"a": 1}],
-        chart=None,
-        sql="SELECT 1",
-        error=None,
-        out_of_scope=False,
-        truncated=False,
+        user_response=UserResponse(
+            answer_text="Insight",
+            sources_text=None,
+            data=[{"a": 1}],
+            chart=None,
+            truncated=False,
+        ),
+        developer_debug=DeveloperDebug(
+            sql="SELECT 1",
+            error=None,
+        ),
     )
     agent._append_to_history("Pergunta", resp)
 
@@ -54,14 +57,17 @@ def test_history_truncation(monkeypatch):
     
     resp = AgentResponse(
         status="success",
-        text="Insight",
-        presentation=None,
-        data=[],
-        chart=None,
-        sql="SELECT 1",
-        error=None,
-        out_of_scope=False,
-        truncated=False,
+        user_response=UserResponse(
+            answer_text="Insight",
+            sources_text=None,
+            data=[],
+            chart=None,
+            truncated=False,
+        ),
+        developer_debug=DeveloperDebug(
+            sql="SELECT 1",
+            error=None,
+        ),
     )
     
     # Adicionar 3 turnos (6 mensagens) - Limite é 2 (4 mensagens)
@@ -229,9 +235,8 @@ async def test_ask_returns_controlled_response_when_generate_sql_parse_fails(mon
     response = await agent.ask("Qual a receita total?")
 
     assert response.status == "error"
-    assert response.error is not None
-    assert response.out_of_scope is False
-    assert response.error.code == ErrorCode.SQL_PARSE_ERROR
-    assert response.error.stage == "sql_generation"
-    assert response.sql == ""
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.SQL_PARSE_ERROR
+    assert response.developer_debug.error.stage == "sql_generation"
+    assert response.developer_debug.sql == ""
     assert agent._history == []

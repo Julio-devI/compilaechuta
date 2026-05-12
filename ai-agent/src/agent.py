@@ -6,6 +6,8 @@ e expõe a interface consumida pelo backend FastAPI.
 """
 
 import asyncio
+import re
+import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -49,37 +51,36 @@ class ChartSuggestion:
 
 
 @dataclass
-class ResponseSection:
-    """Seção textual da resposta apresentada ao usuário."""
+class _ResponseSection:
+    """Seção textual interna usada para montar a resposta ao usuário."""
 
     title: str
     content: str
 
 
 @dataclass
-class DataSource:
-    """Tabela consultada para compor a resposta."""
+class _DataSource:
+    """Tabela consultada para compor o texto de fontes."""
 
     table: str
     label: str | None
-    description: str | None
 
 
 @dataclass
-class SourcesSummary:
-    """Resumo das fontes de dados usadas na resposta."""
+class _SourcesSummary:
+    """Resumo interno das fontes de dados usadas na resposta."""
 
     text: str
-    tables: list[DataSource]
+    tables: list[_DataSource]
 
 
 @dataclass
-class ResponsePresentation:
-    """Estrutura textual alinhada ao layout do frontend."""
+class _ResponsePresentation:
+    """Estrutura textual interna derivada da resposta do LLM."""
 
     activity: str
-    answer_sections: list[ResponseSection]
-    sources_summary: SourcesSummary | None
+    answer_sections: list[_ResponseSection]
+    sources_summary: _SourcesSummary | None
 
 
 @dataclass
@@ -101,18 +102,36 @@ class ResponseError:
 
 
 @dataclass
+class UserResponse:
+    """Payload seguro para exibição ao usuário final."""
+
+    answer_text: str
+    sources_text: str | None
+    data: list[dict] | None
+    chart: ChartSuggestion | None
+    truncated: bool
+
+
+@dataclass
+class DeveloperDebug:
+    """Payload técnico para logs, auditoria e troubleshooting."""
+
+    sql: str
+    error: ResponseError | None
+    total_time_ms: float | None = None
+    sql_generation_time_ms: float | None = None
+    query_execution_time_ms: float | None = None
+    insight_generation_time_ms: float | None = None
+    tokens_used: int | None = None
+
+
+@dataclass
 class AgentResponse:
     """Resposta completa do agente para uma pergunta do usuário."""
 
     status: Literal["success", "error", "out_of_scope"]
-    text: str
-    presentation: ResponsePresentation | None
-    data: list[dict] | None
-    chart: ChartSuggestion | None
-    sql: str
-    error: ResponseError | None
-    out_of_scope: bool
-    truncated: bool = False
+    user_response: UserResponse
+    developer_debug: DeveloperDebug
 
 
 def _error_code_value(code: str | ErrorCode) -> str:
@@ -120,16 +139,16 @@ def _error_code_value(code: str | ErrorCode) -> str:
     return code.value if isinstance(code, ErrorCode) else str(code)
 
 
-def _build_text_from_presentation(presentation: ResponsePresentation | None) -> str:
-    """Monta o campo legado `text` a partir da apresentação estruturada."""
+def _build_answer_text_from_presentation(
+    presentation: _ResponsePresentation | None,
+) -> str:
+    """Monta o texto principal sem o resumo das fontes consultadas."""
     if presentation is None:
         return ""
 
     parts = [presentation.activity.strip()]
     for section in presentation.answer_sections:
         parts.append(f"{section.title}: {section.content}")
-    if presentation.sources_summary is not None:
-        parts.append(presentation.sources_summary.text)
     return "\n\n".join(part for part in parts if part)
 
 
@@ -171,6 +190,46 @@ def _default_source_label(table_name: str) -> str:
     if not words:
         return table_name
     return " ".join(words)
+
+
+def _format_source_label(label: str) -> str:
+    """Formata aliases de fontes em Title Case adequado para UI."""
+    lower = label.strip().lower()
+    words = lower.split()
+    if not words:
+        return label
+
+    small_words = {"de", "da", "do", "das", "dos", "e", "com", "por", "para"}
+    formatted = [
+        word if index > 0 and word in small_words else word.capitalize()
+        for index, word in enumerate(words)
+    ]
+    return " ".join(formatted)
+
+
+_PHYSICAL_TABLE_PREFIX_RE = re.compile(
+    r"\b(?:dim|fato|fact|gold|silver|bronze|dm|mart|vw|view|tbl)_",
+    re.IGNORECASE,
+)
+_MAX_SOURCES_TEXT_CHARS = 280
+
+
+def _limit_sources_text(text: str) -> str:
+    """Limita o texto de fontes para manter leitura curta no frontend."""
+    if len(text) <= _MAX_SOURCES_TEXT_CHARS:
+        return text
+
+    shortened = text[: _MAX_SOURCES_TEXT_CHARS - 3].rsplit(" ", 1)[0].rstrip(" .,;")
+    return shortened + "..."
+
+
+def _strip_out_of_scope_marker(text: str) -> str:
+    """Remove o marcador técnico de fora de escopo antes de exibir ao usuário."""
+    marker = config.OUT_OF_SCOPE_MARKER
+    stripped = text.strip()
+    if stripped.upper().startswith(marker):
+        stripped = stripped[len(marker):].strip(" :-\n\t")
+    return stripped or "Não consigo responder essa pergunta com os dados disponíveis."
 
 
 class VCommerceAgent:
@@ -318,8 +377,8 @@ class VCommerceAgent:
         )
         self._history.append({
             "role": "assistant",
-            "content": response.text,
-            "sql": response.sql,
+            "content": response.user_response.answer_text,
+            "sql": response.developer_debug.sql,
         })
         # Truncar ao limite
         max_entries = config.MAX_HISTORY_TURNS * 2
@@ -356,6 +415,11 @@ class VCommerceAgent:
         sql: str = "",
         message: str | None = None,
         retryable: bool = False,
+        total_time_ms: float | None = None,
+        sql_generation_time_ms: float | None = None,
+        query_execution_time_ms: float | None = None,
+        insight_generation_time_ms: float | None = None,
+        tokens_used: int | None = None,
     ) -> AgentResponse:
         """Monta uma resposta de erro padronizada para o backend."""
         error = ResponseError(
@@ -366,17 +430,35 @@ class VCommerceAgent:
         )
         return AgentResponse(
             status="error",
-            text=error.message,
-            presentation=None,
-            data=None,
-            chart=None,
-            sql=sql,
-            error=error,
-            out_of_scope=False,
-            truncated=False,
+            user_response=UserResponse(
+                answer_text=self._GENERIC_ERROR_MSG,
+                sources_text=None,
+                data=None,
+                chart=None,
+                truncated=False,
+            ),
+            developer_debug=DeveloperDebug(
+                sql=sql,
+                error=error,
+                total_time_ms=total_time_ms,
+                sql_generation_time_ms=sql_generation_time_ms,
+                query_execution_time_ms=query_execution_time_ms,
+                insight_generation_time_ms=insight_generation_time_ms,
+                tokens_used=tokens_used,
+            ),
         )
 
-    def _make_llm_error_response(self, exc: LLMError, *, sql: str = "") -> AgentResponse:
+    def _make_llm_error_response(
+        self,
+        exc: LLMError,
+        *,
+        sql: str = "",
+        total_time_ms: float | None = None,
+        sql_generation_time_ms: float | None = None,
+        query_execution_time_ms: float | None = None,
+        insight_generation_time_ms: float | None = None,
+        tokens_used: int | None = None,
+    ) -> AgentResponse:
         """Converte falhas esperadas do LLM em erro estruturado."""
         code = ErrorCode.LLM_UNKNOWN_ERROR
         retryable = isinstance(
@@ -412,36 +494,49 @@ class VCommerceAgent:
             sql=sql,
             message=str(exc) or self._GENERIC_ERROR_MSG,
             retryable=retryable,
+            total_time_ms=total_time_ms,
+            sql_generation_time_ms=sql_generation_time_ms,
+            query_execution_time_ms=query_execution_time_ms,
+            insight_generation_time_ms=insight_generation_time_ms,
+            tokens_used=tokens_used,
         )
 
-    def _extract_sources(self, sql: str) -> list[DataSource]:
+    def _extract_sources(self, sql: str) -> list[_DataSource]:
         """Extrai tabelas do SQL validado e expõe aliases seguros de negócio."""
         try:
             tree = parse_one(sql, read="sqlite")
         except Exception:
             return []
 
-        table_names = sorted(
-            {
-                table.name
-                for table in tree.find_all(exp.Table)
-                if table.name
-                and table.name in set((self._technical_schema or {}).get("tables", {}))
-                and table.name not in self._excluded_tables
-            }
-        )
+        cte_names = {cte.alias for cte in tree.find_all(exp.CTE)}
+        schema_tables = set((self._technical_schema or {}).get("tables", {}))
+        seen_tables: set[str] = set()
+        table_names: list[str] = []
+        for table in tree.find_all(exp.Table):
+            table_name = table.name
+            if (
+                not table_name
+                or table_name in cte_names
+                or table_name not in schema_tables
+                or table_name in self._excluded_tables
+                or table_name in seen_tables
+            ):
+                continue
+            seen_tables.add(table_name)
+            table_names.append(table_name)
+
         tables_meta = (self._descriptions or {}).get("tables", {})
-        sources: list[DataSource] = []
+        sources: list[_DataSource] = []
         for table_name in table_names:
             meta = tables_meta.get(table_name, {})
             display_name = str(
                 meta.get("display_name") or _default_source_label(table_name)
             )
+            display_name = _format_source_label(display_name)
             sources.append(
-                DataSource(
+                _DataSource(
                     table=display_name,
                     label=display_name,
-                    description=meta.get("description"),
                 )
             )
         return sources
@@ -456,12 +551,112 @@ class VCommerceAgent:
             display_name = str(
                 meta.get("display_name") or _default_source_label(table_name)
             )
+            display_name = _format_source_label(display_name)
             sanitized = sanitized.replace(table_name, display_name)
-        return sanitized
+        return _PHYSICAL_TABLE_PREFIX_RE.sub("", sanitized)
+
+    def _extract_filter_summary(self, sql: str) -> list[str]:
+        """Extrai filtros simples do SQL para compor o texto de fontes."""
+        filters: list[str] = []
+        lower_sql = sql.lower()
+
+        years = re.findall(r"\bano\b\s*=\s*(\d{4})", lower_sql)
+        for year in years:
+            filters.append(f"ano {year}")
+
+        statuses = re.findall(r"\bstatus\b\s*=\s*'([^']+)'", sql, flags=re.IGNORECASE)
+        for status in statuses:
+            normalized_status = status.strip()
+            if normalized_status.lower() == "entregue":
+                filters.append("pedidos entregues")
+            elif normalized_status:
+                filters.append(f"status {normalized_status}")
+
+        return list(dict.fromkeys(filters))
+
+    def _extract_metric_summary(self, data: list[dict] | None) -> list[str]:
+        """Extrai nomes de métricas exibidas a partir das colunas de dados."""
+        if not data:
+            return []
+
+        dimension_names = {
+            "produto",
+            "categoria",
+            "cliente",
+            "regiao",
+            "região",
+            "status",
+            "data",
+            "mes",
+            "mês",
+            "ano",
+            "trimestre",
+        }
+        metrics: list[str] = []
+        for key in data[0].keys():
+            label = str(key).replace("_", " ").strip().lower()
+            if not label or label in dimension_names:
+                continue
+            metrics.append(label)
+        return metrics
+
+    def _build_sources_explanation(
+        self,
+        sources: list[_DataSource],
+        sql: str,
+        data: list[dict] | None,
+        fallback_text: str = "",
+    ) -> str:
+        """Gera texto curto de origem das fontes no estilo exibido pela UI."""
+        if fallback_text:
+            sanitized = self._sanitize_display_text(fallback_text).strip()
+            lower = sanitized.lower()
+            if sanitized and (
+                "cruzamento" in lower
+                or "consulta da base" in lower
+                or "listagem de" in lower
+            ):
+                return _limit_sources_text(sanitized)
+
+        if not sources:
+            return ""
+
+        source_names = [source.table for source in sources]
+        if len(source_names) == 1:
+            source_phrase = f"Consulta da base de {source_names[0]}"
+        elif len(source_names) == 2:
+            source_phrase = (
+                f"Cruzamento da base de {source_names[0]} com {source_names[1]}"
+            )
+        else:
+            source_phrase = (
+                f"Cruzamento da base de {source_names[0]} com "
+                + ", ".join(source_names[1:-1])
+                + f" e {source_names[-1]}"
+            )
+
+        filters = self._extract_filter_summary(sql)
+        metrics = self._extract_metric_summary(data)
+        filter_text = f" (filtros: {', '.join(filters)})" if filters else ""
+        metric_text = ""
+        if metrics:
+            metric_term = "calculado" if len(metrics) == 1 else "calculados"
+            metric_text = (
+                ", usando "
+                + ", ".join(metrics[:-1])
+                + (" e " if len(metrics) > 1 else "")
+                + metrics[-1]
+                + f" {metric_term} a partir dos dados consultados"
+            )
+
+        return _limit_sources_text(
+            "Fonte de dados consultada: "
+            f"{source_phrase}{filter_text}{metric_text}."
+        )
 
     def _build_sources_summary(
-        self, insight: dict[str, Any], sql: str
-    ) -> SourcesSummary | None:
+        self, insight: dict[str, Any], sql: str, data: list[dict] | None = None
+    ) -> _SourcesSummary | None:
         """Combina resumo textual do LLM com fontes extraídas do SQL."""
         sources = self._extract_sources(sql)
         raw_summary = insight.get("sources_summary")
@@ -469,27 +664,28 @@ class VCommerceAgent:
         if isinstance(raw_summary, dict) and isinstance(raw_summary.get("text"), str):
             text = self._sanitize_display_text(raw_summary["text"].strip())
         if sources:
-            names = ", ".join(source.table for source in sources)
-            text = f"Fonte de dados consultada: {names}."
+            text = self._build_sources_explanation(
+                sources, sql=sql, data=data, fallback_text=text
+            )
         if not text and not sources:
             return None
-        return SourcesSummary(text=text, tables=sources)
+        return _SourcesSummary(text=text, tables=sources)
 
     def _build_presentation(
-        self, insight: dict[str, Any], sql: str
-    ) -> ResponsePresentation:
-        """Converte o JSON da Chamada 2 para dataclasses públicas."""
+        self, insight: dict[str, Any], sql: str, data: list[dict] | None = None
+    ) -> _ResponsePresentation:
+        """Converte o JSON da Chamada 2 para uma estrutura textual interna."""
         sections = [
-            ResponseSection(
+            _ResponseSection(
                 title=self._sanitize_display_text(str(section["title"])),
                 content=self._sanitize_display_text(str(section["content"])),
             )
             for section in insight["answer_sections"]
         ]
-        return ResponsePresentation(
+        return _ResponsePresentation(
             activity=self._sanitize_display_text(str(insight["activity"])),
             answer_sections=sections,
-            sources_summary=self._build_sources_summary(insight, sql),
+            sources_summary=self._build_sources_summary(insight, sql, data=data),
         )
 
     def _build_chart(
@@ -534,13 +730,59 @@ class VCommerceAgent:
             question: Pergunta do usuário em português brasileiro.
 
         Returns:
-            AgentResponse contendo insight, dados brutos, sugestão de gráfico e SQL.
+            AgentResponse com payload de usuário e debug técnico separados.
 
         Observação:
-            Falhas esperadas do pipeline são retornadas em `AgentResponse.error`.
+            Falhas esperadas do pipeline são retornadas em
+            `AgentResponse.developer_debug.error`.
             Exceções de programação fora do contrato público continuam propagando.
         """
+        total_start = time.perf_counter()
         sql = ""
+        sql_generation_time_ms: float | None = None
+        query_execution_time_ms: float | None = None
+        insight_generation_time_ms: float | None = None
+        tokens_used: int | None = None
+
+        def _elapsed_ms(start: float) -> float:
+            return round((time.perf_counter() - start) * 1000, 2)
+
+        def _build_debug(
+            sql_str: str, error: ResponseError | None = None
+        ) -> DeveloperDebug:
+            return DeveloperDebug(
+                sql=sql_str,
+                error=error,
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                query_execution_time_ms=query_execution_time_ms,
+                insight_generation_time_ms=insight_generation_time_ms,
+                tokens_used=tokens_used,
+            )
+
+        def _make_out_of_scope_response(marker_text: str) -> AgentResponse:
+            """Monta resposta fora de escopo sem expor marcador técnico."""
+            return AgentResponse(
+                status="out_of_scope",
+                user_response=UserResponse(
+                    answer_text=_strip_out_of_scope_marker(marker_text),
+                    sources_text=None,
+                    data=None,
+                    chart=None,
+                    truncated=False,
+                ),
+                developer_debug=_build_debug(""),
+            )
+
+        # Camada 0: validação do tipo do input (contrato público)
+        if not isinstance(question, str):
+            return self._make_error_response(
+                code=ErrorCode.INVALID_INPUT_TYPE,
+                stage="input",
+                message=f"Esperado str, recebido {type(question).__name__}.",
+                retryable=False,
+                total_time_ms=_elapsed_ms(total_start),
+            )
 
         # Camada 1: validação do input do usuário (pré-LLM)
         try:
@@ -551,49 +793,61 @@ class VCommerceAgent:
             return self._make_error_response(
                 code=exc.error_code,
                 stage="input",
+                message=str(exc),
                 retryable=False,
+                total_time_ms=_elapsed_ms(total_start),
             )
 
         # Etapa 1: carregar schema
         try:
             schema, technical_schema = await self._load_schema()
             self._technical_schema = technical_schema
-        except (FileNotFoundError, RuntimeError, ValueError):
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
             return self._make_error_response(
                 code=ErrorCode.SCHEMA_LOAD_ERROR,
                 stage="schema",
+                message=str(exc),
                 retryable=False,
+                total_time_ms=_elapsed_ms(total_start),
             )
 
         # Etapa 2: gerar SQL
+        sql_start = time.perf_counter()
         try:
-            sql = await generate_sql(
+            sql, sql_tokens = await generate_sql(
                 question, schema, history=self._history, model=self._llm_model
             )
-        except (ValueError, LLMParseError):
+            if sql_tokens is not None:
+                tokens_used = (tokens_used or 0) + sql_tokens
+        except (ValueError, LLMParseError) as exc:
+            sql_generation_time_ms = _elapsed_ms(sql_start)
             return self._make_error_response(
                 code=ErrorCode.SQL_PARSE_ERROR,
                 stage="sql_generation",
                 sql=sql,
+                message=str(exc),
                 retryable=True,
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                tokens_used=tokens_used,
             )
-        except LLMError as exc:
-            return self._make_llm_error_response(exc, sql=sql)
+        except (LLMError, EnvironmentError) as exc:
+            sql_generation_time_ms = _elapsed_ms(sql_start)
+            if isinstance(exc, EnvironmentError):
+                exc = LLMAuthenticationError(str(exc))
+            return self._make_llm_error_response(
+                exc,
+                sql=sql,
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                tokens_used=tokens_used,
+            )
+        sql_generation_time_ms = _elapsed_ms(sql_start)
 
         # Etapa 2.5: detectar fora do escopo antes da Camada 2
         # O marcador nao e SQL valido; aplicar guardrails causaria erro de parse
         if sql.strip().upper().startswith(config.OUT_OF_SCOPE_MARKER):
-            return AgentResponse(
-                status="out_of_scope",
-                text=sql,
-                presentation=None,
-                data=None,
-                chart=None,
-                sql="",
-                error=None,
-                out_of_scope=True,
-                truncated=False,
-            )
+            return _make_out_of_scope_response(sql)
 
         # Etapa 3: aplicar Camada 2 com loop de autocorreção
         allowlist = build_allowlist(
@@ -609,10 +863,15 @@ class VCommerceAgent:
                         code=exc.error_code,
                         stage="sql_validation",
                         sql=sql,
+                        message=str(exc),
                         retryable=False,
+                        total_time_ms=_elapsed_ms(total_start),
+                        sql_generation_time_ms=sql_generation_time_ms,
+                        tokens_used=tokens_used,
                     )
+                correction_start = time.perf_counter()
                 try:
-                    sql = await generate_sql_correction(
+                    sql, correction_tokens = await generate_sql_correction(
                         question=question,
                         sql=sql,
                         error=str(exc),
@@ -620,58 +879,124 @@ class VCommerceAgent:
                         history=self._history,
                         model=self._llm_model,
                     )
-                except (ValueError, LLMParseError):
+                    if correction_tokens is not None:
+                        tokens_used = (tokens_used or 0) + correction_tokens
+                except (ValueError, LLMParseError) as exc:
+                    sql_generation_time_ms = (
+                        (sql_generation_time_ms or 0.0)
+                        + _elapsed_ms(correction_start)
+                    )
                     return self._make_error_response(
                         code=ErrorCode.SQL_PARSE_ERROR,
                         stage="sql_generation",
                         sql=sql,
+                        message=str(exc),
                         retryable=True,
+                        total_time_ms=_elapsed_ms(total_start),
+                        sql_generation_time_ms=sql_generation_time_ms,
+                        tokens_used=tokens_used,
                     )
                 except LLMError as exc:
-                    return self._make_llm_error_response(exc, sql=sql)
+                    sql_generation_time_ms = (
+                        (sql_generation_time_ms or 0.0)
+                        + _elapsed_ms(correction_start)
+                    )
+                    return self._make_llm_error_response(
+                        exc,
+                        sql=sql,
+                        total_time_ms=_elapsed_ms(total_start),
+                        sql_generation_time_ms=sql_generation_time_ms,
+                        tokens_used=tokens_used,
+                    )
+                sql_generation_time_ms = (
+                    (sql_generation_time_ms or 0.0)
+                    + _elapsed_ms(correction_start)
+                )
+                if sql.strip().upper().startswith(config.OUT_OF_SCOPE_MARKER):
+                    return _make_out_of_scope_response(sql)
                 await asyncio.sleep(1 * (2 ** attempt))
 
         # Etapa 4: executar SQL
+        query_start = time.perf_counter()
         try:
             rows, truncated = await self._db.execute_query(sql)
         except (RuntimeError, TimeoutError) as exc:
-            err_code = ErrorCode.EXECUTION_TIMEOUT if isinstance(exc, TimeoutError) else ErrorCode.DB_EXECUTION_ERROR
+            query_execution_time_ms = _elapsed_ms(query_start)
+            err_code = (
+                ErrorCode.EXECUTION_TIMEOUT
+                if isinstance(exc, TimeoutError)
+                else ErrorCode.DB_EXECUTION_ERROR
+            )
             return self._make_error_response(
                 code=err_code,
                 stage="database",
                 sql=sql,
+                message=str(exc),
                 retryable=isinstance(exc, TimeoutError),
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                query_execution_time_ms=query_execution_time_ms,
+                tokens_used=tokens_used,
             )
+        query_execution_time_ms = _elapsed_ms(query_start)
 
         # Etapa 5: gerar insight
+        insight_start = time.perf_counter()
         try:
-            insight = await generate_insight(
+            insight, insight_tokens = await generate_insight(
                 question, rows, sql, history=self._history, model=self._llm_model
             )
-        except LLMParseError:
+            if insight_tokens is not None:
+                tokens_used = (tokens_used or 0) + insight_tokens
+        except LLMParseError as exc:
+            insight_generation_time_ms = _elapsed_ms(insight_start)
             return self._make_error_response(
                 code=ErrorCode.INSIGHT_PARSE_ERROR,
                 stage="insight_generation",
                 sql=sql,
+                message=str(exc),
                 retryable=True,
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                query_execution_time_ms=query_execution_time_ms,
+                insight_generation_time_ms=insight_generation_time_ms,
+                tokens_used=tokens_used,
             )
-        except LLMError as exc:
-            return self._make_llm_error_response(exc, sql=sql)
+        except (LLMError, EnvironmentError) as exc:
+            insight_generation_time_ms = _elapsed_ms(insight_start)
+            if isinstance(exc, EnvironmentError):
+                exc = LLMAuthenticationError(str(exc))
+            return self._make_llm_error_response(
+                exc,
+                sql=sql,
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                query_execution_time_ms=query_execution_time_ms,
+                insight_generation_time_ms=insight_generation_time_ms,
+                tokens_used=tokens_used,
+            )
+        insight_generation_time_ms = _elapsed_ms(insight_start)
 
         # Etapa 6: montar resposta
-        presentation = self._build_presentation(insight, sql)
+        presentation = self._build_presentation(insight, sql, data=rows)
+        answer_text = _build_answer_text_from_presentation(presentation)
+        sources_text = (
+            presentation.sources_summary.text
+            if presentation.sources_summary is not None
+            else None
+        )
         chart = self._build_chart(insight.get("chart"), rows)
 
         response = AgentResponse(
             status="success",
-            text=_build_text_from_presentation(presentation),
-            presentation=presentation,
-            data=rows,
-            chart=chart,
-            sql=sql,
-            error=None,
-            out_of_scope=False,
-            truncated=truncated,
+            user_response=UserResponse(
+                answer_text=answer_text,
+                sources_text=sources_text,
+                data=rows,
+                chart=chart,
+                truncated=truncated,
+            ),
+            developer_debug=_build_debug(sql),
         )
 
         # Armazena no histórico apenas interações bem-sucedidas

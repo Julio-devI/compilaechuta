@@ -130,7 +130,7 @@ async def generate_sql(
     schema: str,
     history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
-) -> str:
+) -> tuple[str, int | None]:
     """
     Gera uma query SQL a partir de uma pergunta em linguagem natural.
 
@@ -140,7 +140,8 @@ async def generate_sql(
         model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
-        String contendo a query SQL (ou o marcador "FORA_DO_ESCOPO ...").
+        Tupla contendo a query SQL (ou o marcador "FORA_DO_ESCOPO ...") e
+        o número de tokens consumidos na chamada, quando disponível.
 
     Raises:
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
@@ -157,16 +158,17 @@ async def generate_sql(
         model=model,
     )
 
-    raw_output = await agent.run(question, validator=_validate_sql_response)
+    result = await agent.run(question, validator=_validate_sql_response)
+    raw_output = result.output
 
     # Detecta marcador de fora do escopo antes de qualquer parsing
     stripped = raw_output.strip()
     if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
-        return stripped
+        return stripped, result.tokens_used
 
     sql = _extract_sql(raw_output)
     _validate_syntax(sql)
-    return sql
+    return sql, result.tokens_used
 
 
 def _load_correction_prompt(
@@ -195,7 +197,7 @@ async def generate_sql_correction(
     schema: str,
     history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
-) -> str:
+) -> tuple[str, int | None]:
     """
     Solicita ao LLM uma correção do SQL que falhou nos guardrails.
 
@@ -207,7 +209,8 @@ async def generate_sql_correction(
         model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
-        SQL corrigido (ou marcador "FORA_DO_ESCOPO ...").
+        Tupla contendo o SQL corrigido (ou marcador "FORA_DO_ESCOPO ...") e
+        o número de tokens consumidos na chamada, quando disponível.
 
     Raises:
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
@@ -223,12 +226,13 @@ async def generate_sql_correction(
         model=model,
     )
 
-    raw_output = await agent.run(question, validator=_validate_sql_response)
+    result = await agent.run(question, validator=_validate_sql_response)
+    raw_output = result.output
 
     stripped = raw_output.strip()
     if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
-        return stripped
+        return stripped, result.tokens_used
 
     corrected = _extract_sql(raw_output)
     _validate_syntax(corrected)
-    return corrected
+    return corrected, result.tokens_used

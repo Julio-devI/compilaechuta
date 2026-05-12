@@ -187,7 +187,7 @@ async def generate_insight(
     sql: str,
     history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], int | None]:
     """
     Gera um insight estruturado a partir dos dados de uma consulta SQL.
 
@@ -198,8 +198,8 @@ async def generate_insight(
         model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
-    Dicionário com estrutura {"activity": str, "answer_sections": list,
-    "sources_summary": dict | None, "chart": dict | None}.
+        Tupla contendo o dicionário de insight e o número de tokens
+        consumidos na chamada, quando disponível.
 
     Raises:
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
@@ -219,10 +219,11 @@ async def generate_insight(
         model=model,
     )
 
-    raw_output = await agent.run(question, validator=_validate_insight_payload)
+    result = await agent.run(question, validator=_validate_insight_payload)
+    raw_output = result.output
 
     insight = _normalize_insight(_parse_json(raw_output))
 
     _validate_chart(insight, data)
 
-    return insight
+    return insight, result.tokens_used

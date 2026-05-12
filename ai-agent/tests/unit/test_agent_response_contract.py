@@ -3,6 +3,7 @@
 import pytest
 
 from src.agent import VCommerceAgent, _default_source_label
+from src.core import config
 from src.core.exceptions import (
     ErrorCode,
     LLMAuthenticationError,
@@ -16,6 +17,7 @@ from src.core.exceptions import (
     LLMUnknownError,
 )
 from src.llm import insight_generator
+from src.llm.llm_client import LLMRunResult
 
 
 async def _fake_load_schema():
@@ -38,9 +40,7 @@ def _fake_insight(chart=None, extra=None):
         "answer_sections": [
             {"title": "Resultado", "content": "Foram encontrados 10 clientes."}
         ],
-        "sources_summary": {
-            "text": "Fonte de dados consultada: dim_cliente."
-        },
+        "sources_summary": {"text": "Fonte de dados consultada: dim_cliente."},
         "chart": chart,
     }
     if extra:
@@ -59,22 +59,69 @@ def _set_fake_descriptions(agent: VCommerceAgent) -> None:
     }
 
 
+def _assert_no_legacy_top_level_fields(response) -> None:
+    for field in (
+        "text",
+        "answer_text",
+        "sources_text",
+        "presentation",
+        "data",
+        "chart",
+        "sql",
+        "error",
+        "out_of_scope",
+        "truncated",
+    ):
+        assert not hasattr(response, field)
+
+
 @pytest.mark.asyncio
-async def test_empty_input_returns_input_error():
+async def test_empty_input_returns_input_error_in_debug_payload():
     agent = VCommerceAgent(db_path=":memory:")
 
     response = await agent.ask("")
 
     assert response.status == "error"
-    assert response.error is not None
-    assert response.error.code == ErrorCode.EMPTY_INPUT
-    assert response.error.stage == "input"
-    assert response.error.retryable is False
-    assert response.sql == ""
+    _assert_no_legacy_top_level_fields(response)
+    assert response.user_response.answer_text == agent._GENERIC_ERROR_MSG
+    assert response.user_response.sources_text is None
+    assert response.user_response.data is None
+    assert response.user_response.chart is None
+    assert response.user_response.truncated is False
+    assert not hasattr(response.user_response, "sql")
+    assert not hasattr(response.user_response, "error")
+
+    assert response.developer_debug.sql == ""
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.EMPTY_INPUT
+    assert response.developer_debug.error.stage == "input"
+    assert response.developer_debug.error.retryable is False
+    assert response.developer_debug.error.message == "Input do usuario esta vazio."
+    assert not hasattr(response.developer_debug, "data")
+    assert not hasattr(response.developer_debug, "chart")
+    assert not hasattr(response.developer_debug, "out_of_scope")
 
 
 @pytest.mark.asyncio
-async def test_schema_failure_returns_schema_error(monkeypatch):
+async def test_invalid_input_type_returns_input_error_in_debug_payload():
+    agent = VCommerceAgent(db_path=":memory:")
+
+    response = await agent.ask(None)
+
+    assert response.status == "error"
+    assert response.user_response.answer_text == agent._GENERIC_ERROR_MSG
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.INVALID_INPUT_TYPE
+    assert response.developer_debug.error.stage == "input"
+    assert response.developer_debug.error.retryable is False
+    assert response.developer_debug.error.message == "Esperado str, recebido NoneType."
+
+    response_int = await agent.ask(123)
+    assert response_int.developer_debug.error.message == "Esperado str, recebido int."
+
+
+@pytest.mark.asyncio
+async def test_schema_failure_returns_schema_error_in_debug_payload(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
 
     async def fake_load_schema():
@@ -85,21 +132,46 @@ async def test_schema_failure_returns_schema_error(monkeypatch):
     response = await agent.ask("Quantos clientes existem?")
 
     assert response.status == "error"
-    assert response.error is not None
-    assert response.error.code == ErrorCode.SCHEMA_LOAD_ERROR
-    assert response.error.stage == "schema"
-    assert response.error.retryable is False
+    assert response.user_response.answer_text == agent._GENERIC_ERROR_MSG
+    assert response.developer_debug.sql == ""
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.SCHEMA_LOAD_ERROR
+    assert response.developer_debug.error.stage == "schema"
+    assert response.developer_debug.error.retryable is False
+    assert "schema indisponivel" in response.developer_debug.error.message
 
 
 @pytest.mark.asyncio
-async def test_sql_validation_failure_returns_structured_error(monkeypatch):
+async def test_sql_generation_parse_error_preserves_debug_message(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
 
     async def fake_generate_sql(*args, **kwargs):
-        return "DROP TABLE dim_cliente"
+        raise LLMParseError("SQL gerado sem bloco válido")
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
+
+    response = await agent.ask("Quantos clientes existem?")
+
+    assert response.status == "error"
+    assert response.user_response.answer_text == agent._GENERIC_ERROR_MSG
+    assert response.developer_debug.sql == ""
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.SQL_PARSE_ERROR
+    assert response.developer_debug.error.stage == "sql_generation"
+    assert response.developer_debug.error.retryable is True
+    assert response.developer_debug.error.message == "SQL gerado sem bloco válido"
+
+
+@pytest.mark.asyncio
+async def test_sql_validation_failure_returns_structured_debug_error(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "DROP TABLE dim_cliente", None
 
     async def fake_sql_correction(*args, **kwargs):
-        return "DROP TABLE dim_cliente"
+        return "DROP TABLE dim_cliente", None
 
     async def no_sleep(*args, **kwargs):
         return None
@@ -112,9 +184,70 @@ async def test_sql_validation_failure_returns_structured_error(monkeypatch):
     response = await agent.ask("Apague clientes")
 
     assert response.status == "error"
-    assert response.error is not None
-    assert response.error.stage == "sql_validation"
-    assert response.error.retryable is False
+    assert response.user_response.answer_text == agent._GENERIC_ERROR_MSG
+    assert response.developer_debug.sql == "DROP TABLE dim_cliente"
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.stage == "sql_validation"
+    assert response.developer_debug.error.retryable is False
+    assert "Apenas consultas SELECT" in response.developer_debug.error.message
+
+
+@pytest.mark.asyncio
+async def test_sql_correction_parse_error_preserves_debug_message(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "DROP TABLE dim_cliente", None
+
+    async def fake_sql_correction(*args, **kwargs):
+        raise ValueError("correcao retornou SQL invalido")
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("src.agent.generate_sql_correction", fake_sql_correction)
+
+    response = await agent.ask("Apague clientes")
+
+    assert response.status == "error"
+    assert response.user_response.answer_text == agent._GENERIC_ERROR_MSG
+    assert response.developer_debug.sql == "DROP TABLE dim_cliente"
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.SQL_PARSE_ERROR
+    assert response.developer_debug.error.stage == "sql_generation"
+    assert response.developer_debug.error.retryable is True
+    assert response.developer_debug.error.message == "correcao retornou SQL invalido"
+
+
+@pytest.mark.asyncio
+async def test_sql_correction_out_of_scope_returns_out_of_scope(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "DROP TABLE dim_cliente", 5
+
+    async def fake_sql_correction(*args, **kwargs):
+        return (
+            f"{config.OUT_OF_SCOPE_MARKER} Não é possível responder com segurança.",
+            7,
+        )
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("src.agent.generate_sql_correction", fake_sql_correction)
+
+    response = await agent.ask("Apague clientes")
+
+    assert response.status == "out_of_scope"
+    assert response.user_response.answer_text == "Não é possível responder com segurança."
+    assert response.user_response.data is None
+    assert response.user_response.chart is None
+    assert response.user_response.truncated is False
+    assert response.developer_debug.sql == ""
+    assert response.developer_debug.error is None
+    assert response.developer_debug.tokens_used == 12
+    assert response.developer_debug.sql_generation_time_ms is not None
+    assert response.developer_debug.query_execution_time_ms is None
+    assert response.developer_debug.insight_generation_time_ms is None
 
 
 @pytest.mark.parametrize(
@@ -162,18 +295,43 @@ async def test_sql_validation_failure_returns_structured_error(monkeypatch):
         ),
     ],
 )
-def test_llm_errors_keep_specific_public_codes(exc, expected_code, retryable):
+def test_llm_errors_keep_specific_debug_codes(exc, expected_code, retryable):
     agent = VCommerceAgent(db_path=":memory:")
 
     response = agent._make_llm_error_response(exc, sql="SELECT 1")
 
     assert response.status == "error"
-    assert response.error is not None
-    assert response.error.code == expected_code
-    assert response.error.stage == "llm"
-    assert response.error.message == str(exc)
-    assert response.error.retryable is retryable
-    assert response.sql == "SELECT 1"
+    assert response.user_response.answer_text == agent._GENERIC_ERROR_MSG
+    assert response.developer_debug.sql == "SELECT 1"
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == expected_code
+    assert response.developer_debug.error.stage == "llm"
+    assert response.developer_debug.error.message == str(exc)
+    assert response.developer_debug.error.retryable is retryable
+
+
+@pytest.mark.asyncio
+async def test_out_of_scope_returns_user_text_without_marker(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+
+    async def fake_generate_sql(*args, **kwargs):
+        return f"{config.OUT_OF_SCOPE_MARKER} Clientes não possuem preço no schema.", None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
+
+    response = await agent.ask("Qual o preço dos clientes?")
+
+    assert response.status == "out_of_scope"
+    _assert_no_legacy_top_level_fields(response)
+    assert response.user_response.answer_text == "Clientes não possuem preço no schema."
+    assert config.OUT_OF_SCOPE_MARKER not in response.user_response.answer_text
+    assert response.user_response.sources_text is None
+    assert response.user_response.data is None
+    assert response.user_response.chart is None
+    assert response.user_response.truncated is False
+    assert response.developer_debug.sql == ""
+    assert response.developer_debug.error is None
 
 
 def test_extract_sources_filters_cte_names():
@@ -194,9 +352,9 @@ def test_extract_sources_filters_cte_names():
 
     sources = agent._extract_sources(sql)
 
-    assert [source.table for source in sources] == ["clientes"]
-    assert sources[0].label == "clientes"
-    assert sources[0].description == "Dados cadastrais e métricas de clientes."
+    assert [source.table for source in sources] == ["Clientes"]
+    assert sources[0].label == "Clientes"
+    assert not hasattr(sources[0], "description")
 
 
 def test_default_source_label_infers_business_aliases():
@@ -207,7 +365,7 @@ def test_default_source_label_infers_business_aliases():
     assert _default_source_label("fato_avaliacoes_pedido") == "avaliações pedidos"
 
 
-def test_presentation_sanitizes_physical_table_names():
+def test_internal_presentation_sanitizes_physical_table_names():
     agent = VCommerceAgent(db_path=":memory:")
     agent._technical_schema = {
         "tables": {
@@ -229,15 +387,131 @@ def test_presentation_sanitizes_physical_table_names():
         }
     )
 
-    presentation = agent._build_presentation(
-        insight, "SELECT total FROM dim_cliente"
-    )
+    presentation = agent._build_presentation(insight, "SELECT total FROM dim_cliente")
 
-    assert presentation.activity == "Analisei clientes."
-    assert presentation.answer_sections[0].title == "Dados clientes"
+    assert presentation.activity == "Analisei Clientes."
+    assert presentation.answer_sections[0].title == "Dados Clientes"
     assert "dim_cliente" not in presentation.answer_sections[0].content
     assert presentation.sources_summary is not None
-    assert presentation.sources_summary.text == "Fonte de dados consultada: clientes."
+    assert presentation.sources_summary.text == (
+        "Fonte de dados consultada: Consulta da base de Clientes."
+    )
+    assert "dim_cliente" not in presentation.sources_summary.text
+    assert not hasattr(presentation.sources_summary.tables[0], "description")
+
+
+def test_sources_summary_uses_ui_style_when_llm_provides_it():
+    agent = VCommerceAgent(db_path=":memory:")
+    agent._technical_schema = {
+        "tables": {
+            "dim_cliente": {"columns": []},
+            "fato_suporte_ticket": {"columns": []},
+        }
+    }
+    agent._descriptions = {
+        "tables": {
+            "dim_cliente": {"display_name": "clientes"},
+            "fato_suporte_ticket": {"display_name": "tickets de suporte"},
+        }
+    }
+
+    insight = _fake_insight(
+        extra={
+            "sources_summary": {
+                "text": (
+                    "Fonte de dados consultada: Cruzamento da base de dim_cliente "
+                    "com a listagem de fato_suporte_ticket (filtros: Em Aberto)."
+                )
+            }
+        }
+    )
+
+    presentation = agent._build_presentation(
+        insight,
+        "SELECT c.id_cliente FROM dim_cliente c "
+        "JOIN fato_suporte_ticket t ON c.id_cliente = t.id_cliente",
+    )
+
+    assert presentation.sources_summary is not None
+    assert presentation.sources_summary.text == (
+        "Fonte de dados consultada: Cruzamento da base de Clientes "
+        "com a listagem de Tickets de Suporte (filtros: Em Aberto)."
+    )
+    assert "dim_" not in presentation.sources_summary.text
+    assert "fato_" not in presentation.sources_summary.text
+
+
+def test_extract_sources_keeps_sql_table_order():
+    agent = VCommerceAgent(db_path=":memory:")
+    agent._technical_schema = {
+        "tables": {
+            "fato_vendas": {"columns": []},
+            "dim_produto": {"columns": []},
+            "dim_tempo": {"columns": []},
+        }
+    }
+    agent._descriptions = {
+        "tables": {
+            "fato_vendas": {"display_name": "vendas"},
+            "dim_produto": {"display_name": "produtos"},
+            "dim_tempo": {"display_name": "Calendário"},
+        }
+    }
+
+    sources = agent._extract_sources(
+        "SELECT * FROM fato_vendas v "
+        "JOIN dim_produto p ON v.id_produto = p.id_produto "
+        "JOIN dim_tempo t ON v.id_data = t.id_data"
+    )
+
+    assert [source.table for source in sources] == [
+        "Vendas",
+        "Produtos",
+        "Calendário",
+    ]
+
+
+def test_sources_summary_fallback_includes_filters_and_metrics():
+    agent = VCommerceAgent(db_path=":memory:")
+    agent._technical_schema = {
+        "tables": {
+            "fato_vendas": {"columns": []},
+            "dim_produto": {"columns": []},
+            "dim_tempo": {"columns": []},
+        }
+    }
+    agent._descriptions = {
+        "tables": {
+            "fato_vendas": {"display_name": "vendas"},
+            "dim_produto": {"display_name": "produtos"},
+            "dim_tempo": {"display_name": "Calendário"},
+        }
+    }
+
+    insight = _fake_insight(extra={"sources_summary": {"text": "Fonte: fato_vendas."}})
+    presentation = agent._build_presentation(
+        insight,
+        "SELECT p.nome_produto AS produto, SUM(v.valor_total_venda) AS receita_total "
+        "FROM fato_vendas v "
+        "JOIN dim_produto p ON v.id_produto = p.id_produto "
+        "JOIN dim_tempo t ON v.id_data = t.id_data "
+        "WHERE t.ano = 2024 AND v.status = 'Entregue' "
+        "GROUP BY p.nome_produto",
+        data=[
+            {
+                "produto": "Notebook X1",
+                "receita_total": 13500.0,
+                "quantidade_total_vendida": 3,
+            }
+        ],
+    )
+
+    assert presentation.sources_summary is not None
+    assert presentation.sources_summary.text == (
+        "Fonte de dados consultada: Cruzamento da base de Vendas com Produtos "
+        "e Calendário (filtros: ano 2024, pedidos entregues), usando receita "
+        "total e quantidade total vendida calculados a partir dos dados consultados."
+    )
 
 
 @pytest.mark.asyncio
@@ -246,13 +520,13 @@ async def test_success_keeps_data_from_database_and_ignores_llm_data(monkeypatch
     db_rows = [{"total": 10}]
 
     async def fake_generate_sql(*args, **kwargs):
-        return "SELECT total FROM dim_cliente"
+        return "SELECT total FROM dim_cliente", 11
 
     async def fake_execute_query(sql):
         return db_rows, False
 
     async def fake_generate_insight(*args, **kwargs):
-        return _fake_insight(extra={"data": [{"total": 999}]})
+        return _fake_insight(extra={"data": [{"total": 999}]}), 13
 
     monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
     _set_fake_descriptions(agent)
@@ -264,14 +538,73 @@ async def test_success_keeps_data_from_database_and_ignores_llm_data(monkeypatch
     response = await agent.ask("Quantos clientes existem?")
 
     assert response.status == "success"
-    assert response.error is None
-    assert response.sql == "SELECT total FROM dim_cliente"
-    assert response.data == db_rows
-    assert response.presentation is not None
-    assert response.presentation.activity.startswith("Analisei")
-    assert response.presentation.sources_summary is not None
-    assert response.presentation.sources_summary.tables[0].table == "clientes"
-    assert agent._history[1]["sql"] == response.sql
+    _assert_no_legacy_top_level_fields(response)
+    assert response.user_response.answer_text.startswith("Analisei")
+    assert response.user_response.sources_text is not None
+    assert response.user_response.sources_text.startswith(
+        "Fonte de dados consultada: Consulta da base de Clientes"
+    )
+    assert response.user_response.sources_text not in response.user_response.answer_text
+    assert response.user_response.data == db_rows
+    assert response.user_response.chart is None
+    assert response.user_response.truncated is False
+    assert not hasattr(response.user_response, "sql")
+    assert not hasattr(response.user_response, "error")
+    assert response.developer_debug.sql == "SELECT total FROM dim_cliente"
+    assert response.developer_debug.error is None
+    assert not hasattr(response.developer_debug, "data")
+    assert not hasattr(response.developer_debug, "chart")
+    assert response.developer_debug.total_time_ms is not None
+    assert response.developer_debug.sql_generation_time_ms is not None
+    assert response.developer_debug.query_execution_time_ms is not None
+    assert response.developer_debug.insight_generation_time_ms is not None
+    assert response.developer_debug.tokens_used == 24
+    assert agent._history[1]["sql"] == response.developer_debug.sql
+
+
+@pytest.mark.asyncio
+async def test_success_separates_answer_and_sources_without_sanitizing_sql_or_data(
+    monkeypatch,
+):
+    agent = VCommerceAgent(db_path=":memory:")
+    sql = "SELECT\n  total\nFROM dim_cliente"
+    db_rows = [{"produto": "Monitor 27\"", "total": 2}]
+
+    async def fake_generate_sql(*args, **kwargs):
+        return sql, None
+
+    async def fake_execute_query(_sql):
+        return db_rows, False
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(
+            extra={
+                "answer_sections": [
+                    {
+                        "title": "Produto",
+                        "content": "Monitor 27\" aparece com 2 unidades.",
+                    }
+                ]
+            }
+        ), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions(agent)
+    monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("src.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("src.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Quais produtos aparecem?")
+
+    assert response.status == "success"
+    assert response.developer_debug.sql == sql
+    assert "\n" in response.developer_debug.sql
+    assert response.user_response.data == db_rows
+    assert response.user_response.answer_text.startswith("Analisei")
+    assert "Monitor 27\"" in response.user_response.answer_text
+    assert response.user_response.sources_text is not None
+    assert response.user_response.sources_text not in response.user_response.answer_text
 
 
 @pytest.mark.asyncio
@@ -280,24 +613,24 @@ async def test_success_preserves_scalar_data_as_database_rows(monkeypatch):
     db_rows = [{"receita_total": 12345.67}]
 
     async def fake_generate_sql(*args, **kwargs):
-        return "SELECT receita_total FROM dim_cliente"
+        return "SELECT receita_total FROM dim_cliente", None
 
     async def fake_execute_query(sql):
         return db_rows, False
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(), None
 
     monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
     monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
     monkeypatch.setattr("src.agent.apply_layer_2", lambda sql, *_args: sql)
     monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
-    async def fake_generate_insight(*args, **kwargs):
-        return _fake_insight()
-
     monkeypatch.setattr("src.agent.generate_insight", fake_generate_insight)
 
     response = await agent.ask("Qual a receita total?")
 
     assert response.status == "success"
-    assert response.data == [{"receita_total": 12345.67}]
+    assert response.user_response.data == [{"receita_total": 12345.67}]
 
 
 @pytest.mark.asyncio
@@ -305,25 +638,25 @@ async def test_success_preserves_empty_database_result(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
 
     async def fake_generate_sql(*args, **kwargs):
-        return "SELECT total FROM dim_cliente"
+        return "SELECT total FROM dim_cliente", None
 
     async def fake_execute_query(sql):
         return [], False
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(), None
 
     monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
     monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
     monkeypatch.setattr("src.agent.apply_layer_2", lambda sql, *_args: sql)
     monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
-    async def fake_generate_insight(*args, **kwargs):
-        return _fake_insight()
-
     monkeypatch.setattr("src.agent.generate_insight", fake_generate_insight)
 
     response = await agent.ask("Quais clientes existem?")
 
     assert response.status == "success"
-    assert response.data == []
-    assert response.chart is None
+    assert response.user_response.data == []
+    assert response.user_response.chart is None
 
 
 @pytest.mark.asyncio
@@ -331,39 +664,39 @@ async def test_invalid_chart_is_discarded(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
 
     async def fake_generate_sql(*args, **kwargs):
-        return "SELECT total FROM dim_cliente"
+        return "SELECT total FROM dim_cliente", None
 
     async def fake_execute_query(sql):
         return [{"total": 10}], False
 
-    invalid_chart = {
-        "type": "bar",
-        "x_axis": "coluna_inexistente",
-        "y_axis": "total",
-        "title": "Clientes",
-    }
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(
+            chart={
+                "type": "bar",
+                "x_axis": "coluna_inexistente",
+                "y_axis": "total",
+                "title": "Clientes",
+            }
+        ), None
 
     monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
     monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
     monkeypatch.setattr("src.agent.apply_layer_2", lambda sql, *_args: sql)
     monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
-    async def fake_generate_insight(*args, **kwargs):
-        return _fake_insight(chart=invalid_chart)
-
     monkeypatch.setattr("src.agent.generate_insight", fake_generate_insight)
 
     response = await agent.ask("Quantos clientes existem?")
 
     assert response.status == "success"
-    assert response.chart is None
+    assert response.user_response.chart is None
 
 
 @pytest.mark.asyncio
-async def test_insight_parse_error_returns_structured_error(monkeypatch):
+async def test_insight_parse_error_returns_structured_debug_error(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
 
     async def fake_generate_sql(*args, **kwargs):
-        return "SELECT total FROM dim_cliente"
+        return "SELECT total FROM dim_cliente", None
 
     async def fake_execute_query(sql):
         return [{"total": 10}], False
@@ -380,20 +713,21 @@ async def test_insight_parse_error_returns_structured_error(monkeypatch):
     response = await agent.ask("Quantos clientes existem?")
 
     assert response.status == "error"
-    assert response.error is not None
-    assert response.error.code == ErrorCode.INSIGHT_PARSE_ERROR
-    assert response.error.stage == "insight_generation"
-    assert response.error.retryable is True
-    assert response.data is None
-    assert response.sql == "SELECT total FROM dim_cliente"
+    assert response.user_response.data is None
+    assert response.developer_debug.sql == "SELECT total FROM dim_cliente"
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.INSIGHT_PARSE_ERROR
+    assert response.developer_debug.error.stage == "insight_generation"
+    assert response.developer_debug.error.retryable is True
+    assert response.developer_debug.error.message == "JSON malformado"
 
 
 @pytest.mark.asyncio
-async def test_database_timeout_returns_structured_error(monkeypatch):
+async def test_database_timeout_returns_structured_debug_error(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
 
     async def fake_generate_sql(*args, **kwargs):
-        return "SELECT total FROM dim_cliente"
+        return "SELECT total FROM dim_cliente", None
 
     async def fake_execute_query(sql):
         raise TimeoutError("timeout")
@@ -406,10 +740,11 @@ async def test_database_timeout_returns_structured_error(monkeypatch):
     response = await agent.ask("Quantos clientes existem?")
 
     assert response.status == "error"
-    assert response.error is not None
-    assert response.error.code == ErrorCode.EXECUTION_TIMEOUT
-    assert response.error.stage == "database"
-    assert response.error.retryable is True
+    assert response.developer_debug.error is not None
+    assert response.developer_debug.error.code == ErrorCode.EXECUTION_TIMEOUT
+    assert response.developer_debug.error.stage == "database"
+    assert response.developer_debug.error.retryable is True
+    assert "timeout" in response.developer_debug.error.message
 
 
 def test_insight_generator_validator_retries_until_valid(monkeypatch):
@@ -433,7 +768,7 @@ def test_insight_generator_validator_retries_until_valid(monkeypatch):
                 try:
                     if validator:
                         validator(raw)
-                    return raw
+                    return LLMRunResult(output=raw, tokens_used=None)
                 except LLMParseError:
                     continue
             raise AssertionError("Validator deveria aceitar a segunda resposta.")
@@ -447,7 +782,7 @@ def test_insight_generator_validator_retries_until_valid(monkeypatch):
 
     import asyncio
 
-    result = asyncio.run(run())
+    result, tokens = asyncio.run(run())
 
     assert len(calls) == 2
     assert "data" not in result

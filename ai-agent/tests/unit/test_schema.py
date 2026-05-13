@@ -102,6 +102,39 @@ def test_validate_descriptions_accepts_valid_structure(sample_descriptions):
     validate_descriptions(sample_descriptions)
 
 
+def test_validate_descriptions_accepts_sensitive_and_mask_label():
+    descriptions = {
+        "tables": {
+            "dim_cliente": {
+                "columns": {
+                    "nome_cliente": {
+                        "description": "Nome do cliente",
+                        "sensitive": True,
+                        "mask_label": "Cliente",
+                    }
+                }
+            }
+        }
+    }
+    validate_descriptions(descriptions)
+
+
+def test_validate_descriptions_accepts_sensitive_without_mask_label():
+    descriptions = {
+        "tables": {
+            "dim_cliente": {
+                "columns": {
+                    "nome_cliente": {
+                        "description": "Nome do cliente",
+                        "sensitive": True,
+                    }
+                }
+            }
+        }
+    }
+    validate_descriptions(descriptions)
+
+
 @pytest.mark.parametrize(
     ("payload", "expected_message"),
     [
@@ -133,6 +166,18 @@ def test_validate_descriptions_accepts_valid_structure(sample_descriptions):
         (
             {"tables": {"dim_cliente": {"columns": {"nome": {"examples": "x"}}}}},
             "examples",
+        ),
+        (
+            {"tables": {"dim_cliente": {"columns": {"nome": {"sensitive": "sim"}}}}},
+            "sensitive",
+        ),
+        (
+            {"tables": {"dim_cliente": {"columns": {"nome": {"mask_label": ""}}}}},
+            "mask_label",
+        ),
+        (
+            {"tables": {"dim_cliente": {"columns": {"nome": {"mask_label": 123}}}}},
+            "mask_label",
         ),
     ],
 )

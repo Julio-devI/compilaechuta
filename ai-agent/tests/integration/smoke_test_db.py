@@ -13,8 +13,16 @@ def create_test_db(path: str) -> None:
         CREATE TABLE IF NOT EXISTS dim_cliente (
             id_cliente INTEGER PRIMARY KEY,
             nome_cliente TEXT,
+            email_cliente TEXT,
+            documento_cliente TEXT,
+            telefone_cliente TEXT,
+            cidade TEXT,
+            estado TEXT,
             regiao TEXT,
-            segmento_rfm TEXT
+            segmento_rfm TEXT,
+            qtd_pedidos_realizados INTEGER,
+            total_gasto_brl REAL,
+            qtd_tickets_suporte INTEGER
         );
         CREATE TABLE IF NOT EXISTS dim_produto (
             id_produto INTEGER PRIMARY KEY,
@@ -59,13 +67,94 @@ def create_test_db(path: str) -> None:
 
     # Dados sinteticos minimos
     cur.executemany(
-        "INSERT INTO dim_cliente (id_cliente, nome_cliente, regiao, segmento_rfm) VALUES (?, ?, ?, ?)",
+        """
+        INSERT INTO dim_cliente (
+            id_cliente,
+            nome_cliente,
+            email_cliente,
+            documento_cliente,
+            telefone_cliente,
+            cidade,
+            estado,
+            regiao,
+            segmento_rfm,
+            qtd_pedidos_realizados,
+            total_gasto_brl,
+            qtd_tickets_suporte
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
         [
-            (1, "Ana Silva", "Sudeste", "Campeões"),
-            (2, "Bruno Costa", "Nordeste", "Regulares"),
-            (3, "Carla Dias", "Sul", "Campeões"),
-            (4, "Daniel Lima", "Sudeste", "Regulares"),
-            (5, "Elisa Mendes", "Centro-Oeste", "Campeões"),
+            (
+                1,
+                "Ana Silva",
+                "ana.silva@example.com",
+                "123.456.789-01",
+                "(11) 90000-0001",
+                "São Paulo",
+                "SP",
+                "Sudeste",
+                "Campeões",
+                3,
+                6020.00,
+                2,
+            ),
+            (
+                2,
+                "Bruno Costa",
+                "bruno.costa@example.com",
+                "234.567.890-12",
+                "(81) 90000-0002",
+                "Recife",
+                "PE",
+                "Nordeste",
+                "Regulares",
+                2,
+                4620.00,
+                1,
+            ),
+            (
+                3,
+                "Carla Dias",
+                "carla.dias@example.com",
+                "345.678.901-23",
+                "(51) 90000-0003",
+                "Porto Alegre",
+                "RS",
+                "Sul",
+                "Campeões",
+                2,
+                5350.00,
+                1,
+            ),
+            (
+                4,
+                "Daniel Lima",
+                "daniel.lima@example.com",
+                "456.789.012-34",
+                "(21) 90000-0004",
+                "Rio de Janeiro",
+                "RJ",
+                "Sudeste",
+                "Regulares",
+                2,
+                1520.00,
+                1,
+            ),
+            (
+                5,
+                "Elisa Mendes",
+                "elisa.mendes@example.com",
+                "567.890.123-45",
+                "(62) 90000-0005",
+                "Goiânia",
+                "GO",
+                "Centro-Oeste",
+                "Campeões",
+                1,
+                120.00,
+                1,
+            ),
         ],
     )
 

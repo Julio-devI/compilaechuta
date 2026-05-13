@@ -112,7 +112,7 @@
 
 - **Contexto:** Os system prompts são extensos e precisam ser iterados sem alterar código Python.
 
-- **Decisão:** Manter `sql_system.txt` e `insight_system.txt` em `src/prompts/`, carregados em runtime com substituição de placeholders (`{schema}`, `{question}`, `{data}`, `{sql}`).
+- **Decisão:** Manter `sql_system.txt` e `insight_system.txt` em `src/vcommerce_ai_agent/llm/prompts/`, carregados em runtime com substituição de placeholders (`{schema}`, `{question}`, `{data}`, `{sql}`).
 
 - **Justificativa:** Prompts em arquivos externos permitem ajustes de engenharia de prompt (few-shot examples, regras de formatação) sem reimplantação de código. Isso acelera iterações com o time de dados e facilita testes A/B de diferentes versões de prompt.
 
@@ -292,7 +292,7 @@
 
 - **Contexto:** A estrutura original agrupava todos os arquivos no diretório src/ raiz e tests/ raiz, misturando componentes de diferentes naturezas (LLM, banco de dados, segurança) e tipos de teste (unitários rápidos e smoke tests lentos de integração).
 
-- **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade: src/core, src/database, src/llm, src/security e separando os testes em tests/unit/ e tests/integration/. O agent.py atua como facade na raiz do src/.
+- **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade sob `src/vcommerce_ai_agent/`: `core/`, `database/`, `llm/` e `security/`. Os testes ficam separados em `tests/unit/` e `tests/integration/`. O `agent.py` atua como facade do pacote.
 
 - **Justificativa:** O agrupamento por domínio de responsabilidade facilita tanto a manutenção quanto a revisão do código, tornando explícita a fronteira entre componentes (LLM, banco de dados, segurança, core). Além disso, a separação entre `tests/unit/` e `tests/integration/` permite executar os testes unitários isoladamente via `pytest tests/unit/`, sem consumir chamadas de API do Gemini. Os smoke tests de integração, que dependem da API real, ficam em `tests/integration/` e são executados separadamente conforme a disponibilidade de quota.
 

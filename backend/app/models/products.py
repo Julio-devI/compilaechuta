@@ -2,6 +2,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, Date
 from datetime import datetime
 from app.core.database import Base
 from zoneinfo import ZoneInfo
+from sqlalchemy.orm import relationship
 
 def get_sp_time():
     return datetime.now(ZoneInfo("America/Sao_Paulo"))

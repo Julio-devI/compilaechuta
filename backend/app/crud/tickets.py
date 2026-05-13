@@ -1,5 +1,6 @@
 from typing import Optional
 from datetime import datetime
+from uuid import uuid4
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,7 +36,13 @@ async def get_tickets(
 
 
 async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketModel:
-    db_ticket = TicketModel(**ticket.model_dump())
+    dados = ticket.model_dump()
+
+    db_ticket = TicketModel(
+        id_ticket=str(uuid4()),
+        **dados
+    )
+
     db.add(db_ticket)
     await db.commit()
     await db.refresh(db_ticket)

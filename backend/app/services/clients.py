@@ -1,6 +1,7 @@
 import csv
 import io
 from typing import Optional
+from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,19 +12,37 @@ from app.schemas.clients import ClienteCreate, ClienteListOut, ClienteOut
 
 async def listar_clientes(
     db: AsyncSession,
-    cidade: Optional[str],
-    valor_minimo: Optional[float],
-    frequencia_minima: Optional[int],
-    status_ticket: Optional[str],
-    skip: int,
-    limit: int,
+    cidade: Optional[str] = None,
+    frequencia_minima: Optional[int] = None,
+    status_ticket: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
     search: str = None,
     status: str = None,
     ticket_min: float = None,
-    ticket_max: float = None
+    ticket_max: float = None,
+    lvt_min: float = None,
+    lvt_max: float = None,
+    data_inicio: Optional[date] = None,
+    data_fim: Optional[date] = None,
+    regiao: Optional[str] = None
 ) -> ClienteListOut:
     total, data = await crud.get_clients(
-        db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit, search, status, ticket_min, ticket_max
+        db=db,
+        cidade=cidade,
+        frequencia_minima=frequencia_minima,
+        status_ticket=status_ticket,
+        skip=skip,
+        limit=limit,
+        search=search,
+        status=status,
+        ticket_min=ticket_min,
+        ticket_max=ticket_max,
+        lvt_min=lvt_min,
+        lvt_max=lvt_max,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        regiao=regiao
     )
     return ClienteListOut(total=total, skip=skip, limit=limit, data=data)
 

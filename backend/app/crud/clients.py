@@ -1,5 +1,6 @@
 from typing import Optional
-from sqlalchemy import select, func, or_, cast, Float  # Adicionado or_ e cast
+from datetime import date
+from sqlalchemy import select, func, or_, cast, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import Cliente
@@ -9,7 +10,6 @@ from app.schemas.clients import ClienteCreate
 async def get_clients(
         db: AsyncSession,
         cidade: Optional[str] = None,
-        valor_minimo: Optional[float] = None,
         frequencia_minima: Optional[int] = None,
         status_ticket: Optional[str] = None,
         skip: int = 0,
@@ -18,6 +18,11 @@ async def get_clients(
         status: Optional[str] = None,
         ticket_min: Optional[float] = None,
         ticket_max: Optional[float] = None,
+        lvt_min: Optional[float] = None,
+        lvt_max: Optional[float] = None,
+        data_inicio: Optional[date] = None,
+        data_fim: Optional[date] = None,
+        regiao: Optional[str] = None,
 ) -> tuple[int, list[Cliente]]:
     query = select(Cliente)
 
@@ -30,6 +35,21 @@ async def get_clients(
     if ticket_max is not None:
         query = query.where(ticket_medio_exp <= ticket_max)
 
+    if lvt_min is not None:
+        query = query.where(Cliente.total_gasto_brl >= lvt_min)
+
+    if lvt_max is not None:
+        query = query.where(Cliente.total_gasto_brl <= lvt_max)
+        
+    if data_inicio is not None:
+        query = query.where(Cliente.data_ultima_compra >= data_inicio)
+        
+    if data_fim is not None:
+        query = query.where(Cliente.data_ultima_compra <= data_fim)
+        
+    if regiao:
+        query = query.where(Cliente.regiao.ilike(f"%{regiao}%"))
+
     # --- 1. BUSCA GLOBAL (Search) ---
     if search:
         # Busca parcial por nome (ignore case)
@@ -37,42 +57,14 @@ async def get_clients(
             Cliente.nome_cliente.ilike(f"%{search}%")
         )
 
-    # --- 2. FILTRO DE STATUS (Baseado no seu mapSegmentoToStatus do Frontend) ---
+    # --- 2. FILTRO DE STATUS (Segmento RFM) ---
     if status:
-        if status == 'VIP':
-            query = query.where(
-                or_(
-                    Cliente.segmento_rfm.ilike("%campeão%"),
-                    Cliente.segmento_rfm.ilike("%leal%"),
-                    Cliente.segmento_rfm.ilike("%vip%")
-                )
-            )
-        elif status == 'Recorrente':
-            query = query.where(
-                or_(
-                    Cliente.segmento_rfm.ilike("%potencial%"),
-                    Cliente.segmento_rfm.ilike("%promissor%"),
-                    Cliente.segmento_rfm.ilike("%recorrente%")
-                )
-            )
-        elif status == 'Inativo':
-            query = query.where(
-                or_(
-                    Cliente.segmento_rfm.ilike("%hibernando%"),
-                    Cliente.segmento_rfm.ilike("%risco%"),
-                    Cliente.segmento_rfm.ilike("%perdido%")
-                )
-            )
-        elif status == '1ª Compra':
-            query = query.where(
-                Cliente.segmento_rfm.ilike("%novo%")  # Ou a lógica que define 1ª compra no seu banco
-            )
+        # Como o banco já retorna o segmento_rfm, o filtro busca diretamente nele
+        query = query.where(Cliente.segmento_rfm.ilike(f"%{status}%"))
 
     # --- 3. FILTROS EXISTENTES ---
     if cidade:
         query = query.where(Cliente.cidade == cidade)
-    if valor_minimo is not None:
-        query = query.where(Cliente.total_gasto_brl >= valor_minimo)
     if frequencia_minima is not None:
         query = query.where(Cliente.qtd_pedidos_realizados >= frequencia_minima)
 

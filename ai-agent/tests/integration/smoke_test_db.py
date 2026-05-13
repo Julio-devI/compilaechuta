@@ -19,11 +19,12 @@ def create_test_db(path: str) -> None:
         CREATE TABLE IF NOT EXISTS dim_produto (
             id_produto INTEGER PRIMARY KEY,
             nome_produto TEXT,
-            categoria TEXT,
+            id_categoria TEXT,
             preco REAL
         );
         CREATE TABLE IF NOT EXISTS fato_vendas (
             id_pedido INTEGER PRIMARY KEY,
+            id_pedido_display TEXT,
             id_cliente INTEGER,
             id_produto INTEGER,
             valor_total_venda REAL,
@@ -69,29 +70,29 @@ def create_test_db(path: str) -> None:
     )
 
     cur.executemany(
-        "INSERT INTO dim_produto (id_produto, nome_produto, categoria, preco) VALUES (?, ?, ?, ?)",
+        "INSERT INTO dim_produto (id_produto, nome_produto, id_categoria, preco) VALUES (?, ?, ?, ?)",
         [
-            (1, "Notebook X1", "Eletrônicos", 4500.00),
-            (2, "Mouse Sem Fio", "Eletrônicos", 120.00),
-            (3, "Cadeira Ergonômica", "Móveis", 850.00),
-            (4, "Monitor 27\"", "Eletrônicos", 1400.00),
-            (5, "Mesa Escritório", "Móveis", 600.00),
+            (1, "Notebook X1", "ELEC", 4500.00),
+            (2, "Mouse Sem Fio", "ELEC", 120.00),
+            (3, "Cadeira Ergonômica", "MOVE", 850.00),
+            (4, "Monitor 27\"", "ELEC", 1400.00),
+            (5, "Mesa Escritório", "MOVE", 600.00),
         ],
     )
 
     cur.executemany(
-        "INSERT INTO fato_vendas (id_pedido, id_cliente, id_produto, valor_total_venda, id_data, status, quantidade_vendas) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO fato_vendas (id_pedido, id_pedido_display, id_cliente, id_produto, valor_total_venda, id_data, status, quantidade_vendas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            (1, 1, 1, 4500.00, "20240115", "Entregue", 1),
-            (2, 1, 2, 120.00, "20240120", "Entregue", 1),
-            (3, 2, 1, 4500.00, "20240210", "Entregue", 1),
-            (4, 3, 3, 850.00, "20240212", "Entregue", 1),
-            (5, 4, 4, 1400.00, "20240305", "Entregue", 1),
-            (6, 5, 2, 120.00, "20240308", "Entregue", 1),
-            (7, 2, 2, 120.00, "20240315", "Entregue", 1),
-            (8, 1, 4, 1400.00, "20240401", "Entregue", 1),
-            (9, 3, 1, 4500.00, "20240410", "Entregue", 1),
-            (10, 4, 2, 120.00, "20240412", "Entregue", 1),
+            (1, "PED-2024-0001", 1, 1, 4500.00, "20240115", "Entregue", 1),
+            (2, "PED-2024-0002", 1, 2, 120.00, "20240120", "Entregue", 1),
+            (3, "PED-2024-0003", 2, 1, 4500.00, "20240210", "Entregue", 1),
+            (4, "PED-2024-0004", 3, 3, 850.00, "20240212", "Entregue", 1),
+            (5, "PED-2024-0005", 4, 4, 1400.00, "20240305", "Entregue", 1),
+            (6, "PED-2024-0006", 5, 2, 120.00, "20240308", "Entregue", 1),
+            (7, "PED-2024-0007", 2, 2, 120.00, "20240315", "Entregue", 1),
+            (8, "PED-2024-0008", 1, 4, 1400.00, "20240401", "Entregue", 1),
+            (9, "PED-2024-0009", 3, 1, 4500.00, "20240410", "Entregue", 1),
+            (10, "PED-2024-0010", 4, 2, 120.00, "20240412", "Entregue", 1),
         ],
     )
 

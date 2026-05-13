@@ -8,6 +8,10 @@
           "description": "Identificador único do pedido ao qual a linha pertence.",
           "examples": ["PED-2024-0001", "10001", "55023"]
         },
+        "id_pedido_display": {
+          "description": "Código de exibição do pedido.",
+          "examples": ["PED-2024-0001", "10001", "55023"]
+        },
         "id_cliente": {
           "description": "Chave estrangeira para o cliente que realizou a compra.",
           "examples": ["CLI-4521", "2103", "99887"]
@@ -111,10 +115,6 @@
         "id_pedido": {
           "description": "Pedido avaliado.",
           "examples": ["PED-2024-0001", "10001", "55023"]
-        },
-        "id_pedido_display": {
-          "description": "Código de exibição do pedido.",
-          "examples": ["PED-2024-0001", "10001"]
         },
         "id_cliente": {
           "description": "Cliente que realizou a avaliação.",
@@ -304,17 +304,13 @@
           "description": "Identificador único do produto.",
           "examples": ["PRD-88", "SKU-1029", "50011"]
         },
-        "sku": {
-          "description": "Código SKU do produto.",
-          "examples": ["SKU-1029", "ELEC-001", "MOVE-055"]
-        },
         "nome_produto": {
           "description": "Nome comercial do produto.",
           "examples": ["Fone de Ouvido Bluetooth", "Smartphone X Pro", "Cadeira Ergonômica"]
         },
-        "categoria": {
-          "description": "Categoria hierárquica do produto (ex: Eletrônicos, Móveis, Vestuário).",
-          "examples": ["Eletrônicos", "Móveis", "Vestuário"]
+        "id_categoria": {
+          "description": "Identificador da categoria do produto.",
+          "examples": ["CAT-01", "ELEC", "MOVE"]
         },
         "fornecedor": {
           "description": "Nome do fornecedor ou marca do produto.",

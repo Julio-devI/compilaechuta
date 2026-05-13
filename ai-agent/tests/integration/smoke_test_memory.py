@@ -9,9 +9,9 @@ smoke_test_config.py para garantir consistencia entre todos os smoke tests.
 """
 
 import asyncio
-import sqlite3
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 # Adiciona ai-agent/ ao PYTHONPATH para permitir imports do pacote src
@@ -28,77 +28,161 @@ from tests.integration.smoke_test_db import create_test_db
 
 async def _run_smoke_test(db_path: str) -> None:
     from src.agent import VCommerceAgent
-    from tests.integration.smoke_test_config import DELAY_BETWEEN_BATCHES_SECONDS, BATCH_SIZE
+    from src.core.exceptions import LLMQuotaError
+    from tests.integration.smoke_test_config import (
+        MAX_API_CALLS_PER_DAY,
+        configure_llm_retries_for_smoke_tests,
+        ensure_daily_budget,
+        wait_after_llm_interaction,
+    )
 
+    configure_llm_retries_for_smoke_tests()
     agent = VCommerceAgent(db_path=db_path)
+    results: list[dict] = []
+    api_calls = 0
+    total_start = time.perf_counter()
     
     print("\n" + "="*60)
-    print("INICIANDO SMOKE TEST DE MEMÓRIA (7 TURNOS = 14 CALLS API)")
+    print("INICIANDO SMOKE TEST DE MEMORIA (7 TURNOS = 14 CALLS API)")
     print("="*60)
 
-    questions_part_1 = [
-        "Qual a receita total por regiao?",
-        "E qual regiao vendeu mais?",
-        "Quantos pedidos essa regiao teve?",
-        "Quais foram os 3 produtos mais vendidos nessa regiao?",
-        "Qual deles teve a maior avaliacao media?"
+    scenarios = [
+        {"label": "S1", "question": "Qual a receita total por regiao?", "planned_calls": 2},
+        {"label": "S2", "question": "E qual regiao vendeu mais?", "planned_calls": 2},
+        {"label": "S3", "question": "Quantos pedidos essa regiao teve?", "planned_calls": 2},
+        {
+            "label": "S4",
+            "question": "Quais foram os 3 produtos mais vendidos nessa regiao?",
+            "planned_calls": 2,
+        },
+        {
+            "label": "S5",
+            "question": "Qual deles teve a maior avaliacao media?",
+            "planned_calls": 2,
+        },
+        {
+            "label": "S9",
+            "question": "Voltando a regiao que mais vendeu, quantos clientes moram la?",
+            "planned_calls": 2,
+            "after_export_import": True,
+        },
+        {
+            "label": "S10",
+            "question": "E quantos desses clientes sao do segmento Campeões?",
+            "planned_calls": 2,
+        },
     ]
 
+    print(f"\nOrcamento planejado: {sum(s['planned_calls'] for s in scenarios)}/{MAX_API_CALLS_PER_DAY} chamadas")
     print("\n--- BLOCO 1: Cadeia Extensa de Follow-up (5 Turnos) ---")
-    
-    for i, q in enumerate(questions_part_1):
-        print(f"\nS{i+1}: {q}")
+
+    for index, scenario in enumerate(scenarios):
+        if scenario.get("after_export_import"):
+            print("\n--- BLOCO 2: Export / Import ---")
+            exported = agent.export_history()
+            print(
+                f"\n[ACAO] Historico exportado: {len(exported)} mensagens "
+                f"({len(exported) // 2} turnos)."
+            )
+            del agent
+            print("[ACAO] Agente destruido (simulando nova requisicao HTTP).")
+
+            agent = VCommerceAgent(db_path=db_path)
+            agent.import_history(exported)
+            print("[ACAO] Novo agente criado. Historico importado com sucesso.")
+
+        planned_calls = scenario["planned_calls"]
+        is_last = index == len(scenarios) - 1
+
+        if not ensure_daily_budget(api_calls, planned_calls):
+            print(
+                f"\n[ORCAMENTO ESGOTADO] Proximo turno exigiria "
+                f"{api_calls + planned_calls}/{MAX_API_CALLS_PER_DAY} chamadas."
+            )
+            break
+
+        print(f"\n{scenario['label']}: {scenario['question']}")
+        start = time.perf_counter()
         try:
-            resp = await agent.ask(q)
+            resp = await agent.ask(scenario["question"])
+        except LLMQuotaError as exc:
+            elapsed = time.perf_counter() - start
+            print(f" [QUOTA ESGOTADA] ({elapsed:.2f}s): {exc}")
+            break
+        except Exception as exc:
+            elapsed = time.perf_counter() - start
+            print(f" [ERRO] ({elapsed:.2f}s): {exc}")
+            api_calls += planned_calls
+            results.append({
+                "label": scenario["label"],
+                "status": "EXCECAO",
+                "elapsed": elapsed,
+                "error": str(exc),
+            })
+            print("[ABORTANDO] Cadeia de memoria depende do turno anterior.")
+            break
+
+        elapsed = time.perf_counter() - start
+        api_calls += planned_calls
+
+        if resp.error:
+            status = "ERRO"
+        elif resp.out_of_scope:
+            status = "FORA_DO_ESCOPO"
+        else:
+            status = "SUCESSO"
+
+        passed = status == "SUCESSO"
+        if passed:
             print(f" SQL: {resp.sql}")
             print(f" Resposta: {resp.text}")
-        except Exception as e:
-            print(f" [ERRO] {e}")
-        
-        # Batching: Sleep every BATCH_SIZE queries to avoid rate limit
-        if (i + 1) % BATCH_SIZE == 0 and (i + 1) < len(questions_part_1):
-            print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s para respeitar o rate limit...")
-            await asyncio.sleep(DELAY_BETWEEN_BATCHES_SECONDS)
-
-    print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s antes do Export/Import...")
-    await asyncio.sleep(DELAY_BETWEEN_BATCHES_SECONDS)
-
-    # ---------------------------------------------------------
-    # BLOCO 2 - Export / Import (S9, S10)
-    # ---------------------------------------------------------
-    print("\n--- BLOCO 2: Export / Import ---")
-    
-    exported = agent.export_history()
-    print(f"\n[Ação] Histórico exportado: {len(exported)} mensagens ({(len(exported))//2} turnos).")
-    
-    del agent
-    print("[Ação] Agente destruído (simulando nova requisição HTTP).")
-    
-    agent = VCommerceAgent(db_path=db_path)
-    agent.import_history(exported)
-    print(f"[Ação] Novo agente criado. Histórico importado com sucesso.")
-
-    questions_part_2 = [
-        "Voltando a regiao que mais vendeu, quantos clientes moram la?",
-        "E quantos desses clientes sao do segmento Campeões?"
-    ]
-
-    for i, q in enumerate(questions_part_2):
-        print(f"\nS{9+i}: {q}")
-        try:
-            resp = await agent.ask(q)
+        else:
+            print(f" [FALHA] Status: {status}")
             print(f" SQL: {resp.sql}")
             print(f" Resposta: {resp.text}")
-        except Exception as e:
-            print(f" [ERRO] {e}")
+            print("[ABORTANDO] Cadeia de memoria depende do turno anterior.")
 
-        if i == 0:
-            print(f"\n[AGUARDANDO] {DELAY_BETWEEN_BATCHES_SECONDS}s para respeitar o rate limit...")
-            await asyncio.sleep(DELAY_BETWEEN_BATCHES_SECONDS)
+        results.append({
+            "label": scenario["label"],
+            "status": status,
+            "passed": passed,
+            "elapsed": elapsed,
+            "sql": resp.sql,
+        })
 
+        if not passed:
+            break
+
+        await wait_after_llm_interaction(planned_calls, is_last)
+
+    total_elapsed = time.perf_counter() - total_start
     print("\n" + "="*60)
-    print("TESTE DE MEMÓRIA DE 7 TURNOS CONCLUÍDO COM SUCESSO")
+    print(f"TESTE DE MEMORIA FINALIZADO em {total_elapsed:.2f}s")
+    print(f"Chamadas API planejadas: {api_calls}/{MAX_API_CALLS_PER_DAY}")
     print("="*60)
+    _print_summary(results, scenarios)
+
+
+def _print_summary(results: list[dict], scenarios: list[dict]) -> None:
+    """Imprime resumo do smoke test de memoria."""
+    passed = sum(1 for result in results if result.get("passed"))
+    failed = len(results) - passed
+    skipped = len(scenarios) - len(results)
+
+    print("\n--- RESUMO DA MEMORIA ---")
+    print(f"Total de turnos: {len(scenarios)}")
+    print(f"Executados: {len(results)}")
+    print(f"  - Passaram: {passed}")
+    print(f"  - Falharam: {failed}")
+    if skipped:
+        print(f"  - Nao executados: {skipped}")
+
+    for result in results:
+        icon = "[OK]" if result.get("passed") else "[FALHA]"
+        print(
+            f"  {result['label']}. {icon} ({result['elapsed']:.2f}s) "
+            f"Status: {result['status']}"
+        )
 
 
 def main() -> None:

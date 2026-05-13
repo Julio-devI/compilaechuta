@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from src.core import config
 from src.database.db import Database
-from src.core.exceptions import GuardrailError, LLMError
+from src.core.exceptions import GuardrailError, LLMParseError, ErrorCode
 from src.security.guardrails import (
     apply_layer_2,
     validate_empty_input,
@@ -44,6 +44,7 @@ class AgentResponse:
     error: bool
     out_of_scope: bool
     truncated: bool = False
+    error_code: str | None = None
 
 
 class VCommerceAgent:
@@ -125,7 +126,8 @@ class VCommerceAgent:
             raise ValueError("O histórico deve ser uma lista de dicionários.")
 
         valid_roles = {"user", "assistant"}
-        for entry in history:
+        normalized_history: list[dict[str, str | None]] = []
+        for index, entry in enumerate(history):
             if not isinstance(entry, dict):
                 raise ValueError(
                     "Cada entrada do histórico deve ser um dicionário."
@@ -136,15 +138,47 @@ class VCommerceAgent:
                     f"Campo 'role' inválido: '{role}'. "
                     f"Valores permitidos: {valid_roles}"
                 )
+            expected_role = "user" if index % 2 == 0 else "assistant"
+            if role != expected_role:
+                raise ValueError(
+                    "O histórico deve alternar pares user/assistant."
+                )
             content = entry.get("content")
             if not isinstance(content, str) or not content.strip():
                 raise ValueError(
                     "Cada entrada deve ter um campo 'content' com texto não vazio."
                 )
+            sql = entry.get("sql")
+            if role == "user":
+                if sql is not None:
+                    raise ValueError(
+                        "Entradas com role='user' devem ter campo 'sql' nulo ou ausente."
+                    )
+                normalized_history.append({
+                    "role": "user",
+                    "content": content,
+                    "sql": None,
+                })
+                continue
+
+            if not isinstance(sql, str) or not sql.strip():
+                raise ValueError(
+                    "Entradas com role='assistant' devem ter campo 'sql' com texto não vazio."
+                )
+            normalized_history.append({
+                "role": "assistant",
+                "content": content,
+                "sql": sql,
+            })
+
+        if len(normalized_history) % 2 != 0:
+            raise ValueError(
+                "O histórico deve conter pares completos user/assistant."
+            )
 
         max_entries = config.MAX_HISTORY_TURNS * 2
         self._history = [
-            entry.copy() for entry in history[-max_entries:]
+            entry.copy() for entry in normalized_history[-max_entries:]
         ]
 
     def _append_to_history(
@@ -205,7 +239,7 @@ class VCommerceAgent:
             validate_empty_input(question)
             validate_input_length(question)
             validate_prompt_injection(question)
-        except GuardrailError:
+        except GuardrailError as exc:
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
                 data=None,
@@ -214,6 +248,7 @@ class VCommerceAgent:
                 error=True,
                 out_of_scope=False,
                 truncated=False,
+                error_code=exc.error_code,
             )
 
         # Etapa 1: carregar schema
@@ -235,7 +270,7 @@ class VCommerceAgent:
             sql = await generate_sql(
                 question, schema, history=self._history, model=self._llm_model
             )
-        except ValueError:
+        except (ValueError, LLMParseError):
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
                 data=None,
@@ -244,6 +279,7 @@ class VCommerceAgent:
                 error=True,
                 out_of_scope=False,
                 truncated=False,
+                error_code=ErrorCode.SQL_PARSE_ERROR,
             )
 
         # Etapa 2.5: detectar fora do escopo antes da Camada 2
@@ -277,21 +313,35 @@ class VCommerceAgent:
                         error=True,
                         out_of_scope=False,
                         truncated=False,
+                        error_code=exc.error_code,
                     )
-                sql = await generate_sql_correction(
-                    question=question,
-                    sql=sql,
-                    error=str(exc),
-                    schema=schema,
-                    history=self._history,
-                    model=self._llm_model,
-                )
+                try:
+                    sql = await generate_sql_correction(
+                        question=question,
+                        sql=sql,
+                        error=str(exc),
+                        schema=schema,
+                        history=self._history,
+                        model=self._llm_model,
+                    )
+                except (ValueError, LLMParseError):
+                    return AgentResponse(
+                        text=self._GENERIC_ERROR_MSG,
+                        data=None,
+                        chart=None,
+                        sql=sql,
+                        error=True,
+                        out_of_scope=False,
+                        truncated=False,
+                        error_code=ErrorCode.SQL_PARSE_ERROR,
+                    )
                 await asyncio.sleep(1 * (2 ** attempt))
 
         # Etapa 4: executar SQL
         try:
             rows, truncated = await self._db.execute_query(sql)
-        except (RuntimeError, TimeoutError):
+        except (RuntimeError, TimeoutError) as exc:
+            err_code = ErrorCode.EXECUTION_TIMEOUT if isinstance(exc, TimeoutError) else ErrorCode.DB_EXECUTION_ERROR
             return AgentResponse(
                 text=self._GENERIC_ERROR_MSG,
                 data=None,
@@ -300,6 +350,7 @@ class VCommerceAgent:
                 error=True,
                 out_of_scope=False,
                 truncated=False,
+                error_code=err_code,
             )
 
         # Etapa 5: gerar insight
@@ -338,15 +389,30 @@ class VCommerceAgent:
 
     def initial_suggestions(self) -> list[str]:
         """
-        Retorna uma lista fixa de sugestões iniciais de perguntas.
-
-        Cobre os 3 domínios obrigatórios (vendas, suporte, avaliações)
-        mais dimensões de cliente e produto.
+        Retorna uma lista fixa de sugestões iniciais de perguntas baseadas no schema real do banco.
+        
+        O backend pode selecionar um subconjunto aleatório destas 20 perguntas para exibir no frontend.
+        Abrange domínios de Vendas, Produtos, Clientes, Suporte, Avaliações e Navegação.
         """
         return [
-            "Quais foram os 10 produtos mais vendidos este mês?",
-            "Qual a receita total por região?",
-            "Quais clientes têm mais tickets de suporte abertos?",
-            "Qual o ticket médio por categoria de produto?",
-            "Quais produtos têm a melhor avaliação dos clientes?",
+            "Quais foram os 10 produtos com maior receita total gerada?",
+            "Qual é a receita total agrupada por região do país?",
+            "Qual foi o método de pagamento mais utilizado nas vendas?",
+            "Qual é o ticket médio das vendas separadas por categoria de produto?",
+            "Quantos pedidos foram cancelados ou estão pendentes?",
+            "Quais produtos estão com estoque zerado e precisam de revisão?",
+            "Quais são os 5 fornecedores com a maior quantidade de unidades vendidas?",
+            "Quais são os 10 produtos com a melhor média de avaliação (nota do produto)?",
+            "Quais são os principais clientes do segmento 'Campeões' que mais gastaram na loja?",
+            "Quantos pedidos em média um cliente da região Nordeste realiza?",
+            "Qual a distribuição percentual de clientes por segmento RFM?",
+            "Qual é o tempo médio de resolução de tickets por tipo de problema?",
+            "Quais agentes de suporte possuem a melhor nota média de satisfação?",
+            "Quais clientes possuem o maior número de tickets de suporte?",
+            "Qual é a proporção de avaliações NPS classificadas como 'Promotores'?",
+            "Quais os comentários das avaliações de pedidos com nota baixa (1 ou 2)?",
+            "Quais canais de aquisição geram o maior número de compras e adições ao carrinho?",
+            "Qual é o dispositivo de navegação mais utilizado pelos clientes (mobile, desktop)?",
+            "Qual é a taxa de abandono de carrinho média por canal de aquisição?",
+            "Como as notas de avaliação do suporte variam de acordo com o tempo de resolução do ticket?"
         ]

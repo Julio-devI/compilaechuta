@@ -31,10 +31,7 @@ async def get_productById(
     id_produto: str,
     db: AsyncSession = Depends(get_db)
 ):
-    product = await product_service.get_productById(db=db, product_id=id_produto)
-    if not product:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return product
+    return await product_service.get_productById(db=db, id_produto=id_produto)
 
 
 @router.patch("/{id_produto}", response_model=ProductResponse)
@@ -43,10 +40,7 @@ async def update_product(
     product_in: ProductUpdate,
     db: AsyncSession = Depends(get_db)
 ):
-    product = await product_service.update_product(db=db, product_id=id_produto, product_in=product_in)
-    if not product:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return product
+    return await product_service.update_product(db=db, id_produto=id_produto, product_in=product_in)
 
 
 @router.delete("/{id_produto}", status_code=status.HTTP_204_NO_CONTENT)
@@ -54,8 +48,4 @@ async def delete_product(
     id_produto: str,
     db: AsyncSession = Depends(get_db)
 ):
-    product = await product_service.get_productById(db=db, product_id=id_produto)
-    if not product:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-    
-    await product_service.delete_product(db=db, product_id=id_produto)
+    await product_service.delete_product(db=db, id_produto=id_produto)

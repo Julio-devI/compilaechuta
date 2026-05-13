@@ -10,6 +10,11 @@ from app.models.products import Produto
 async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto:
     try:
         return await crud_products.create_product(db=db, product_in=product_in)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Erro de integridade: Verifique se a Categoria informada realmente existe."
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -1,6 +1,7 @@
 from typing import Optional
 from datetime import datetime
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +41,7 @@ async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketModel:
 
     db_ticket = TicketModel(
         id_ticket=str(uuid4()),
+        data_abertura=datetime.now(ZoneInfo("America/Sao_Paulo")).replace(microsecond=0),
         **dados
     )
 

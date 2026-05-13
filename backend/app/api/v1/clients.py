@@ -19,15 +19,17 @@ router = APIRouter()
 
 @router.get("/", response_model=ClienteListOut)
 async def listar(
+    search:            Optional[str]   = Query(None, description="Busca por nome ou email"), # NOVO
+    status:            Optional[str]   = Query(None, description="Filtrar por status VIP/Recorrente"), # NOVO
     cidade:            Optional[str]   = Query(None, description="Filtrar por cidade"),
     valor_minimo:      Optional[float] = Query(None, ge=0, description="Total gasto mínimo (R$)"),
     frequencia_minima: Optional[int]   = Query(None, ge=0, description="Frequência mínima de compras"),
-    status_ticket:     Optional[StatusTicket] = Query(None, description="Filtrar por status de ticket: aberto | resolvido"),
+    status_ticket:     Optional[StatusTicket] = Query(None, description="Filtrar por status de ticket"),
     skip:              int             = Query(0,   ge=0),
     limit:             int             = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.listar_clientes(db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit)
+    return await service.listar_clientes(db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit, search, status)
 
 
 @router.get("/exportar")

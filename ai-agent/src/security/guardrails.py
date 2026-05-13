@@ -19,7 +19,7 @@ import sqlglot
 import sqlglot.expressions as exp
 
 from src.core.config import MAX_INPUT_CHARS
-from src.core.exceptions import GuardrailError
+from src.core.exceptions import GuardrailError, ErrorCode
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ def validate_empty_input(question: str) -> None:
         GuardrailError: Se a string, após strip(), estiver vazia.
     """
     if question.strip() == "":
-        raise GuardrailError("Input do usuario esta vazio.")
+        raise GuardrailError("Input do usuario esta vazio.", error_code=ErrorCode.EMPTY_INPUT)
 
 
 def validate_input_length(question: str) -> None:
@@ -54,7 +54,8 @@ def validate_input_length(question: str) -> None:
     if len(question) > MAX_INPUT_CHARS:
         raise GuardrailError(
             f"Input do usuario excede o limite de {MAX_INPUT_CHARS} caracteres. "
-            f"Comprimento recebido: {len(question)}."
+            f"Comprimento recebido: {len(question)}.",
+            error_code=ErrorCode.INPUT_TOO_LONG
         )
 
 
@@ -103,7 +104,8 @@ def validate_prompt_injection(question: str) -> None:
     """
     if _PROMPT_INJECTION_RE.search(question):
         raise GuardrailError(
-            "Tentativa de prompt injection detectada no input do usuario."
+            "Tentativa de prompt injection detectada no input do usuario.",
+            error_code=ErrorCode.PROMPT_INJECTION
         )
 
 
@@ -129,11 +131,12 @@ def validate_destructive_queries(sql: str) -> None:
     try:
         parsed = sqlglot.parse_one(sql, read="sqlite")
     except Exception as exc:
-        raise GuardrailError(f"Falha ao parsear SQL: {exc}") from exc
+        raise GuardrailError(f"Falha ao parsear SQL: {exc}", error_code=ErrorCode.SQL_PARSE_ERROR) from exc
     if not isinstance(parsed, exp.Select):
         raise GuardrailError(
             f"Apenas consultas SELECT são permitidas. "
-            f"Tipo detectado: {type(parsed).__name__}"
+            f"Tipo detectado: {type(parsed).__name__}",
+            error_code=ErrorCode.DESTRUCTIVE_QUERY
         )
 
 
@@ -156,7 +159,8 @@ def validate_multiple_statements(sql: str) -> None:
     if _MULTIPLE_STATEMENTS_RE.search(sql):
         raise GuardrailError(
             "Multiplos statements SQL detectados. "
-            "Apenas um unico statement SELECT e permitido."
+            "Apenas um unico statement SELECT e permitido.",
+            error_code=ErrorCode.MULTIPLE_STATEMENTS
         )
 
 
@@ -192,7 +196,8 @@ def validate_table_column_allowlist(
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
             raise GuardrailError(
-                f"Falha ao parsear SQL para allowlist: {exc}"
+                f"Falha ao parsear SQL para allowlist: {exc}",
+                error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
     cte_names = {cte.alias for cte in parsed.find_all(exp.CTE)}
@@ -202,7 +207,8 @@ def validate_table_column_allowlist(
             continue
         if table.name not in allowlist:
             raise GuardrailError(
-                f"Tabela '{table.name}' nao esta no allowlist do schema."
+                f"Tabela '{table.name}' nao esta no allowlist do schema.",
+                error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
             )
 
     allowed_columns: set[str] = set()
@@ -214,7 +220,8 @@ def validate_table_column_allowlist(
             continue
         if col.name not in allowed_columns:
             raise GuardrailError(
-                f"Coluna '{col.name}' nao esta no allowlist do schema."
+                f"Coluna '{col.name}' nao esta no allowlist do schema.",
+                error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
             )
 
 
@@ -249,7 +256,8 @@ def validate_semantic_schema(
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
             raise GuardrailError(
-                f"Falha ao parsear SQL para validacao semantica: {exc}"
+                f"Falha ao parsear SQL para validacao semantica: {exc}",
+                error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
     # Mapeia alias -> nome real das tabelas no escopo (inclui CTEs)
@@ -286,7 +294,8 @@ def validate_semantic_schema(
                     continue
             raise GuardrailError(
                 f"Coluna '{col_name}' (tabela '{table_ref}') "
-                f"nao pertence ao schema."
+                f"nao pertence ao schema.",
+                error_code=ErrorCode.SCHEMA_VIOLATION_SEMANTIC
             )
         else:
             found = False
@@ -297,7 +306,8 @@ def validate_semantic_schema(
             if not found:
                 raise GuardrailError(
                     f"Coluna '{col_name}' nao pertence a nenhuma "
-                    f"tabela do FROM/JOIN."
+                    f"tabela do FROM/JOIN.",
+                    error_code=ErrorCode.SCHEMA_VIOLATION_SEMANTIC
                 )
 
 
@@ -330,14 +340,15 @@ def apply_layer_2(
     Raises:
         GuardrailError: Se qualquer guardrail da Camada 2 falhar.
     """
-    validate_destructive_queries(sql)
     validate_multiple_statements(sql)
+    validate_destructive_queries(sql)
 
     try:
         parsed = sqlglot.parse_one(sql, read="sqlite")
     except Exception as exc:
         raise GuardrailError(
-            f"Falha ao parsear SQL na Camada 2: {exc}"
+            f"Falha ao parsear SQL na Camada 2: {exc}",
+            error_code=ErrorCode.SQL_PARSE_ERROR
         ) from exc
 
     validate_table_column_allowlist(sql, allowlist, parsed=parsed)
@@ -369,7 +380,8 @@ def add_limit_if_missing(
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
             raise GuardrailError(
-                f"Falha ao parsear SQL para verificar LIMIT: {exc}"
+                f"Falha ao parsear SQL para verificar LIMIT: {exc}",
+                error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
     if parsed.args.get("limit"):

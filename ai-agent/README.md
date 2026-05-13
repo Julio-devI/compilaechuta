@@ -86,7 +86,7 @@ python tests/integration/smoke_test_memory.py
 
 1. **Cria um banco SQLite temporário** com as tabelas principais (`dim_cliente`, `dim_produto`, `fato_vendas`, `fato_suporte_ticket`, `fato_avaliacoes_pedido`, `dim_tempo`) e dados sintéticos mínimos para os domínios.
 2. **Instancia `VCommerceAgent`** apontando para esse banco.
-3. **Executa 5 perguntas em lotes de 2**, com intervalo de 75 segundos entre lotes para respeitar o rate limit do free tier da Gemini:
+3. **Executa perguntas com orçamento explícito de chamadas**, aguardando 75 segundos após cada interação que consome LLM para respeitar o limite de 5 requisições/minuto da Gemini:
    - **Vendas:** Receita por região, ticket médio
    - **Suporte:** Produtos com mais tickets, tempo médio de resolução
    - **Avaliações:** NPS por categoria, melhores avaliações
@@ -94,7 +94,7 @@ python tests/integration/smoke_test_memory.py
    - **Edge cases:** Pergunta fora do escopo (piada), pergunta ambígua ("Qual a receita?")
 4. **Remove o banco temporário** automaticamente ao final (bloco `try/finally`).
 
-> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Cada pergunta dispara **2 chamadas ao LLM** (geração de SQL + geração de insight), totalizando 20 chamadas no teste completo. O script respeita automaticamente o limite de 5 requisições/minuto do free tier. Se o limite diário for atingido, o script exibirá `[ERRO]` com a mensagem de `RESOURCE_EXHAUSTED`.
+> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Perguntas de fluxo feliz disparam 2 chamadas ao LLM (geração de SQL + geração de insight), perguntas fora do escopo normalmente disparam 1 chamada, e bloqueios pré-LLM disparam 0 chamadas. Cada script valida o orçamento antes de executar o próximo cenário e não deve ultrapassar 20 requisições planejadas por chave. Para reduzir estouro de quota, os smoke tests usam 1 tentativa por chamada LLM; retries continuam habilitados no agente em uso normal. Os limites dos smoke tests são constantes hardcoded e centralizadas em `tests/integration/smoke_test_config.py`, pois refletem limites fixos do free tier.
 
 ## Variáveis de Ambiente
 
@@ -103,6 +103,25 @@ python tests/integration/smoke_test_memory.py
 | `GEMINI_API_KEY` | Chave da API Google Gemini |
 | `DB_PATH` | Caminho para o banco SQLite do backend |
 | `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2 (padrão: 0.3) |
+
+## Guardrails e Códigos de Erro
+
+Para garantir o "Error Opacity" no frontend, todas as violações de segurança retornam a mesma mensagem amigável para o usuário final: *"Não foi possível processar sua pergunta. Tente reformulá-la."* 
+
+No entanto, o agente repassa um `error_code` silencioso no `AgentResponse` (acessível apenas pelo backend) permitindo auditoria, logs e ações preventivas (como timeout de usuários infratores).
+
+| Camada | Função Interna | Error Code (`AgentResponse.error_code`) | Descrição |
+| :--- | :--- | :--- | :--- |
+| **1 (Input)** | `validate_empty_input` | `EMPTY_INPUT` | Input nulo ou somente espaços em branco. |
+| **1 (Input)** | `validate_input_length` | `INPUT_TOO_LONG` | Excedeu `MAX_INPUT_CHARS`. |
+| **1 (Input)** | `validate_prompt_injection`| `PROMPT_INJECTION` | Regex barrou ataque de persona ou exfiltração. |
+| **2 (SQL)** | `validate_destructive_queries`| `DESTRUCTIVE_QUERY` | AST barrou instrução não-SELECT. |
+| **2 (SQL)** | `validate_multiple_statements`| `MULTIPLE_STATEMENTS` | Múltiplos statements injetados (`;`). |
+| **2 (SQL)** | `validate_table_column_allowlist`| `SCHEMA_VIOLATION_ALLOWLIST`| Uso de tabela/coluna inexistente no schema. |
+| **2 (SQL)** | `validate_semantic_schema` | `SCHEMA_VIOLATION_SEMANTIC` | Coluna não pertence à tabela no JOIN/FROM. |
+| **2 (SQL)** | `sqlglot.parse_one` | `SQL_PARSE_ERROR` | LLM alucinou sintaxe irrecuperável. |
+| **3 (DB)** | `Database.execute_query` | `EXECUTION_TIMEOUT` | Query demorou acima de `QUERY_TIMEOUT_SECONDS`. |
+| **3 (DB)** | `Database.execute_query` | `DB_EXECUTION_ERROR` | Banco bloqueou (ex: modo read-only ou erro interno). |
 
 ## Limitações Conhecidas
 

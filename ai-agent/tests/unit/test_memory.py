@@ -7,6 +7,7 @@ import pytest
 
 from src.agent import VCommerceAgent, AgentResponse
 from src.core import config
+from src.core.exceptions import ErrorCode, LLMParseError
 from src.llm.sql_generator import format_history_for_sql
 from src.llm.insight_generator import format_history_for_insight
 
@@ -132,6 +133,42 @@ def test_import_history_invalid_content():
         agent.import_history([{"role": "user", "content": ""}])
 
 
+def test_import_history_rejects_incomplete_pair():
+    agent = VCommerceAgent(db_path=":memory:")
+    with pytest.raises(ValueError, match="pares completos"):
+        agent.import_history([{"role": "user", "content": "Q1", "sql": None}])
+
+
+def test_import_history_rejects_invalid_pair_order():
+    agent = VCommerceAgent(db_path=":memory:")
+    history = [
+        {"role": "assistant", "content": "A1", "sql": "SELECT 1"},
+        {"role": "user", "content": "Q1", "sql": None},
+    ]
+    with pytest.raises(ValueError, match="alternar pares user/assistant"):
+        agent.import_history(history)
+
+
+def test_import_history_rejects_user_sql():
+    agent = VCommerceAgent(db_path=":memory:")
+    history = [
+        {"role": "user", "content": "Q1", "sql": "SELECT 1"},
+        {"role": "assistant", "content": "A1", "sql": "SELECT 1"},
+    ]
+    with pytest.raises(ValueError, match="role='user'.*'sql' nulo"):
+        agent.import_history(history)
+
+
+def test_import_history_rejects_assistant_without_sql():
+    agent = VCommerceAgent(db_path=":memory:")
+    history = [
+        {"role": "user", "content": "Q1", "sql": None},
+        {"role": "assistant", "content": "A1", "sql": None},
+    ]
+    with pytest.raises(ValueError, match="role='assistant'.*'sql'"):
+        agent.import_history(history)
+
+
 # ---------------------------------------------------------------------------
 # Formatadores
 # ---------------------------------------------------------------------------
@@ -149,6 +186,7 @@ def test_format_history_for_sql_filled():
     formatted = format_history_for_sql(history)
     assert "Interação 1" in formatted
     assert "Pergunta: Q1" in formatted
+    assert "Resposta: A1" in formatted
     assert "SQL gerado: SELECT 1" in formatted
     assert "Resolva pronomes" in formatted
 
@@ -169,3 +207,25 @@ def test_format_history_for_insight_filled():
     assert "Resposta: A1" in formatted
     assert "Mantenha coerência com as respostas anteriores" in formatted
     assert "SQL" not in formatted  # Insight format doesn't need to show SQL directly if not requested
+
+
+@pytest.mark.asyncio
+async def test_ask_returns_controlled_response_when_generate_sql_parse_fails(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+
+    async def fake_load_schema():
+        return "schema", {"dim_cliente": {"columns": []}}
+
+    async def fake_generate_sql(*args, **kwargs):
+        raise LLMParseError("SQL malformado")
+
+    monkeypatch.setattr(agent, "_load_schema", fake_load_schema)
+    monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
+
+    response = await agent.ask("Qual a receita total?")
+
+    assert response.error is True
+    assert response.out_of_scope is False
+    assert response.error_code == ErrorCode.SQL_PARSE_ERROR
+    assert response.sql == ""
+    assert agent._history == []

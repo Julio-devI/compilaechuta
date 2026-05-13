@@ -112,13 +112,15 @@ def format_history_for_sql(history: list[dict[str, str | None]] | None) -> str:
         assistant_msg = history[i + 1]
         lines.append(f"Interação {turn}:")
         lines.append(f"Pergunta: {user_msg['content']}")
+        lines.append(f"Resposta: {assistant_msg['content']}")
         if assistant_msg.get("sql"):
             lines.append(f"SQL gerado: {assistant_msg['sql']}")
         lines.append("")
 
     lines.append(
         "Considere o histórico acima ao gerar o SQL para a pergunta atual. "
-        "Resolva pronomes e referências implícitas com base nas interações anteriores.\n"
+        "Resolva pronomes e referências implícitas com base nas perguntas, "
+        "respostas e SQLs das interações anteriores.\n"
     )
     return "\n".join(lines)
 

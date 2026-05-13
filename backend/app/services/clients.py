@@ -18,10 +18,12 @@ async def listar_clientes(
     skip: int,
     limit: int,
     search: str = None,
-    status: str = None
+    status: str = None,
+    ticket_min: float = None,
+    ticket_max: float = None
 ) -> ClienteListOut:
     total, data = await crud.get_clients(
-        db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit, search, status
+        db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit, search, status, ticket_min, ticket_max
     )
     return ClienteListOut(total=total, skip=skip, limit=limit, data=data)
 

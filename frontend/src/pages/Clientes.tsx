@@ -1,59 +1,74 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Download, Table, Grid, ArrowUp,
-  ArrowDown, Box, Calendar, ChevronDown, ChevronUp, Maximize2,
-  ShoppingCart, Crown, RotateCcw, Sparkles, X, Mail, Phone, Flame
+  ArrowDown, Box, Calendar, ChevronDown, ChevronUp, Maximize2, Crown, RotateCcw, Sparkles, X, Flame,
+  Loader2, Star, Ticket
 } from 'lucide-react'
 
-import type { Cliente } from '../services/customerService'
+import type { Cliente, FiltrosClientes } from '../services/customerService'
+import { getClientes, clienteStatusStyles } from '../services/customerService'
 
 type SortConfig = {
   key: string | null;
   direction: 'ascending' | 'descending';
 };
 
-import { getClientes, clienteStatusStyles } from '../services/customerService'
-
-// --- Componente Principal ---
-
 export function Clientes() {
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [totalItems, setTotalItems] = useState(0)
+  const [page, setPage] = useState(1)
+  const pageSize = 20
+  const [isLoadingData, setIsLoadingData] = useState(false)
+
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus] = useState<string>('todos')
-
-  useEffect(() => {
-    getClientes().then(setClientes)
-  }, [])
-
+  const [filterStatus, setFilterStatus] = useState<string>('todos')
+  const [selectedSegmento] = useState<string | undefined>()
+  const [ticketRange, setTicketRange] = useState<{min?: number, max?: number}>({})
+  
   const statusStyles = clienteStatusStyles
   const [viewMode, setViewMode] = useState<string>('tabela')
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'ascending' });
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isTransitioningView, setIsTransitioningView] = useState(false);
+
+  const handleTicketFilter = (min?: number, max?: number) => {
+    setTicketRange({min, max});
+    setPage(1);
+  };
+
+  const fetchClientes = useCallback(async () => {
+    setIsLoadingData(true)
+    try {
+      const filtros: FiltrosClientes = {
+        search: searchTerm,
+        status: filterStatus !== 'todos' ? filterStatus : undefined,
+        segmento: selectedSegmento,
+        ticket_min: ticketRange.min,
+        ticket_max: ticketRange.max
+      }
+
+      const res = await getClientes((page - 1) * pageSize, pageSize, filtros)
+      setClientes(res.data)
+      setTotalItems(res.total)
+    } finally {
+      setIsLoadingData(false)
+    }
+  }, [page, searchTerm, filterStatus, selectedSegmento, ticketRange])
+
+  useEffect(() => {
+    // Debounce de 500ms para a busca não disparar a cada letra digitada
+    const handler = setTimeout(() => {
+      fetchClientes()
+    }, 500)
+
+    return () => clearTimeout(handler)
+  }, [fetchClientes])
+
+  const totalPages = Math.ceil(totalItems / pageSize)
 
   // --- Lógica de Ordenação e Filtro ---
-
-  const handleSort = (key: string) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const handleViewChange = (mode: string) => {
-    if (viewMode === mode) return;
-
-    setIsLoading(true);
-    setViewMode(mode);
-
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-  };
-
   const sortedClientes = [...clientes].sort((a, b) => {
     if (!sortConfig.key) return 0;
     let aValue: any = a[sortConfig.key as keyof Cliente];
@@ -69,15 +84,28 @@ export function Clientes() {
     return 0;
   });
 
-  const filteredClientes = sortedClientes.filter(cliente => {
-    const matchesSearch = cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cliente.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === 'todos' || cliente.status === filterStatus
-    return matchesSearch && matchesFilter
-  })
+  const handleSort = (key: string) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleFilterStatus = (status: string) => {
+    setFilterStatus(status);
+    setPage(1); // Sempre reseta a página ao filtrar
+  };
+
+  const handleViewChange = (mode: string) => {
+    if (viewMode === mode) return;
+    setIsTransitioningView(true);
+    setViewMode(mode);
+    setTimeout(() => setIsTransitioningView(false), 500);
+  };
 
   const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortConfig.key !== columnKey) return <ArrowUp className="w-6 h-6 text-white ml-auto" />;
+    if (sortConfig.key !== columnKey) return <ArrowUp className="w-6 h-6 text-white ml-auto opacity-50" />;
     return sortConfig.direction === 'ascending'
       ? <ArrowUp className="w-6 h-6 text-white ml-auto" />
       : <ArrowDown className="w-6 h-6 text-white ml-auto" />;
@@ -125,16 +153,19 @@ export function Clientes() {
             <Search className="w-5 h-5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por nome, email, CPF..."
+              placeholder="Buscar por cliente"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2.5 bg-cardrounded-4xl border border-border w-[500px] focus:ring-2 focus:ring-[#1E5EFF]/20 outline-none"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
+              className="pl-10 pr-4 py-2.5 bg-card rounded-4xl border border-border w-[500px] focus:ring-2 focus:ring-[#1E5EFF]/20 outline-none"
             />
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-[#020854] dark:text-foreground">Visualizar por:</span>
-            <div className="flex bg-cardrounded-lg p-1 border border-border">
+            <div className="flex bg-card rounded-lg p-1 border border-border">
               <button
                 onClick={() => handleViewChange('tabela')}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'tabela' ? 'bg-[#1E5EFF] text-white shadow-sm' : 'text-muted hover:bg-background'}`}
@@ -151,110 +182,154 @@ export function Clientes() {
           </div>
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-background border border-border rounded-4xl text-[#6B7588] font-medium hover:bg-background shadow-sm transition-all">
+        <button className="flex items-center gap-2 px-4 py-2.5 bg-background border border-border rounded-4xl text-[#6B7588] font-medium hover:bg-card shadow-sm transition-all">
           <Download className="w-4 h-4" /> Exportar CSV
         </button>
       </div>
 
-      {/* PAINEL DE FILTROS EXPANSÍVEL */}
+      {/* PAINEL DE FILTROS EXPANSÍVEL - Baseado na image_80befd.png */}
       <div className="bg-card rounded-3xl border border-border shadow-sm mb-8 overflow-hidden transition-all">
-        <div
-          className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-background"
-          onClick={() => setShowFilters(!showFilters)}
-        >
-          <div className="flex items-center gap-2 font-bold text-foreground">
-            {showFilters ? <ChevronUp className="w-5 h-5 text-foreground" /> : <ChevronDown className="w-5 h-5 text-foreground" />}
-            <span>{showFilters ? 'Esconder Filtros' : 'Mostrar Filtros'}</span>
-          </div>
-          <Maximize2 className="w-4 h-4 text-muted-foreground" />
-        </div>
+  <div
+    className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-background"
+    onClick={() => setShowFilters(!showFilters)}
+  >
+    <div className="flex items-center gap-2 font-bold text-foreground">
+      {showFilters ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+      <span>{showFilters ? 'Esconder Filtros' : 'Mostrar Filtros'}</span>
+    </div>
+    <div className="flex gap-2">
+      {(filterStatus !== 'todos' || searchTerm || selectedSegmento || ticketRange.min || ticketRange.max) && (<span className="bg-[#1E5EFF]/10 text-[#1E5EFF] text-[10px] px-2 py-1 rounded-md">Filtros Ativos</span>)}
+      <Maximize2 className="w-4 h-4 text-muted-foreground" />
+    </div>
+  </div>
 
-        {showFilters && (
-          <div className="px-8 pb-8 pt-4 grid grid-cols-12 gap-y-8 gap-x-12 border-t border-border animate-in fade-in slide-in-from-top-2 duration-300">
-            {/* SKU Produto */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-3 font-bold text-foreground">
-                <Box className="w-5 h-5" /> <span>SKU Produto</span>
-              </div>
-              <div className="relative">
-                <select className="w-full p-3 bg-background rounded-full border-none text-muted-foreground appearance-none px-6 outline-none">
-                  <option>Todos os Produtos</option>
-                </select>
-                <ChevronDown className="w-4 h-4 absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              </div>
-            </div>
+  {showFilters && (
+    <div className="px-8 pb-8 pt-4 grid grid-cols-12 gap-y-10 gap-x-8 border-t border-border animate-in fade-in slide-in-from-top-2 duration-300">
 
-            {/* Período de Abertura */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-3 font-bold text-foreground">
-                <Calendar className="w-5 h-5" /> <span>Período de Abertura</span>
-              </div>
-              <div className="flex gap-2">
-                <button className="px-5 py-1 bg-[#1E5EFF] text-white rounded-full text-sm font-medium">Todos</button>
-                <button className="px-5 py-1 bg-background text-muted rounded-full text-sm font-medium hover:bg-[#E2E8F0]">Hoje</button>
-                <button className="px-5 py-1 bg-background text-muted rounded-full text-sm font-medium hover:bg-[#E2E8F0]">Últimos 7 dias</button>
-                <button className="px-5 py-1 bg-background text-muted rounded-full text-sm font-medium hover:bg-[#E2E8F0]">Personalizado</button>
-              </div>
-            </div>
-
-            {/* Tipo de Cliente */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-3 font-bold text-foreground">
-                <Calendar className="w-5 h-5" /> <span>Tipo de Cliente</span>
-              </div>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 bg-[#020854] text-white rounded-full text-sm font-medium flex items-center gap-2 shadow-md">
-                  <Crown className="w-4 h-4 text-yellow-400" /> VIP
-                </button>
-                <button className="px-4 py-2 bg-[#BAE6FD] text-[#0369A1] rounded-full text-sm font-medium flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4" /> Recorrente
-                </button>
-                <button className="px-4 py-2 bg-[#1E5EFF] text-white rounded-full text-sm font-medium flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" /> 1ª Compra
-                </button>
-              </div>
-            </div>
-
-            {/* Status Flow */}
-            <div className="col-span-8">
-              <div className="flex items-center gap-2 mb-3 font-bold text-foreground">
-                <ShoppingCart className="w-5 h-5" /> <span>Status</span>
+      {/* 1. Tipo de Cliente */}
+      <div className="col-span-4">
+              <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
+                <Calendar className="w-5 h-5" /> <span>Segmento rfm</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {[
-                  { label: 'Compra', color: 'text-[#A855F7]', bg: 'bg-background', dot: 'bg-[#A855F7]' },
-                  { label: 'Processamento', color: 'text-[#F97316]', bg: 'bg-background', dot: 'bg-[#F97316]' },
-                  { label: 'Enviado', color: 'text-[#EAB308]', bg: 'bg-background', dot: 'bg-[#EAB308]' },
-                  { label: 'Em Trânsito', color: 'text-[#1E5EFF]', bg: 'bg-background', dot: 'bg-[#1E5EFF]' },
-                  { label: 'Atrasado', color: 'text-[#EF4444]', bg: 'bg-background', dot: 'bg-[#EF4444]' },
-                  { label: 'Entregue', color: 'text-[#22C55E]', bg: 'bg-background', dot: 'bg-[#22C55E]' },
-                  { label: 'Cancelado', color: 'text-[#020854] dark:text-foreground', bg: 'bg-background', dot: 'bg-[#020854]' },
-                ].map((s) => (
-                  <button key={s.label} className={`flex items-center gap-2 px-4 py-2 ${s.bg} ${s.color} rounded-full text-xs font-bold transition-all hover:opacity-80`}>
-                    <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} /> {s.label}
+                {['VIP', 'Recorrente', 'Novo Cliente', 'Inativo', 'Campeão'].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => handleFilterStatus(filterStatus === status ? 'todos' : status)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all ${
+                      filterStatus === status 
+                      ? 'ring-2 ring-[#1E5EFF] ring-offset-2 scale-105 shadow-md' 
+                      : 'opacity-70 hover:opacity-100'
+                    } ${clienteStatusStyles[status as keyof typeof clienteStatusStyles]}`}
+                  >
+                    {status === 'VIP' && <Crown className="w-4 h-4" />}
+                    {status === 'Recorrente' && <RotateCcw className="w-4 h-4" />}
+                    {status === 'Novo Cliente' && <Sparkles className="w-4 h-4" />}
+                    {status === 'Inativo' && <X className="w-4 h-4" />}
+                    {status === 'Campeão' && <X className="w-4 h-4" />}
+                    {status}
                   </button>
                 ))}
+                {filterStatus !== 'todos' && (
+                  <button
+                    onClick={() => handleFilterStatus('todos')}
+                    className="text-xs text-muted-foreground underline ml-2"
+                  >
+                    Limpar
+                  </button>
+                )}
               </div>
-            </div>
-
-            {/* Ticket Segment */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-3 font-bold text-foreground">
-                <Calendar className="w-5 h-5" /> <span>Ticket</span>
-              </div>
-              <div className="flex gap-2">
-                <button className="px-5 py-2 bg-[#1E5EFF] text-white rounded-full text-sm font-medium">Não tem</button>
-                <button className="px-5 py-2 bg-background text-muted rounded-full text-sm font-medium hover:bg-[#E2E8F0]">Aberto</button>
-                <button className="px-5 py-2 bg-background text-muted rounded-full text-sm font-medium hover:bg-[#E2E8F0]">Finalizado</button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
+      {/* 2. Faixa de LVT */}
+      <div className="col-span-5">
+        <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
+          <span className="text-lg font-bold">$</span> <span>Faixa de LVT</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="px-4 py-2 bg-[#1E5EFF] text-white rounded-full text-sm font-medium">Até R$500</button>
+          <button className="px-4 py-2 bg-[#F1F5F9] text-muted-foreground rounded-full text-sm font-medium hover:bg-gray-200">R$500-R$2.000</button>
+          <button className="px-4 py-2 bg-[#F1F5F9] text-muted-foreground rounded-full text-sm font-medium hover:bg-gray-200">+ R$2.000</button>
+        </div>
+      </div>
+
+      {/* 3. Faixa de Ticket Médio */}
+        <div className="col-span-4">
+          <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
+            <span className="text-lg font-bold">$</span> <span>Faixa de Ticket Médio</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleTicketFilter(0, 100)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${ticketRange.min === 0 && ticketRange.max === 100 ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
+            >
+              Até R$100
+            </button>
+            <button
+              onClick={() => handleTicketFilter(100, 500)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${ticketRange.min === 100 && ticketRange.max === 500 ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
+            >
+              R$100 - R$500
+            </button>
+            <button
+              onClick={() => handleTicketFilter(500, undefined)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${ticketRange.min === 500 && ticketRange.max === undefined ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
+            >
+              + R$500
+            </button>
+            {(ticketRange.min !== undefined || ticketRange.max !== undefined) && (
+              <button
+                onClick={() => handleTicketFilter(undefined, undefined)}
+                className="text-xs text-muted-foreground underline ml-2 hover:text-[#1E5EFF]"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
+      {/* 4. Último Pedido */}
+      <div className="col-span-4">
+        <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
+          <Calendar className="w-5 h-5" /> <span>Último Pedido</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="px-5 py-2 bg-[#1E5EFF] text-white rounded-full text-sm font-medium">Todos</button>
+          <button className="px-5 py-2 bg-[#F1F5F9] text-muted-foreground rounded-full text-sm font-medium hover:bg-gray-200">Hoje</button>
+          <button className="px-5 py-2 bg-[#F1F5F9] text-muted-foreground rounded-full text-sm font-medium hover:bg-gray-200">Últimos 7 dias</button>
+          <button className="px-5 py-2 bg-[#F1F5F9] text-muted-foreground rounded-full text-sm font-medium hover:bg-gray-200">Personalizado</button>
+        </div>
+      </div>
+
+      {/* 5. Região */}
+      <div className="col-span-4">
+        <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
+          <Search className="w-5 h-5" /> <span>Região</span>
+        </div>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Insira uma região"
+            className="w-full p-2.5 bg-[#F1F5F9] rounded-full px-6 outline-none text-sm text-muted-foreground border-none focus:ring-1 focus:ring-[#1E5EFF]/50"
+          />
+          <X className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground cursor-pointer" />
+        </div>
+      </div>
+
+    </div>
+  )}
+</div>
+
       {/* Main Content Area */}
-      <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden">
-        {isLoading ? (
+      <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden relative min-h-[400px]">
+        {isLoadingData ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/80 backdrop-blur-sm">
+            <Loader2 className="w-8 h-8 text-[#1E5EFF] animate-spin mb-4" />
+            <p className="text-muted-foreground font-medium">Buscando registros do banco de dados...</p>
+          </div>
+        ) : null}
+
+        {isTransitioningView ? (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, index) => (
               <ClienteCardSkeleton key={index} />
@@ -290,24 +365,21 @@ export function Clientes() {
                 </tr>
               </thead>
               <tbody>
-                {filteredClientes.map((cliente) => (
+                {sortedClientes.map((cliente) => (
                   <tr key={cliente.id} className="border-b border-border hover:bg-[#1E5EFF]/5 dark:hover:bg-[#1E5EFF]/10 transition-colors">
                     <td className="py-4 px-4">
                       <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
                     </td>
                     <td className="py-4 px-2">
                       <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-xl font-medium mb-1">
-                      {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
-                    </div>
+                        <div className="w-10 h-10 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-xl font-medium mb-1 shrink-0">
+                          {cliente.nome.substring(0, 2).toUpperCase()}
+                        </div>
                         <span className="font-medium text-foreground text-sm">{cliente.nome}</span>
                       </div>
                     </td>
                     <td className="py-4 px-2">
-                      <span className={`inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusStyles[cliente.status]}`}>
-                        {cliente.status === 'VIP' && <Crown className="w-3 h-3" />}
-                        {cliente.status === 'Recorrente' && <RotateCcw className="w-3 h-3" />}
-                        {cliente.status === '1ª Compra' && <Sparkles className="w-3 h-3" />}
+                      <span className={`inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${clienteStatusStyles[cliente.status]}`}>
                         {cliente.status}
                       </span>
                     </td>
@@ -318,8 +390,8 @@ export function Clientes() {
                       <span className={`px-4 py-1 rounded-full text-xs font-bold border ${cliente.segmento === 'Moda' ? 'border-[#38BDF8] text-[#0369A1]' : 'border-[#3B82F6] text-[#1E40AF]'}`}>{cliente.segmento}</span>
                     </td>
                     <td className="py-4 px-4">
-                      <button 
-                        className="text-sm font-medium text-foreground hover:underline cursor-pointer"
+                      <button
+                        className="text-sm font-medium text-[#1E5EFF] hover:underline cursor-pointer"
                         onClick={() => {
                           setSelectedCliente(cliente)
                           setShowModal(true)
@@ -332,15 +404,22 @@ export function Clientes() {
                 ))}
               </tbody>
             </table>
+            
+            {sortedClientes.length === 0 && (
+              <div className="w-full py-12 flex flex-col items-center justify-center text-slate-400">
+                <Box className="w-12 h-12 mb-4 opacity-50" />
+                <p className="font-bold text-lg text-slate-500">Nenhum cliente encontrado.</p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredClientes.map((cliente) => (
+            {sortedClientes.map((cliente) => (
               <div key={cliente.id} className="bg-card p-6 rounded-2xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow">
                 <div>
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-3xl font-medium mb-1">
-                      {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
+                    <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-3xl font-medium mb-1 shrink-0">
+                      {cliente.nome.substring(0, 2).toUpperCase()}
                     </div>
                     <div className="flex-1">
                       <h3 className="font-bold text-lg text-[#020854] dark:text-foreground">{cliente.nome}</h3>
@@ -358,15 +437,15 @@ export function Clientes() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Status</span>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusStyles[cliente.status]}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusStyles[cliente.status] || 'bg-slate-100 text-slate-600'}`}>
                         {cliente.status}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="mt-6 pt-4 border-t border-border flex justify-end">
-                  <button 
-                    className="text-sm font-medium text-foreground hover:underline"
+                  <button
+                    className="text-sm font-medium text-[#1E5EFF] hover:underline"
                     onClick={() => {
                       setSelectedCliente(cliente)
                       setShowModal(true)
@@ -382,139 +461,120 @@ export function Clientes() {
 
         {/* Pagination */}
         <div className="p-6 flex items-center justify-between border-t border-border bg-background">
-          <p className="text-sm text-muted font-medium">Mostrando {filteredClientes.length} de {clientes.length} clientes</p>
+          <p className="text-sm text-muted font-medium">Mostrando página {page} de {totalPages || 1} ({totalItems} registros totais)</p>
           <div className="flex items-center gap-2">
-            <button className="px-4 py-2 border border-border rounded-xl text-sm text-muted bg-cardhover:bg-gray-50 font-medium">Anterior</button>
-            <button className="px-4 py-2 bg-[#1E5EFF] text-white rounded-xl text-sm font-bold shadow-sm">1</button>
-            <button className="px-4 py-2 border border-border rounded-xl text-sm text-muted bg-cardhover:bg-gray-50 font-medium">2</button>
-            <button className="px-4 py-2 border border-border rounded-xl text-sm text-muted bg-cardhover:bg-gray-50 font-medium">Próximo</button>
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              className="px-4 py-2 border border-border rounded-xl text-sm text-muted bg-card hover:bg-gray-50 disabled:opacity-50 font-medium transition-all"
+            >
+              Anterior
+            </button>
+            <span className="px-4 py-2 bg-[#1E5EFF] text-white rounded-xl text-sm font-bold shadow-sm">{page}</span>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+              className="px-4 py-2 border border-border rounded-xl text-sm text-muted bg-card hover:bg-gray-50 disabled:opacity-50 font-medium transition-all"
+            >
+              Próximo
+            </button>
           </div>
         </div>
       </div>
 
       {/* Modal de Detalhes do Cliente */}
       {showModal && (
-  <div 
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
-    onClick={(e) => {
-      if (e.target === e.currentTarget) {
-        setShowModal(false);
-      }
-    }}
-  >
-    {/* Container Principal com Scroll e Altura Máxima */}
-
-    <div 
-      className="w-[800px] max-h-[95vh] bg-card rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto"
-      onClick={(e) => e.stopPropagation()}
-    >
-
-      {/* O conteúdo interno precisa de um wrapper para o padding não bugar com o scroll */}
-      <div className="p-5">
-
-        {/* Botão Fechar e Stack de Avatares (Topo Direito) */}
-        <div className="absolute top-6 right-8 flex flex-col items-end gap-4">
-          <button
-            onClick={() => setShowModal(false)}
-            className="p-1 hover:bg-background rounded-full transition-colors"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div
+            className="w-[800px] max-h-[95vh] bg-card rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto"
+            onClick={(e) => e.stopPropagation()}
           >
-            <X className="w-8 h-8 text-foreground" />
-          </button>
-        </div>
-
-        <h2 className="text-[40px] font-bold text-[#020854] dark:text-foreground mb-2">Detalhes do Cliente</h2>
-
-        {/* Card de Perfil Azul Claro */}
-        <div className="border border-[#BAE6FD] rounded-[35px] p-5 mb-2 relative bg-card">
-          <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-3xl font-medium mb-1">
-            {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <h3 className="text-2xl font-bold text-[#020854] dark:text-foreground">
-              {selectedCliente?.nome || 'Marina Albuquerque'}
-            </h3>
-            <span className="bg-[#020854] text-[#BAE6FD] px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-              <Crown className="w-3 h-3" /> VIP
-            </span>
-          </div>
-
-          <div className="space-y-1 text-muted text-base">
-            <p>{selectedCliente ? `${selectedCliente.totalPedidos} pedidos no total` : '38 pedidos no total'}</p>
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4" /> {selectedCliente?.email || 'marina.alb@email.com'}
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4" /> {selectedCliente?.telefone || '(11) 98821-4477'}
-            </div>
-            <p>{selectedCliente?.cidade || 'São Paulo, SP'}</p>
-          </div>
-        </div>
-
-        {/* Seção Produtos & Performance */}
-        <div className="border border-border rounded-[35px] p-5 shadow-sm bg-card">
-          <span className="text-[#1E5EFF] text-xs font-bold tracking-widest uppercase mb-2 block">
-            Informações Gerais
-          </span>
-          <h4 className="text-2xl font-bold text-[#020854] dark:text-foreground mb-6">Produtos & Performance</h4>
-
-          <div className="space-y-4">
-            {/* Produto 1 */}
-            <div className="bg-background rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-cardrounded-xl flex items-center justify-center border border-border">
-                <Box className="w-6 h-6 text-black" />
+            <div className="p-5">
+              <div className="absolute top-6 right-8 flex flex-col items-end gap-4">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="p-1 hover:bg-background rounded-full transition-colors"
+                >
+                  <X className="w-8 h-8 text-foreground" />
+                </button>
               </div>
-              <div className="flex-1">
-                <p className="font-bold text-[#020854] dark:text-foreground text-sm">Smart TV 55" QLED 4K Vivara</p>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase">SKU ELE-9921 · qtd 1</p>
-                <div className="flex gap-2 mt-2">
-                  <span className="bg-[#DCFCE7] text-[#15803D] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                    <Flame className="w-3 h-3" /> Mais vendido
-                  </span>
-                  <span className="bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                    <RotateCcw className="w-3 h-3" /> Alta devolução
+
+              <h2 className="text-[40px] font-bold text-[#020854] dark:text-foreground mb-2">Detalhes do Cliente</h2>
+
+              <div className="border border-[#BAE6FD] rounded-[35px] p-5 mb-2 relative bg-card">
+                <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-3xl font-medium mb-1">
+                  {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <h3 className="text-2xl font-bold text-[#020854] dark:text-foreground">
+                    {selectedCliente?.nome || 'Marina Albuquerque'}
+                  </h3>
+                  <span className="bg-[#020854] text-[#BAE6FD] px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                    <Crown className="w-3 h-3" /> VIP
                   </span>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-[#020854] dark:text-foreground text-sm">R$ 3.499,00</p>
-                <p className="text-[10px] text-muted-foreground">R$ 3.499,00 un</p>
-              </div>
-            </div>
 
-            {/* Produto 2 */}
-            <div className="bg-background rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 bg-cardrounded-xl flex items-center justify-center border border-border">
-                <Box className="w-6 h-6 text-black" />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-[#020854] dark:text-foreground text-sm">Soundbar Bluetooth 2.1 Atmos</p>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase">SKU LAR-2210 · qtd 1</p>
-                <div className="flex gap-2 mt-2">
-                  <span className="bg-[#E0F2FE] text-[#0369A1] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> Novo
-                  </span>
+                <div className="space-y-1 text-muted-foreground text-base">
+                  <p>{selectedCliente ? `${selectedCliente.totalPedidos} pedidos no total` : '38 pedidos no total'}</p>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4" /> Média de Estrelas dada: {selectedCliente?.estrelas || 'marina.alb@email.com'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Ticket className="w-4 h-4" /> Tickets: {selectedCliente?.qtd_tickets_suporte || '0'}
+                  </div>
+                  <p>{selectedCliente?.cidade || 'São Paulo, SP'}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-bold text-[#020854] dark:text-foreground text-sm">R$ 790,90</p>
-                <p className="text-[10px] text-muted-foreground">R$ 790,90 un</p>
+
+              <div className="border border-border rounded-[35px] p-5 shadow-sm bg-card">
+                <span className="text-[#1E5EFF] text-xs font-bold tracking-widest uppercase mb-2 block">
+                  Informações Gerais
+                </span>
+                <h4 className="text-2xl font-bold text-[#020854] dark:text-foreground mb-6">Produtos & Performance</h4>
+
+                <div className="space-y-4">
+                  <div className="bg-background rounded-2xl p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-card rounded-xl flex items-center justify-center border border-border">
+                      <Box className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-[#020854] dark:text-foreground text-sm">Smart TV 55" QLED 4K Vivara</p>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">SKU ELE-9921 · qtd 1</p>
+                      <div className="flex gap-2 mt-2">
+                        <span className="bg-[#DCFCE7] text-[#15803D] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
+                          <Flame className="w-3 h-3" /> Mais vendido
+                        </span>
+                        <span className="bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
+                          <RotateCcw className="w-3 h-3" /> Alta devolução
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-[#020854] dark:text-foreground text-sm">R$ 3.499,00</p>
+                      <p className="text-[10px] text-muted-foreground">R$ 3.499,00 un</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end mt-2">
+                  <button className="bg-[#BAE6FD] text-[#020854] px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-[#7DD3FC] transition-colors text-sm">
+                    Ver perfil completo
+                    <ArrowUp className="w-4 h-4 rotate-45" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Botão Ver Perfil Completo */}
-          <div className="flex justify-end mt-2">
-            <button className="bg-[#BAE6FD] text-[#020854] dark:text-foreground px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-[#7DD3FC] transition-colors text-sm">
-              Ver perfil completo
-              <ArrowUp className="w-4 h-4 rotate-45" />
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   )
 }

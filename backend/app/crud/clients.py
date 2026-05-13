@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy import select, func, or_  # Adicionado or_
+from sqlalchemy import select, func, or_, cast, Float  # Adicionado or_ e cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import Cliente
@@ -15,9 +15,20 @@ async def get_clients(
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        ticket_min: Optional[float] = None,
+        ticket_max: Optional[float] = None,
 ) -> tuple[int, list[Cliente]]:
     query = select(Cliente)
+
+    # Convert to float to avoid integer division issues in SQLite/Postgres depending on the driver
+    ticket_medio_exp = cast(Cliente.total_gasto_brl, Float) / func.nullif(cast(Cliente.qtd_pedidos_realizados, Float), 0)
+
+    if ticket_min is not None:
+        query = query.where(ticket_medio_exp >= ticket_min)
+
+    if ticket_max is not None:
+        query = query.where(ticket_medio_exp <= ticket_max)
 
     # --- 1. BUSCA GLOBAL (Search) ---
     if search:

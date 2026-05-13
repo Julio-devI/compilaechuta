@@ -19,6 +19,8 @@ router = APIRouter()
 
 @router.get("/", response_model=ClienteListOut)
 async def listar(
+    ticket_min:         Optional[float] = Query(None, description="Filtra por ticket medio minimo"),
+    ticket_max:         Optional[float] = Query(None, description="Filtra por ticket medio maximo"),
     search:            Optional[str]   = Query(None, description="Busca por nome ou email"), # NOVO
     status:            Optional[str]   = Query(None, description="Filtrar por status VIP/Recorrente"), # NOVO
     cidade:            Optional[str]   = Query(None, description="Filtrar por cidade"),
@@ -29,7 +31,7 @@ async def listar(
     limit:             int             = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.listar_clientes(db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit, search, status)
+    return await service.listar_clientes(db, cidade, valor_minimo, frequencia_minima, status_ticket, skip, limit, search, status, ticket_min, ticket_max)
 
 
 @router.get("/exportar")

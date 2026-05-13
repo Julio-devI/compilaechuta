@@ -9,7 +9,7 @@ class Ticket(Base):
 
     id_ticket              = Column(String, primary_key=True, index=True)
     id_cliente             = Column(String, ForeignKey("dim_cliente.id_cliente"), nullable=False, index=True)
-    id_pedido              = Column(String, nullable=True)
+    id_pedido              = Column(String, ForeignKey("fato_vendas.id_pedido"), nullable=True, index=True)
     id_produto             = Column(String, nullable=True)
     data_abertura          = Column(DateTime, nullable=True)
     data_resolucao         = Column(DateTime, nullable=True)
@@ -19,4 +19,5 @@ class Ticket(Base):
     agente_suporte         = Column(String, nullable=True)
     nota_avaliacao         = Column(Float, nullable=True)
 
+    pedido = relationship("Pedido", back_populates="tickets")
     cliente = relationship("Cliente", back_populates="tickets")

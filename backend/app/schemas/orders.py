@@ -3,6 +3,7 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator
 
 class PedidoBase(BaseModel):
+    id_pedido_display:  str
     id_cliente:        str
     id_produto:        str
     id_data:           Optional[str] = None

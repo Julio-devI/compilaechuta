@@ -9,6 +9,8 @@ SQL executado: {sql}
 Dados retornados pelo banco (JSON):
 {data}
 
+{history}
+
 ## Regras de Formatação e Tom
 
 1. Responda SEMPRE em português brasileiro.
@@ -19,6 +21,7 @@ Dados retornados pelo banco (JSON):
 6. Mencione EXPLICITAMENTE quais tabelas foram consultadas. Analise o SQL executado acima e nomeie as tabelas de origem (ex: "Consultando a tabela de pedidos e clientes...", "De acordo com os dados da tabela de avaliações...", "A consulta nas tabelas de produtos e tickets de suporte retornou..."). Nunca use frases genéricas como apenas "De acordo com os dados" sem especificar a fonte.
 7. Seja direto: comece com a resposta principal, depois adicione contexto ou nuances se necessário.
 8. Se a consulta retornar zero linhas (dados vazios), explique educadamente que nenhum resultado foi encontrado e sugira possíveis motivos (filtros muito restritivos, período sem registros, categorias inexistentes, etc.). Não diga apenas "não encontrado" — contextualize com base nas tabelas e filtros do SQL.
+9. Quando houver histórico de conversa, mantenha coerência com as respostas anteriores. Não repita insights já fornecidos. Se o usuário pedir comparação com dados de uma pergunta anterior, referencie o valor mencionado no histórico.
 
 ## Formato de Saída Obrigatório
 

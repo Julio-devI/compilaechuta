@@ -18,8 +18,8 @@ import re
 import sqlglot
 import sqlglot.expressions as exp
 
-from src.config import MAX_INPUT_CHARS
-from src.exceptions import GuardrailError
+from src.core.config import MAX_INPUT_CHARS
+from src.core.exceptions import GuardrailError
 
 
 # ---------------------------------------------------------------------------

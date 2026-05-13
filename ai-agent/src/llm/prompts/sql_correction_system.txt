@@ -6,6 +6,8 @@ Um SQL gerado anteriormente falhou na validação de segurança ou de schema. Co
 ## Schema do Banco
 {schema}
 
+{history}
+
 ## SQL Problemático
 ```sql
 {sql}
@@ -27,7 +29,7 @@ Um SQL gerado anteriormente falhou na validação de segurança ou de schema. Co
 ## Exemplo
 SQL Problemático:
 ```sql
-SELECT nome, inexistente FROM clientes;
+SELECT nome_cliente, inexistente FROM dim_cliente;
 ```
 
 Erro Detectado:
@@ -35,5 +37,5 @@ Coluna 'inexistente' nao esta no allowlist do schema.
 
 SQL Corrigido:
 ```sql
-SELECT nome, regiao FROM clientes LIMIT 1000;
+SELECT nome_cliente, regiao FROM dim_cliente LIMIT 1000;
 ```

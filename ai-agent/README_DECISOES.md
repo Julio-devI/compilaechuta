@@ -228,3 +228,17 @@
   O agente gerencia tudo internamente por padrão; o backend só usa export/import se quiser persistência entre restarts.
 - **Justificativa:** Manter a abordagem de gerenciamento interno (DA-22) como padrão simplifica o uso comum. Expor export/import permite que o backend adicione persistência sem alterar o módulo ai-agent, respeitando o princípio de que funcionalidades opcionais não devem complicar o fluxo principal. O formato serializável (`list[dict]`) é agnóstico de tecnologia de armazenamento — o backend pode usar Redis, PostgreSQL, filesystem ou qualquer outro mecanismo.
 - **Implicações:** O contrato de `export_history`/`import_history` torna-se parte da interface pública do agente. Alterações no formato interno do histórico exigem migração ou versionamento do snapshot. O `import_history` valida o formato recebido e aplica o truncamento de `MAX_HISTORY_TURNS` automaticamente.
+
+---
+
+### DA-24: Prompt de Correção SQL Também Recebe Histórico de Conversa
+
+- **Contexto:** O loop de autocorreção (DA-16) reinvoca o LLM com um prompt de correção quando os guardrails da Camada 2 rejeitam o SQL gerado. Em cenários de follow-up com memória de conversa (DA-21), o SQL original foi gerado com contexto conversacional. Se o prompt de correção não receber esse mesmo contexto, o LLM perde as referências necessárias para gerar uma correção válida.
+- **Decisão:** O template `sql_correction_system.txt` recebe o placeholder `{history}`, e a função `generate_sql_correction()` aceita o parâmetro `history`, propagando o mesmo histórico usado na geração original do SQL.
+- **Justificativa:** Sem o contexto conversacional, o prompt de correção trataria a pergunta de follow-up (ex: "E no mês passado?") como uma pergunta isolada, gerando SQL sem relação com a interação anterior. Isso anularia o benefício da memória de conversa exatamente no cenário em que ela é mais necessária — quando o LLM alucina tabelas ou colunas ao tentar resolver referências contextuais.
+- **Implicações:** O custo em tokens do prompt de correção aumenta proporcionalmente ao tamanho do histórico, mas o impacto é marginal dado que correções são raras (menos de 10% das chamadas) e o histórico já é truncado a 20 turnos (DA-19).
+### DA-25: Reorganiza��o da Estrutura de Diret�rios por Dom�nio
+- **Contexto:** A estrutura original agrupava todos os arquivos no diret�rio src/ raiz e 	ests/ raiz, misturando componentes de diferentes naturezas (LLM, banco de dados, seguran�a) e tipos de teste (unit�rios r�pidos e smoke tests lentos de integra��o).
+- **Decis�o:** Refatorar a arquitetura de pastas agrupando os arquivos por dom�nio de responsabilidade: src/core, src/database, src/llm, src/security e separando os testes em 	ests/unit/ e 	ests/integration/. O gent.py atua como facade na raiz do src/.
+- **Justificativa:** *Pendente � justificativa n�o fornecida pelo desenvolvedor.*
+- **Implica��es:** Todos os imports internos do projeto foram remapeados. As automa��es de CI/CD podem agora isolar a execu��o da pasta 	ests/unit/ sem consumir a cota de tokens da API do Gemini e separar testes de integra��o na pipeline de homologa��o.

@@ -20,124 +20,11 @@ import time
 from pathlib import Path
 
 # Adiciona ai-agent/ ao PYTHONPATH para permitir imports do pacote src
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
+from tests.integration.smoke_test_db import create_test_db
 
-# ---------------------------------------------------------------------------
-# 1. Criacao do banco de teste temporario
-# ---------------------------------------------------------------------------
 
-def _create_test_db(path: str) -> None:
-    """Popula um banco SQLite temporario com schema minimo e dados sinteticos."""
-    conn = sqlite3.connect(path)
-    cur = conn.cursor()
-
-    cur.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY,
-            nome TEXT,
-            regiao TEXT,
-            segmento TEXT
-        );
-        CREATE TABLE IF NOT EXISTS produtos (
-            id INTEGER PRIMARY KEY,
-            nome TEXT,
-            categoria TEXT,
-            preco REAL
-        );
-        CREATE TABLE IF NOT EXISTS pedidos (
-            id INTEGER PRIMARY KEY,
-            cliente_id INTEGER,
-            produto_id INTEGER,
-            valor REAL,
-            data TEXT,
-            status TEXT
-        );
-        CREATE TABLE IF NOT EXISTS tickets_suporte (
-            id INTEGER PRIMARY KEY,
-            produto_id INTEGER,
-            cliente_id INTEGER,
-            status TEXT,
-            tempo_resolucao_horas INTEGER
-        );
-        CREATE TABLE IF NOT EXISTS avaliacoes (
-            id INTEGER PRIMARY KEY,
-            produto_id INTEGER,
-            cliente_id INTEGER,
-            nota INTEGER,
-            nps INTEGER,
-            data TEXT
-        );
-        """
-    )
-
-    # Dados sinteticos minimos
-    cur.executemany(
-        "INSERT INTO clientes (id, nome, regiao, segmento) VALUES (?, ?, ?, ?)",
-        [
-            (1, "Ana Silva", "Sudeste", "Premium"),
-            (2, "Bruno Costa", "Nordeste", "Standard"),
-            (3, "Carla Dias", "Sul", "Premium"),
-            (4, "Daniel Lima", "Sudeste", "Standard"),
-            (5, "Elisa Mendes", "Centro-Oeste", "Premium"),
-        ],
-    )
-
-    cur.executemany(
-        "INSERT INTO produtos (id, nome, categoria, preco) VALUES (?, ?, ?, ?)",
-        [
-            (1, "Notebook X1", "Eletronicos", 4500.00),
-            (2, "Mouse Sem Fio", "Eletronicos", 120.00),
-            (3, "Cadeira Ergonomica", "Moveis", 850.00),
-            (4, "Monitor 27\"", "Eletronicos", 1400.00),
-            (5, "Mesa Escritorio", "Moveis", 600.00),
-        ],
-    )
-
-    cur.executemany(
-        "INSERT INTO pedidos (id, cliente_id, produto_id, valor, data, status) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-            (1, 1, 1, 4500.00, "2024-01-15", "Entregue"),
-            (2, 1, 2, 120.00, "2024-01-20", "Entregue"),
-            (3, 2, 1, 4500.00, "2024-02-10", "Entregue"),
-            (4, 3, 3, 850.00, "2024-02-12", "Entregue"),
-            (5, 4, 4, 1400.00, "2024-03-05", "Entregue"),
-            (6, 5, 2, 120.00, "2024-03-08", "Entregue"),
-            (7, 2, 2, 120.00, "2024-03-15", "Entregue"),
-            (8, 1, 4, 1400.00, "2024-04-01", "Entregue"),
-            (9, 3, 1, 4500.00, "2024-04-10", "Entregue"),
-            (10, 4, 2, 120.00, "2024-04-12", "Entregue"),
-        ],
-    )
-
-    cur.executemany(
-        "INSERT INTO tickets_suporte (id, produto_id, cliente_id, status, tempo_resolucao_horas) VALUES (?, ?, ?, ?, ?)",
-        [
-            (1, 1, 2, "Fechado", 24),
-            (2, 2, 1, "Fechado", 4),
-            (3, 1, 3, "Aberto", 72),
-            (4, 3, 4, "Fechado", 12),
-            (5, 2, 5, "Fechado", 8),
-        ],
-    )
-
-    cur.executemany(
-        "INSERT INTO avaliacoes (id, produto_id, cliente_id, nota, nps, data) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-            (1, 1, 1, 5, 9, "2024-01-20"),
-            (2, 2, 2, 4, 7, "2024-01-25"),
-            (3, 1, 3, 5, 10, "2024-02-15"),
-            (4, 3, 4, 3, 5, "2024-02-20"),
-            (5, 4, 1, 4, 8, "2024-03-10"),
-            (6, 2, 5, 4, 7, "2024-03-12"),
-            (7, 1, 2, 4, 8, "2024-04-05"),
-            (8, 4, 3, 5, 9, "2024-04-15"),
-        ],
-    )
-
-    conn.commit()
-    conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -164,14 +51,14 @@ async def _run_smoke_test(db_path: str) -> None:
         "Quais clientes sao da regiao Sudeste?",
     ]
 
-    from tests.smoke_test_config import (
+    from tests.integration.smoke_test_config import (
         BATCH_SIZE,
         DELAY_BETWEEN_BATCHES_SECONDS,
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
     )
 
-    from src.exceptions import LLMQuotaError
+    from src.core.exceptions import LLMQuotaError
 
     total_start = time.perf_counter()
     max_duration = MAX_DURATION_SECONDS
@@ -310,7 +197,7 @@ async def _run_smoke_test(db_path: str) -> None:
 
 def _print_summary(results: list, all_questions: list, api_calls: int = 0) -> None:
     """Imprime resumo dos resultados."""
-    from tests.smoke_test_config import MAX_API_CALLS_PER_DAY
+    from tests.integration.smoke_test_config import MAX_API_CALLS_PER_DAY
 
     print("\n--- RESUMO ---")
     success_count = sum(1 for r in results if r["status"] == "SUCESSO")
@@ -339,7 +226,7 @@ def _print_summary(results: list, all_questions: list, api_calls: int = 0) -> No
 
 def main() -> None:
     # Forca o carregamento do .env (src.config ja faz isso no import)
-    from src import config
+    from src.core import config
 
     if not config.GEMINI_API_KEY:
         print(
@@ -353,7 +240,7 @@ def main() -> None:
 
     try:
         print("Criando banco de teste temporario...")
-        _create_test_db(db_path)
+        create_test_db(db_path)
         print(f"Banco criado em: {db_path}\n")
 
         asyncio.run(_run_smoke_test(db_path))

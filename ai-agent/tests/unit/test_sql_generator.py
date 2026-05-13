@@ -7,7 +7,7 @@ Esta suite cobre o parser de SQL, a validação sintática mínima
 
 import pytest
 
-from src.sql_generator import _strip_sql_comments, _validate_syntax
+from src.llm.sql_generator import _strip_sql_comments, _validate_syntax
 
 
 # ---------------------------------------------------------------------------
@@ -16,15 +16,15 @@ from src.sql_generator import _strip_sql_comments, _validate_syntax
 
 
 def test_strip_sql_comments_removes_line_comment():
-    sql = "-- comentario\nSELECT * FROM clientes"
+    sql = "-- comentario\nSELECT * FROM dim_cliente"
     result = _strip_sql_comments(sql)
-    assert result == "SELECT * FROM clientes"
+    assert result == "SELECT * FROM dim_cliente"
 
 
 def test_strip_sql_comments_removes_block_comment():
-    sql = "/* bloco */\nSELECT * FROM clientes"
+    sql = "/* bloco */\nSELECT * FROM dim_cliente"
     result = _strip_sql_comments(sql)
-    assert result == "SELECT * FROM clientes"
+    assert result == "SELECT * FROM dim_cliente"
 
 
 def test_strip_sql_comments_removes_multiline_block_comment():
@@ -34,21 +34,21 @@ def test_strip_sql_comments_removes_multiline_block_comment():
 
 
 def test_strip_sql_comments_preserves_no_comment():
-    sql = "SELECT * FROM clientes"
+    sql = "SELECT * FROM dim_cliente"
     result = _strip_sql_comments(sql)
-    assert result == "SELECT * FROM clientes"
+    assert result == "SELECT * FROM dim_cliente"
 
 
 def test_strip_sql_comments_removes_inline_line_comment():
-    sql = "SELECT * FROM clientes -- filtro ativo"
+    sql = "SELECT * FROM dim_cliente -- filtro ativo"
     result = _strip_sql_comments(sql)
-    assert result == "SELECT * FROM clientes"
+    assert result == "SELECT * FROM dim_cliente"
 
 
 def test_strip_sql_comments_removes_inline_block_comment():
-    sql = "SELECT /* colunas */ * FROM clientes"
+    sql = "SELECT /* colunas */ * FROM dim_cliente"
     result = _strip_sql_comments(sql)
-    assert result == "SELECT  * FROM clientes"
+    assert result == "SELECT  * FROM dim_cliente"
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ def test_strip_sql_comments_removes_inline_block_comment():
 
 
 def test_validate_syntax_accepts_simple_select():
-    _validate_syntax("SELECT * FROM clientes")
+    _validate_syntax("SELECT * FROM dim_cliente")
 
 
 def test_validate_syntax_accepts_with_cte():
@@ -65,11 +65,11 @@ def test_validate_syntax_accepts_with_cte():
 
 
 def test_validate_syntax_accepts_select_with_line_comment():
-    _validate_syntax("-- comentario\nSELECT * FROM clientes")
+    _validate_syntax("-- comentario\nSELECT * FROM dim_cliente")
 
 
 def test_validate_syntax_accepts_select_with_block_comment():
-    _validate_syntax("/* bloco */\nSELECT * FROM clientes")
+    _validate_syntax("/* bloco */\nSELECT * FROM dim_cliente")
 
 
 def test_validate_syntax_accepts_with_multiline_comment():
@@ -78,32 +78,32 @@ def test_validate_syntax_accepts_with_multiline_comment():
 
 def test_validate_syntax_rejects_drop():
     with pytest.raises(ValueError, match="SELECT válido"):
-        _validate_syntax("DROP TABLE clientes")
+        _validate_syntax("DROP TABLE dim_cliente")
 
 
 def test_validate_syntax_rejects_drop_after_comment():
     with pytest.raises(ValueError, match="SELECT válido"):
-        _validate_syntax("-- comentario\nDROP TABLE clientes")
+        _validate_syntax("-- comentario\nDROP TABLE dim_cliente")
 
 
 def test_validate_syntax_rejects_delete():
     with pytest.raises(ValueError, match="SELECT válido"):
-        _validate_syntax("DELETE FROM clientes")
+        _validate_syntax("DELETE FROM dim_cliente")
 
 
 def test_validate_syntax_rejects_insert():
     with pytest.raises(ValueError, match="SELECT válido"):
-        _validate_syntax("INSERT INTO clientes VALUES (1)")
+        _validate_syntax("INSERT INTO dim_cliente VALUES (1)")
 
 
 def test_validate_syntax_rejects_update():
     with pytest.raises(ValueError, match="SELECT válido"):
-        _validate_syntax("UPDATE clientes SET nome = 'x'")
+        _validate_syntax("UPDATE dim_cliente SET nome = 'x'")
 
 
 def test_validate_syntax_accepts_subquery_with_parens():
-    _validate_syntax("(SELECT * FROM clientes)")
+    _validate_syntax("(SELECT * FROM dim_cliente)")
 
 
 def test_validate_syntax_accepts_select_after_multiple_parens():
-    _validate_syntax("(((SELECT * FROM clientes)))")
+    _validate_syntax("(((SELECT * FROM dim_cliente)))")

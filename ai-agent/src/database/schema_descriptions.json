@@ -41,7 +41,7 @@
         }
       }
     },
-    "fato_suporte_tickets": {
+    "fato_suporte_ticket": {
       "description": "Tabela fato com o histórico de tickets de atendimento ao cliente. Permite analisar volume, tempo de resolução e satisfação por tipo de problema, produto e agente.",
       "columns": {
         "id_ticket": {

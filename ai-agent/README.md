@@ -25,26 +25,41 @@ import asyncio
 from src.agent import VCommerceAgent
 
 agent = VCommerceAgent(db_path='../backend/data/vcommerce.db')
-response = asyncio.run(agent.ask('Quais os 10 produtos mais vendidos?'))
-print(response.text)
+
+# O agente lembra automaticamente do contexto (stateful)
+resp1 = asyncio.run(agent.ask('Quais os 10 produtos mais vendidos?'))
+resp2 = asyncio.run(agent.ask('E apenas na região Sul?'))  # Pergunta de follow-up
+print(resp2.text)
+
+# Persistência de sessão (opcional para o backend)
+history = agent.export_history()  # Retorna list[dict] serializável
+# ... salva em Redis/Banco de dados ...
+# ... restaura em uma nova requisição ...
+agent.import_history(history)
+
+# Inicia nova conversa
+agent.clear_history()
 ```
 
 ## Estrutura
 
-- `src/agent.py` — Classe pública `VCommerceAgent`
-- `src/sql_generator.py` — Chamada 1: NL → SQL
-- `src/insight_generator.py` — Chamada 2: dados → insight
-- `src/db.py` — Conexão e execução SQL
-- `src/schema.py` — Extração e formatação do schema do banco
-- `src/guardrails.py` — Validações de segurança
-- `src/config.py` — Configurações centralizadas
-- `src/prompts/` — System prompts em arquivos `.txt`
-- `tests/` — Testes automatizados (pytest)
+- `src/agent.py` — Classe pública `VCommerceAgent` (Facade)
+- `src/core/` — Configurações e tratamento de erros customizados
+- `src/database/` — Conexão, execução SQL e extração de schema
+- `src/llm/` — Geração de prompts, chamadas à API Gemini e clientes LLM
+- `src/security/` — Validações de segurança e guardrails
+- `tests/unit/` — Testes automatizados rápidos e isolados
+- `tests/integration/` — Smoke tests contra a API real e banco sintético
 
 ## Testes
 
 ```bash
-pytest tests/ -v
+# Testes unitários (rápidos, sem consumo de cota API)
+pytest tests/unit/ -v
+
+# Smoke tests de integração (consomem cota API)
+pytest tests/integration/ -v
+# ou rodar os scripts python manualmente
 ```
 
 ## Smoke Test
@@ -62,12 +77,14 @@ O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real.
 ### Como executar
 
 ```bash
-python tests/smoke_test.py
+python tests/integration/smoke_test.py
+python tests/integration/smoke_test_guardrails.py
+python tests/integration/smoke_test_memory.py
 ```
 
 ### O que o script faz
 
-1. **Cria um banco SQLite temporário** com 5 tabelas (`clientes`, `produtos`, `pedidos`, `tickets_suporte`, `avaliacoes`) e dados sintéticos mínimos para os 3 domínios.
+1. **Cria um banco SQLite temporário** com as tabelas principais (`dim_cliente`, `dim_produto`, `fato_vendas`, `fato_suporte_ticket`, `fato_avaliacoes_pedido`, `dim_tempo`) e dados sintéticos mínimos para os domínios.
 2. **Instancia `VCommerceAgent`** apontando para esse banco.
 3. **Executa 5 perguntas em lotes de 2**, com intervalo de 75 segundos entre lotes para respeitar o rate limit do free tier da Gemini:
    - **Vendas:** Receita por região, ticket médio
@@ -90,7 +107,7 @@ python tests/smoke_test.py
 ## Limitações Conhecidas
 
 - O agente depende do schema do banco Gold estar atualizado.
-- Memória de conversa é mantida em memória (não persistente).
+- A memória de conversa é mantida no estado da instância do agente. Para persistência entre requisições HTTP, o backend deve serializar os dados via `export_history()` e restaurá-los com `import_history()`.
 - Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
 - A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional — o escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.

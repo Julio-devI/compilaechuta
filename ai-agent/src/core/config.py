@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Carrega variáveis do .env localizado na raiz do módulo ai-agent
-_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+_ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=_ENV_PATH)
 
 
@@ -42,6 +42,9 @@ MAX_ROWS: int = 1000
 
 MAX_INPUT_CHARS: int = 500
 """Limite de caracteres para a pergunta do usuário (pré-LLM)."""
+
+MAX_HISTORY_TURNS: int = 20
+"""Número máximo de turnos (pares pergunta/resposta) mantidos no histórico da conversa."""
 
 OUT_OF_SCOPE_MARKER: str = "FORA_DO_ESCOPO"
 """Marcador textual retornado pelo LLM quando a pergunta está fora do escopo do domínio."""

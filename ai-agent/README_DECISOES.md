@@ -322,6 +322,8 @@
 
 - **Implicações:** O custo em tokens do prompt de correção aumenta proporcionalmente ao tamanho do histórico, mas o impacto é marginal dado que correções são raras (menos de 10% das chamadas) e o histórico já é truncado a 20 turnos (DA-19).
 
+---
+
 ### DA-25: Reorganização da Estrutura de Diretórios por Domínio
 
 - **Contexto:** A estrutura original agrupava todos os arquivos no diretório src/ raiz e tests/ raiz, misturando componentes de diferentes naturezas (LLM, banco de dados, segurança) e tipos de teste (unitários rápidos e smoke tests lentos de integração).
@@ -329,7 +331,10 @@
 - **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade: src/core, src/database, src/llm, src/security e separando os testes em tests/unit/ e tests/integration/. O agent.py atua como facade na raiz do src/.
 
 - **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+
 - **Implicações:** Todos os imports internos do projeto foram remapeados. As automações de CI/CD podem agora isolar a execução da pasta tests/unit/ sem consumir a cota de tokens da API do Gemini e separar testes de integração na pipeline de homologação.
+
+---
 
 ### DA-26: Rastreabilidade Backend vs Opacidade Frontend via Error Codes de Guardrail
 
@@ -340,3 +345,48 @@
 - **Justificativa:** Conforme levantado pelo desenvolvedor, em um sistema real com múltiplos usuários, é necessário que o backend identifique a violação exata para poder aplicar tratativas punitivas adequadas (ex: aplicar *timeout* ou banimento automático em usuários que tentarem realizar *prompt injection* de forma maliciosa).
 
 - **Implicações:** O backend (consumidor do pacote `ai-agent`) passa a ter a capacidade de monitorar exatamente o motivo das falhas baseadas em segurança e infraestrutura local (ex: `PROMPT_INJECTION`, `EXECUTION_TIMEOUT`). Testes automatizados deverão ser atualizados para validar o `error_code`.
+
+---
+
+### DA-27: Resposta Pública Estruturada com Dados do Banco
+
+- **Contexto:** O backend precisa consumir respostas previsíveis do agente e o frontend precisa renderizar seções alinhadas ao layout do Figma, sem depender de parsing de texto livre.
+- **Decisão:** `AgentResponse` passa a expor `status`, `presentation`, `data`, `chart`, `sql`, `error`, `out_of_scope` e `truncated`. O campo `error` sempre existe no contrato como objeto estruturado ou `null`, usando códigos específicos para falhas de guardrail, banco, parsing e LLM. O SQL continua sendo enviado ao backend como metadado técnico, mas não faz parte da apresentação ao usuário. O campo `data` é preenchido exclusivamente com linhas retornadas pelo banco após execução do SQL validado; a Chamada 2 gera apenas apresentação textual e sugestão de gráfico. As fontes exibíveis usam aliases de negócio definidos em `schema_descriptions.json` ou inferidos automaticamente a partir do nome físico da tabela, evitando expor nomes como `dim_cliente` ao frontend.
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Implicações:** O backend passa a consumir um contrato mais estável e consegue distinguir sucesso, erro e fora de escopo via `status`. Falhas do provedor LLM podem ser tratadas por código específico, como autenticação, rate limit, quota, timeout e indisponibilidade. O frontend pode renderizar `presentation` sem interpretar texto livre e sem conhecer nomes técnicos de tabelas. A Chamada 2 deixa de ser fonte de verdade para dados, reduzindo risco de alucinação ou divergência entre resultado SQL e visualização.
+
+---
+
+### DA-28: Separação de Resposta Analítica e Origem dos Dados
+
+- **Contexto:** O backend precisa consumir separadamente o texto principal da resposta e a explicação sobre a origem dos dados, sem perder compatibilidade com consumidores que já usam o campo legado `text`.
+- **Decisão:** Adicionar `answer_text` e `sources_text` ao `AgentResponse`. O campo `text` permanece como composição compatível dos dois textos. O campo técnico `sql` permanece bruto, formatado e executável, sem sanitização.
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Implicações:** O backend pode renderizar ou armazenar resposta e fontes separadamente. Textos humanos continuam usando aliases de negócio e ocultando prefixos físicos de tabelas, enquanto `sql` continua adequado para auditoria técnica.
+
+---
+
+### DA-29: Separação de Payload Público e Debug Técnico
+
+- **Contexto:** O backend precisa distinguir com clareza quais campos podem ser enviados ao frontend e quais campos existem apenas para auditoria, logs e troubleshooting.
+- **Decisão:** Adicionar `user_response` e `developer_debug` ao `AgentResponse` como grupos explícitos para consumo do frontend e do backend.
+- **Justificativa:** As descrições detalhadas do schema auxiliam a geração de SQL e a interpretação pelo agente, mas não são úteis para o backend. Separar payload público e debug técnico reduz ambiguidade de integração e evita que SQL, erros internos ou metadados técnicos sejam tratados como conteúdo de usuário.
+- **Implicações:** O backend novo deve preferir `user_response` para o frontend e `developer_debug` para logs. As descrições longas das fontes permanecem internas ao agente, enquanto `sources_text` expõe apenas uma explicação curta e empresarial.
+
+---
+
+### DA-30: Contrato Enxuto Para Integração Inicial
+
+- **Contexto:** O contrato entre backend e agente estava extenso e ainda não havia consumidor externo usando os campos legados.
+- **Decisão:** Remover os campos top-level legados do `AgentResponse` e manter apenas `status`, `user_response` e `developer_debug`. O payload de erro técnico permanece disponível ao backend em `developer_debug.error`.
+- **Justificativa:** Como ainda não há consumidor do contrato, posso remover a compatibilidade temporária agora para permitir uma integração inicial mais clara. O backend precisa receber erros estruturados de uso normal do agente para diagnosticar falhas sem expor detalhes técnicos ao frontend.
+- **Implicações:** O backend deve tratar `AgentResponse` como envelope de integração e encaminhar apenas `user_response` ao frontend. Logs, auditoria, SQL gerado e erros mapeados devem usar `developer_debug`.
+
+---
+
+### DA-31: Validação de Tipo no Contrato Público e Separação de Mensagens de Erro
+
+- **Contexto:** Foram identificadas duas fragilidades no contrato público do módulo: (1) `ask(question)` não validava o tipo do parâmetro em runtime, permitindo que `ask(None)` ou `ask(123)` lançassem `AttributeError` fora do envelope estruturado de resposta; e (2) `developer_debug.error.message` recebia mensagem genérica igual à `user_response.answer_text`, perdendo o detalhe técnico da exceção original que o backend precisa para logs.
+- **Decisão:** Adicionar uma Camada 0 de validação de tipo em `ask()` — antes mesmo das guardrails — que retorna `AgentResponse` com `status="error"` e código `INVALID_INPUT_TYPE` quando `question` não é `str`. Além disso, garantir que todos os callers de erro em `ask()` passem `message=str(exc)` para `_make_error_response`, preservando a mensagem genérica em `user_response.answer_text` e o detalhe técnico em `developer_debug.error.message`.
+- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Implicações:** O backend pode confiar que qualquer violação do contrato público retorna um `AgentResponse` estruturado em vez de propagar exceção de programação. Logs técnicos do backend passam a ter acesso ao detalhe completo da falha (ex.: mensagem da exceção de schema, timeout ou guardrail) sem expor informações sensíveis ou técnicas ao frontend. O fallback para mensagem genérica em `developer_debug.error.message` permanece caso um caller futuro omita o parâmetro.

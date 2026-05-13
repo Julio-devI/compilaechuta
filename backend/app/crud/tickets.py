@@ -57,8 +57,19 @@ async def update_ticket(
     db_ticket = await get_ticket(db, ticket_id)
     if not db_ticket:
         return None
+    
+    dados = ticket.model_dump(exclude_unset=True)
 
-    for field, value in ticket.model_dump(exclude_unset=True).items():
+    # Converter UTC → São Paulo
+    if dados.get("data_resolucao"):
+        dados["data_resolucao"] = (
+            dados["data_resolucao"]
+            .astimezone(ZoneInfo("America/Sao_Paulo"))
+            .replace(tzinfo=None, microsecond=0)
+        )
+
+
+    for field, value in dados.items():
         setattr(db_ticket, field, value)
 
     await db.commit()

@@ -411,10 +411,9 @@ export function Clientes() {
               <thead>
                 <tr className="bg-[#020854] first:rounded-l-xl last:rounded-r-xl">
                   <th className="py-4 px-4 text-left rounded-l-xl">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
                   </th>
                   <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('nome')}>
-                    <div className="flex items-center gap-2">Cliente <SortIcon columnKey="nome" /></div>
+                    <div className="flex items-center gap-2">Cliente </div>
                   </th>
                   <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('status')}>
                     <div className="flex items-center gap-2">Segmento RFM <SortIcon columnKey="status" /></div>
@@ -426,10 +425,7 @@ export function Clientes() {
                     <div className="flex items-center gap-2">Último Pedido <SortIcon columnKey="ultimoPedido" /></div>
                   </th>
                   <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('ticketMedio')}>
-                    <div className="flex items-center gap-2">Ticket médio <SortIcon columnKey="ticketMedio" /></div>
-                  </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('segmento')}>
-                    <div className="flex items-center gap-2">Segmento <SortIcon columnKey="segmento" /></div>
+                    <div className="flex items-center gap-2">Ticket médio </div>
                   </th>
                   <th className="py-4 px-4 text-white font-medium text-sm rounded-r-xl">Ações</th>
                 </tr>
@@ -438,7 +434,6 @@ export function Clientes() {
                 {sortedClientes.map((cliente) => (
                   <tr key={cliente.id} className="border-b border-border hover:bg-[#1E5EFF]/5 dark:hover:bg-[#1E5EFF]/10 transition-colors">
                     <td className="py-4 px-4">
-                      <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]" />
                     </td>
                     <td className="py-4 px-2">
                       <div className="flex items-center gap-3">
@@ -457,9 +452,6 @@ export function Clientes() {
                     <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.lvtTotal}</td>
                     <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.ultimoPedido}</td>
                     <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.ticketMedio}</td>
-                    <td className="py-4 px-2">
-                      <span className={`px-4 py-1 rounded-full text-xs font-bold border ${cliente.segmento === 'Moda' ? 'border-[#38BDF8] text-[#0369A1]' : 'border-[#3B82F6] text-[#1E40AF]'}`}>{cliente.segmento}</span>
-                    </td>
                     <td className="py-4 px-4">
                       <button
                         className="text-sm font-medium text-[#1E5EFF] hover:underline cursor-pointer"

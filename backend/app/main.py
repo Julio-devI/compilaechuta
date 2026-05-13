@@ -5,9 +5,9 @@ from app.core.config import settings
 from app.api.v1.clients import router as clientes_router
 from app.api.v1.tickets import router as tickets_router
 from app.api.v1.products import router as produtos_router
-from app.api.v1.categories import router as categorias_router
+from app.api.v1.category import router as categorias_router
 from app.api.v1.orders import router as pedidos_router
-from app.api.v1.dashboards import router as dashboards_router
+from app.api.v1.dashboard import router as dashboards_router
 
 import app.models.clients  # noqa: F401
 import app.models.tickets  # noqa: F401

@@ -60,7 +60,7 @@ export function Produtos() {
   }
 
   const ProdutoCardSkeleton = () => (
-    <div className="bg-white p-6 rounded-3xl border border-slate-100 animate-pulse flex flex-col justify-between h-full">
+    <div className="bg-card p-6 rounded-3xl border border-border animate-pulse flex flex-col justify-between h-full">
       <div>
         <div className="w-full h-40 bg-slate-200 rounded-2xl mb-4"></div>
         <div className="flex flex-col gap-2">
@@ -83,21 +83,21 @@ export function Produtos() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-8 font-sans text-slate-900">
+    <div className="min-h-screen bg-background p-8 font-sans text-foreground">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-bold text-[#020854]">Produtos</h1>
+        <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground">Produtos</h1>
       </div>
 
       {/* 1. Database Search Card */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
+      <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
          <div className="relative w-full max-w-2xl">
-          <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <Search className="w-5 h-5 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por nome do produto ou SKU..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-[#F1F5F9] rounded-full border-none text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full pl-12 pr-4 py-4 bg-background rounded-full border-none text-foreground focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
         <div className="flex items-center gap-4">
@@ -108,23 +108,23 @@ export function Produtos() {
             <Plus className="w-5 h-5" />
             Novo Produto
           </button>
-          <button className="flex items-center gap-2 px-6 py-4 bg-[#EBEBF0] rounded-full text-[#6B7588] font-bold hover:bg-[#E2E8F0] transition-colors">
+          <button className="flex items-center gap-2 px-6 py-4 bg-background rounded-full text-muted-foreground font-bold hover:bg-slate-200 dark:hover:bg-border transition-colors">
             <Download className="w-5 h-5" /> Exportar CSV
           </button>
         </div>
       </div>
 
       {/* 2. Seção de Filtros (Conforme Imagem) */}
-      <div className="bg-white rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
+      <div className="bg-card rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
         <div className="p-6 flex justify-between items-center">
           <button
             onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
-            className="flex items-center gap-2 font-bold text-slate-800 border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
+            className="flex items-center gap-2 font-bold text-foreground border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
           >
             {isFiltrosOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
             {isFiltrosOpen ? 'Esconder Filtros' : 'Mostrar Filtros'}
           </button>
-          {isFiltrosOpen ? <Minimize2 className="w-5 h-5 text-slate-400" /> : <Maximize2 className="w-5 h-5 text-slate-400" />}
+          {isFiltrosOpen ? <Minimize2 className="w-5 h-5 text-muted-foreground" /> : <Maximize2 className="w-5 h-5 text-muted-foreground" />}
         </div>
 
         {isFiltrosOpen && (
@@ -132,19 +132,19 @@ export function Produtos() {
             {/* Coluna Esquerda */}
             <div className="space-y-6">
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Box className="w-4 h-4" /> Categoria
                 </label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-[#F1F5F9] rounded-2xl border-none text-slate-400 outline-none appearance-none cursor-pointer">
+                  <select className="w-full p-4 bg-background rounded-2xl border-none text-muted-foreground outline-none appearance-none cursor-pointer">
                     <option>Todas as Categorias</option>
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Filter className="w-4 h-4" /> Status
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -158,14 +158,14 @@ export function Produtos() {
             {/* Coluna Direita */}
             <div className="space-y-6">
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Calendar className="w-4 h-4" /> Faixa de Preço
                 </label>
                 <div className="flex gap-2">
                   <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Todos</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Até R$ 100</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">R$ 100 - R$ 500</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold">Acima de R$ 500</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Até R$ 100</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">R$ 100 - R$ 500</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Acima de R$ 500</button>
                 </div>
               </div>
             </div>
@@ -175,18 +175,18 @@ export function Produtos() {
 
       {/* 3. Tabela Header */}
       <div className="flex justify-between items-end mb-6">
-        <h2 className="text-2xl font-bold text-[#020854]">{produtosMock.length} Produtos Encontrados</h2>
-        <div className="flex items-center gap-2 bg-slate-200 p-1 rounded-xl">
-          <button 
+        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">{produtosMock.length} Produtos Encontrados</h2>
+        <div className="flex items-center gap-2 bg-slate-200 dark:bg-border p-1 rounded-xl">
+          <button
             onClick={() => handleViewChange('tabela')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'tabela' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-300'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'tabela' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-slate-300 dark:hover:bg-background'}`}
           >
             <Table className="w-4 h-4" />
             Tabela
           </button>
-          <button 
+          <button
             onClick={() => handleViewChange('grade')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'grade' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-300'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'grade' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-slate-300 dark:hover:bg-background'}`}
           >
             <Grid className="w-4 h-4" />
             Grade
@@ -203,7 +203,7 @@ export function Produtos() {
             ))}
           </div>
         ) : viewMode === 'tabela' ? (
-          <div className="w-full overflow-x-auto bg-white rounded-3xl p-4 shadow-sm">
+          <div className="w-full overflow-x-auto bg-card rounded-3xl p-4 shadow-sm">
             <table className="w-full border-separate border-spacing-y-2">
               <thead>
                 <tr className="bg-[#020854] text-white">
@@ -222,7 +222,7 @@ export function Produtos() {
                 {produtosMock.map((produto, idx) => (
                   <tr
                     key={idx}
-                    className="bg-white group cursor-pointer hover:bg-[#F8FAFC] transition-colors border-b border-slate-100"
+                    className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
                     onClick={() => setProdutoSelecionado(produto)}
                   >
                      <td className="py-4 px-4 rounded-l-2xl border-0">
@@ -230,10 +230,10 @@ export function Produtos() {
                     </td>
                     <td className="py-4 px-6 border-0">
                       <div className="flex items-center gap-4">
-                         <img src={produto.imagem} alt={produto.nome} className="w-12 h-12 rounded-xl object-cover border border-slate-200" />
+                         <img src={produto.imagem} alt={produto.nome} className="w-12 h-12 rounded-xl object-cover border border-border" />
                         <div className="flex flex-col gap-1">
-                          <span className="font-black text-[#020854] text-base">{produto.nome}</span>
-                          <span className="text-slate-400 text-[10px] font-bold uppercase">{produto.sku}</span>
+                          <span className="font-black text-[#020854] dark:text-foreground text-base">{produto.nome}</span>
+                          <span className="text-muted-foreground text-[10px] font-bold uppercase">{produto.sku}</span>
                         </div>
                       </div>
                     </td>
@@ -245,15 +245,15 @@ export function Produtos() {
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                       <span className="font-bold text-slate-600">{produto.estoque} un</span>
+                       <span className="font-bold text-muted-foreground">{produto.estoque} un</span>
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                       <span className="font-bold text-slate-600">{produto.vendidos}</span>
+                       <span className="font-bold text-muted-foreground">{produto.vendidos}</span>
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                      <span className="text-blue-900 font-black text-lg whitespace-nowrap">{produto.preco}</span>
+                      <span className="text-blue-900 dark:text-blue-300 font-black text-lg whitespace-nowrap">{produto.preco}</span>
                     </td>
 
                     <td className="py-4 px-6 rounded-r-2xl border-0">
@@ -271,11 +271,11 @@ export function Produtos() {
             {produtosMock.map((produto) => (
               <div 
                 key={produto.id} 
-                className="bg-white p-6 rounded-3xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow cursor-pointer h-full"
+                className="bg-card p-6 rounded-3xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow cursor-pointer h-full"
                 onClick={() => setProdutoSelecionado(produto)}
               >
                 <div>
-                  <div className="w-full h-48 rounded-2xl overflow-hidden mb-4 border border-slate-100 relative">
+                  <div className="w-full h-48 rounded-2xl overflow-hidden mb-4 border border-border relative">
                      <img src={produto.imagem} alt={produto.nome} className="w-full h-full object-cover" />
                      <span className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-black shadow-sm ${getStatusColor(produto.status)}`}>
                         {produto.status.toUpperCase()}
@@ -283,9 +283,9 @@ export function Produtos() {
                   </div>
                   
                   <div className="mb-4">
-                    <h3 className="font-black text-[#020854] text-lg leading-tight mb-2">{produto.nome}</h3>
+                    <h3 className="font-black text-[#020854] dark:text-foreground text-lg leading-tight mb-2">{produto.nome}</h3>
                     <div className="flex items-center gap-2">
-                       <p className="text-slate-400 text-[10px] font-bold uppercase">{produto.sku}</p>
+                       <p className="text-muted-foreground text-[10px] font-bold uppercase">{produto.sku}</p>
                        <span className="bg-sky-100 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider">
                          {produto.categoria}
                        </span>
@@ -294,12 +294,12 @@ export function Produtos() {
 
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 font-bold">Estoque</span>
-                      <span className="font-bold text-slate-700">{produto.estoque} un</span>
+                      <span className="text-muted-foreground font-bold">Estoque</span>
+                      <span className="font-bold text-foreground">{produto.estoque} un</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 font-bold">Preço</span>
-                      <span className="font-black text-blue-900 text-lg">{produto.preco}</span>
+                      <span className="text-muted-foreground font-bold">Preço</span>
+                      <span className="font-black text-blue-900 dark:text-blue-300 text-lg">{produto.preco}</span>
                     </div>
                   </div>
                 </div>

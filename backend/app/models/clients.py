@@ -20,3 +20,4 @@ class Cliente(Base):
     segmento_rfm           = Column(String, nullable=True)
 
     tickets = relationship("Ticket", back_populates="cliente", lazy="selectin")
+    pedidos = relationship("Pedido", back_populates="cliente", lazy="selectin")

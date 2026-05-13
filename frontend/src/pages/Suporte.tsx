@@ -106,43 +106,43 @@ export function Suporte() {
   })
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-8 font-sans text-slate-900">
+    <div className="min-h-screen bg-background p-8 font-sans text-foreground">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-bold text-[#020854]">Suporte & Tickets</h1>
+        <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground">Suporte & Tickets</h1>
       </div>
 
       {/* 1. Cards de Resumo */}
       <div className="grid grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center justify-between">
+        <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-[#64748B] text-sm font-bold uppercase tracking-wider mb-1">Total de Tickets</p>
-            <p className="text-3xl font-black text-[#020854]">{ticketsMock.length}</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Total de Tickets</p>
+            <p className="text-3xl font-black text-[#020854] dark:text-foreground">{ticketsMock.length}</p>
           </div>
           <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center">
             <Ticket className="w-7 h-7 text-blue-600" />
           </div>
         </div>
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center justify-between">
+        <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-[#64748B] text-sm font-bold uppercase tracking-wider mb-1">Tickets Abertos</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Tickets Abertos</p>
             <p className="text-3xl font-black text-amber-500">{ticketsMock.filter(t => t.status === 'aberto').length}</p>
           </div>
           <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center">
             <AlertCircle className="w-7 h-7 text-amber-500" />
           </div>
         </div>
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center justify-between">
+        <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-[#64748B] text-sm font-bold uppercase tracking-wider mb-1">Resolvidos</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Resolvidos</p>
             <p className="text-3xl font-black text-emerald-500">{ticketsMock.filter(t => t.status === 'resolvido').length}</p>
           </div>
           <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center">
             <CheckCircle2 className="w-7 h-7 text-emerald-500" />
           </div>
         </div>
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center justify-between">
+        <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-[#64748B] text-sm font-bold uppercase tracking-wider mb-1">Tempo Médio</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Tempo Médio</p>
             <p className="text-3xl font-black text-purple-600">
               {(ticketsMock.reduce((acc, t) => acc + (t.tempo_resolucao_horas || 0), 0) / (ticketsMock.filter(t => t.status === 'resolvido').length || 1)).toFixed(1)}h
             </p>
@@ -154,7 +154,7 @@ export function Suporte() {
       </div>
 
       {/* 2. Database Search Card */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
+      <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
          <div className="relative w-full max-w-3xl">
           <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
@@ -162,7 +162,7 @@ export function Suporte() {
             placeholder="Buscar por ID do ticket ou nome do cliente..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-[#F1F5F9] rounded-full border-none text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+            className="w-full pl-12 pr-4 py-4 bg-background rounded-full border-none text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none font-medium"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -172,11 +172,11 @@ export function Suporte() {
       </div>
 
       {/* 3. Seção de Filtros */}
-      <div className="bg-white rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
+      <div className="bg-card rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
         <div className="p-6 flex justify-between items-center">
           <button
             onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
-            className="flex items-center gap-2 font-bold text-slate-800 border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
+            className="flex items-center gap-2 font-bold text-foreground border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
           >
             {isFiltrosOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
             {isFiltrosOpen ? 'Esconder Filtros' : 'Mostrar Filtros'}
@@ -189,26 +189,26 @@ export function Suporte() {
             {/* Coluna Esquerda */}
             <div className="space-y-6">
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Filter className="w-4 h-4" /> Status do Ticket
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button 
                     onClick={() => setFilterStatus('todos')}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'todos' ? 'bg-[#020854] text-white shadow-md' : 'bg-[#F1F5F9] text-slate-500 hover:bg-slate-200'}`}
+                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'todos' ? 'bg-[#020854] text-white shadow-md' : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'}`}
                   >
                     Todos
                   </button>
-                  <button 
+                  <button
                     onClick={() => setFilterStatus('aberto')}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'aberto' ? 'bg-[#FEF9C3] text-[#A16207] shadow-md border border-[#FEF08A]' : 'bg-[#F1F5F9] text-slate-500 hover:bg-[#FEF9C3] hover:text-[#A16207]'}`}
+                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'aberto' ? 'bg-[#FEF9C3] text-[#A16207] shadow-md border border-[#FEF08A]' : 'bg-background text-muted-foreground hover:bg-[#FEF9C3] hover:text-[#A16207]'}`}
                   >
                     <span className="w-2 h-2 rounded-full bg-[#A16207]"></span>
                     Aberto
                   </button>
-                  <button 
+                  <button
                     onClick={() => setFilterStatus('resolvido')}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'resolvido' ? 'bg-[#DCFCE7] text-[#15803D] shadow-md border border-[#BBF7D0]' : 'bg-[#F1F5F9] text-slate-500 hover:bg-[#DCFCE7] hover:text-[#15803D]'}`}
+                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'resolvido' ? 'bg-[#DCFCE7] text-[#15803D] shadow-md border border-[#BBF7D0]' : 'bg-background text-muted-foreground hover:bg-[#DCFCE7] hover:text-[#15803D]'}`}
                   >
                     <span className="w-2 h-2 rounded-full bg-[#15803D]"></span>
                     Resolvido
@@ -217,16 +217,16 @@ export function Suporte() {
               </div>
 
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Headphones className="w-4 h-4" /> Agente de Suporte
                 </label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-[#F1F5F9] rounded-2xl border-none text-slate-600 font-medium outline-none appearance-none cursor-pointer">
+                  <select className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none appearance-none cursor-pointer">
                     <option>Todos os Agentes</option>
                     <option>Carlos Silva</option>
                     <option>Ana Costa</option>
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -234,30 +234,30 @@ export function Suporte() {
             {/* Coluna Direita */}
             <div className="space-y-6">
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Calendar className="w-4 h-4" /> Data de Abertura
                 </label>
                 <div className="flex gap-2">
                   <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Todos</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200">Hoje</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200">Últimos 7 dias</button>
-                  <button className="bg-[#F1F5F9] text-[#6B7588] px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200">Personalizado</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-border">Hoje</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-border">Últimos 7 dias</button>
+                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-border">Personalizado</button>
                 </div>
               </div>
               
               <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] mb-3 text-sm">
+                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Box className="w-4 h-4" /> Tipo de Problema
                 </label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-[#F1F5F9] rounded-2xl border-none text-slate-600 font-medium outline-none appearance-none cursor-pointer">
+                  <select className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none appearance-none cursor-pointer">
                     <option>Todos os Problemas</option>
                     <option>Atraso na Entrega</option>
                     <option>Produto com Defeito</option>
                     <option>Dúvida de Pagamento</option>
                     <option>Troca de Produto</option>
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -266,7 +266,7 @@ export function Suporte() {
       </div>
 
       {/* 4. Lista de Tickets (Tabela com visual moderno) */}
-      <div className="w-full overflow-x-auto bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
+      <div className="w-full overflow-x-auto bg-card rounded-3xl p-4 shadow-sm border border-border">
         <table className="w-full border-separate border-spacing-y-2">
           <thead>
             <tr className="bg-[#020854] text-white">
@@ -283,14 +283,14 @@ export function Suporte() {
             {filteredTickets.map((ticket, idx) => (
               <tr
                 key={idx}
-                className="bg-white group cursor-pointer hover:bg-[#F8FAFC] transition-colors border-b border-slate-100"
+                className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
                 onClick={() => setTicketSelecionado(ticket)}
               >
                 <td className="py-4 px-6 rounded-l-2xl border-0">
                   <div className="flex flex-col gap-1">
-                    <span className="font-black text-[#020854] text-lg">{ticket.id_ticket}</span>
+                    <span className="font-black text-[#020854] dark:text-foreground text-lg">{ticket.id_ticket}</span>
                     {ticket.agente_suporte ? (
-                      <span className="text-slate-400 text-[10px] font-bold uppercase flex items-center gap-1">
+                      <span className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-1">
                         <User className="w-3 h-3" /> {ticket.agente_suporte}
                       </span>
                     ) : (
@@ -307,30 +307,30 @@ export function Suporte() {
                       {getInitials(ticket.nome_cliente)}
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-800">{ticket.nome_cliente}</span>
-                      <span className="text-slate-400 text-xs font-medium">{ticket.id_cliente}</span>
+                      <span className="font-bold text-foreground">{ticket.nome_cliente}</span>
+                      <span className="text-muted-foreground text-xs font-medium">{ticket.id_cliente}</span>
                     </div>
                   </div>
                 </td>
 
                 <td className="py-4 px-6 border-0">
                   <div className="flex flex-col gap-1">
-                    <span className="font-bold text-slate-700">{ticket.tipo_problema}</span>
+                    <span className="font-bold text-foreground">{ticket.tipo_problema}</span>
                     <div className="flex gap-2">
                       {ticket.id_pedido && (
-                        <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold uppercase">Ped: {ticket.id_pedido}</span>
+                        <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Ped: {ticket.id_pedido}</span>
                       )}
                       {ticket.id_produto && (
-                        <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold uppercase">Prod: {ticket.id_produto}</span>
+                        <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Prod: {ticket.id_produto}</span>
                       )}
                     </div>
                   </div>
                 </td>
 
                 <td className="py-4 px-6 border-0">
-                  <span className="text-slate-500 font-medium text-sm">
+                  <span className="text-muted-foreground font-medium text-sm">
                     {new Date(ticket.data_abertura).toLocaleDateString('pt-BR')} <br/>
-                    <span className="text-xs text-slate-400">{new Date(ticket.data_abertura).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+                    <span className="text-xs text-muted-foreground">{new Date(ticket.data_abertura).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
                   </span>
                 </td>
 
@@ -340,23 +340,23 @@ export function Suporte() {
                        <span className="text-emerald-600 font-bold text-sm">
                          {new Date(ticket.data_resolucao).toLocaleDateString('pt-BR')}
                        </span>
-                       <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded w-fit">
+                       <span className="text-xs font-bold text-muted-foreground bg-background px-2 py-0.5 rounded w-fit">
                          {ticket.tempo_resolucao_horas}h
                        </span>
                     </div>
                   ) : (
-                    <span className="text-slate-300 italic text-sm">-</span>
+                    <span className="text-muted-foreground italic text-sm">-</span>
                   )}
                 </td>
 
                 <td className="py-4 px-6 border-0">
                   {ticket.nota_avaliacao ? (
                     <div className="flex items-center gap-1">
-                      <span className="font-black text-slate-800">{ticket.nota_avaliacao.toFixed(1)}</span>
+                      <span className="font-black text-foreground">{ticket.nota_avaliacao.toFixed(1)}</span>
                       <span className="text-[#FFD700] text-lg leading-none">★</span>
                     </div>
                   ) : (
-                    <span className="text-slate-300 italic text-sm">-</span>
+                    <span className="text-muted-foreground italic text-sm">-</span>
                   )}
                 </td>
 
@@ -371,7 +371,7 @@ export function Suporte() {
         </table>
         
         {filteredTickets.length === 0 && (
-          <div className="w-full py-12 flex flex-col items-center justify-center text-slate-400">
+          <div className="w-full py-12 flex flex-col items-center justify-center text-muted-foreground">
              <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
              <p className="font-bold text-lg">Nenhum ticket encontrado.</p>
              <p className="text-sm">Tente ajustar seus filtros de busca.</p>

@@ -4,13 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="58482bf3-993b-4a64-93f4-dd797d2d882b" name="Changes" comment="fix: Fix the latency queries">
+    <list default="true" id="58482bf3-993b-4a64-93f4-dd797d2d882b" name="Changes" comment="fix: Query latency correction">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/orders.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/crud/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/crud/orders.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/orders.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/orders.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/vcommerce.db" beforeDir="false" afterPath="$PROJECT_DIR$/backend/vcommerce.db" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -130,7 +126,7 @@
       <workItem from="1778621688893" duration="13156000" />
       <workItem from="1778669536308" duration="4676000" />
       <workItem from="1778683833745" duration="44000" />
-      <workItem from="1778683926497" duration="16981000" />
+      <workItem from="1778683926497" duration="17419000" />
     </task>
     <task id="LOCAL-00001" summary="feat: update dependencies">
       <option name="closed" value="true" />
@@ -172,7 +168,15 @@
       <option name="project" value="LOCAL" />
       <updated>1778712136096</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="fix: Query latency correction">
+      <option name="closed" value="true" />
+      <created>1778714637288</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1778714637288</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -190,7 +194,8 @@
     <MESSAGE value="feat: Creating filters for LVT, region, and start and end dates." />
     <MESSAGE value="fix: adjustments in clients table" />
     <MESSAGE value="fix: Fix the latency queries" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: Fix the latency queries" />
+    <MESSAGE value="fix: Query latency correction" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: Query latency correction" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/compilaechuta$main.coverage" NAME="main Coverage Results" MODIFIED="1778701304950" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />

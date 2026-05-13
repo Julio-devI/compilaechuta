@@ -1,6 +1,6 @@
 from typing import Optional
-
-from sqlalchemy import select, func
+from datetime import date
+from sqlalchemy import select, func, or_, cast, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import Cliente
@@ -8,22 +8,66 @@ from app.schemas.clients import ClienteCreate
 
 
 async def get_clients(
-    db: AsyncSession,
-    cidade: Optional[str] = None,
-    valor_minimo: Optional[float] = None,
-    frequencia_minima: Optional[int] = None,
-    status_ticket: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 100,
+        db: AsyncSession,
+        cidade: Optional[str] = None,
+        frequencia_minima: Optional[int] = None,
+        status_ticket: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+        ticket_min: Optional[float] = None,
+        ticket_max: Optional[float] = None,
+        lvt_min: Optional[float] = None,
+        lvt_max: Optional[float] = None,
+        data_inicio: Optional[date] = None,
+        data_fim: Optional[date] = None,
+        regiao: Optional[str] = None,
 ) -> tuple[int, list[Cliente]]:
     query = select(Cliente)
 
+    # Convert to float to avoid integer division issues in SQLite/Postgres depending on the driver
+    ticket_medio_exp = cast(Cliente.total_gasto_brl, Float) / func.nullif(cast(Cliente.qtd_pedidos_realizados, Float), 0)
+
+    if ticket_min is not None:
+        query = query.where(ticket_medio_exp >= ticket_min)
+
+    if ticket_max is not None:
+        query = query.where(ticket_medio_exp <= ticket_max)
+
+    if lvt_min is not None:
+        query = query.where(Cliente.total_gasto_brl >= lvt_min)
+
+    if lvt_max is not None:
+        query = query.where(Cliente.total_gasto_brl <= lvt_max)
+        
+    if data_inicio is not None:
+        query = query.where(Cliente.data_ultima_compra >= data_inicio)
+        
+    if data_fim is not None:
+        query = query.where(Cliente.data_ultima_compra <= data_fim)
+        
+    if regiao:
+        query = query.where(Cliente.regiao.ilike(f"%{regiao}%"))
+
+    # --- 1. BUSCA GLOBAL (Search) ---
+    if search:
+        # Busca parcial por nome (ignore case)
+        query = query.where(
+            Cliente.nome_cliente.ilike(f"%{search}%")
+        )
+
+    # --- 2. FILTRO DE STATUS (Segmento RFM) ---
+    if status:
+        # Como o banco já retorna o segmento_rfm, o filtro busca diretamente nele
+        query = query.where(Cliente.segmento_rfm.ilike(f"%{status}%"))
+
+    # --- 3. FILTROS EXISTENTES ---
     if cidade:
         query = query.where(Cliente.cidade == cidade)
-    if valor_minimo is not None:
-        query = query.where(Cliente.total_gasto_brl >= valor_minimo)
     if frequencia_minima is not None:
         query = query.where(Cliente.qtd_pedidos_realizados >= frequencia_minima)
+
     if status_ticket:
         from app.models.tickets import Ticket
         query = (
@@ -32,6 +76,8 @@ async def get_clients(
             .distinct()
         )
 
+    # --- 4. CONTAGEM E EXECUÇÃO ---
+    # É vital que o count_query venha APÓS os filtros de busca para a paginação funcionar
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar_one()
 

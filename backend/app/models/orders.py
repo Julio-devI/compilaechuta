@@ -18,9 +18,12 @@ class Pedido(Base):
     status             = Column(String, nullable=True, index=True)
     metodo_pagamento   = Column(String, nullable=True)
 
-    produto = relationship("Produto", back_populates="pedido", lazy="joined")
-    tickets = relationship("Ticket", back_populates="pedido", lazy="selectin")
-    cliente = relationship("Cliente", back_populates="pedidos", lazy="joined")
+    # selectin para produto pois a API precisa do nome_produto (evita N+1 query)
+    produto = relationship("Produto", back_populates="pedido", lazy="selectin")
+    
+    # lazy="select" para evitar queries extras desnecessárias já que a API não retorna tickets/clientes na listagem base
+    tickets = relationship("Ticket", back_populates="pedido", lazy="select")
+    cliente = relationship("Cliente", back_populates="pedidos", lazy="select")
 
     @property
     def nome_produto(self):

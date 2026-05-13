@@ -10,18 +10,28 @@ from app.schemas.orders import PedidoListOut
 
 async def listar_pedidos(
     db: AsyncSession,
-    status: Optional[str],
-    id_produto: Optional[str],
-    data_inicio: Optional[str],
-    data_fim: Optional[str],
-    tipo_cliente: Optional[str],
-    status_ticket: Optional[str],
-    skip: int,
-    limit: int,
+    status: Optional[str] = None,
+    id_produto: Optional[str] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    tipo_cliente: Optional[str] = None,
+    status_ticket: Optional[str] = None,
+    nome_produto: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
 ) -> PedidoListOut:
     total, data = await crud.get_orders(
-        db, status, id_produto, data_inicio, data_fim, tipo_cliente, status_ticket, skip, limit
-        )
+        db=db,
+        status=status,
+        id_produto=id_produto,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        tipo_cliente=tipo_cliente,
+        status_ticket=status_ticket,
+        nome_produto=nome_produto,
+        skip=skip,
+        limit=limit
+    )
     return PedidoListOut(total=total, skip=skip, limit=limit, data=data)
 
 

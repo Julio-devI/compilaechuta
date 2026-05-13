@@ -4,3 +4,5 @@ banco_local.db
 __pycache__/
 seed.py
 alembic/versions/
+*.db
+backend/vcommerce.db

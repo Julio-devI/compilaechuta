@@ -525,7 +525,7 @@ export function Clientes() {
                 <div className="space-y-1 text-muted-foreground text-base">
                   <p>{selectedCliente ? `${selectedCliente.totalPedidos} pedidos no total` : '38 pedidos no total'}</p>
                   <div className="flex items-center gap-2">
-                    <Star className="w-4 h-4" /> Média de Estrelas dada: {selectedCliente?.estrelas || 'marina.alb@email.com'}
+                    <Star className="w-4 h-4" /> Média de Estrelas dada: {selectedCliente?.estrelas || '0.0'}
                   </div>
                   <div className="flex items-center gap-2">
                     <Ticket className="w-4 h-4" /> Tickets: {selectedCliente?.qtd_tickets_suporte || '0'}

@@ -1,17 +1,21 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator
 
 class PedidoBase(BaseModel):
     id_pedido_display:  str
+    id_pedido: str
     id_cliente:        str
     id_produto:        str
+    nome_produto: str
     id_data:           Optional[str] = None
     quantidade_vendas: Optional[int]   = Field(None, gt=0)
     valor_unitario:    Optional[float] = Field(None, gt=0)
     valor_total_venda: Optional[float] = Field(None, gt=0)
     status:            Optional[Literal["Aprovado", "Processando", "Recusado", "Reembolsado"]] = None
     metodo_pagamento:  Optional[Literal["PIX", "Boleto", "Cartao"]] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PedidoCreate(PedidoBase):
@@ -27,8 +31,6 @@ class PedidoUpdate(BaseModel):
 
 
 class PedidoOut(PedidoBase):
-    id_pedido: str
-
     @field_validator("quantidade_vendas", mode="before")
     @classmethod
     def tratar_quantidade(cls, v):

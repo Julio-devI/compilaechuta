@@ -21,3 +21,7 @@ class Pedido(Base):
     produto = relationship("Produto", back_populates="pedido", lazy="joined")
     tickets = relationship("Ticket", back_populates="pedido", lazy="selectin")
     cliente = relationship("Cliente", back_populates="pedidos", lazy="joined")
+
+    @property
+    def nome_produto(self):
+        return self.produto.nome_produto if self.produto else None

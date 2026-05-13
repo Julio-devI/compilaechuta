@@ -19,6 +19,7 @@ async def get_orders(
     data_fim: Optional[str] = None,
     tipo_cliente: Optional[str] = None,
     status_ticket: Optional[str] = None,
+    nome_produto: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
 ) -> tuple[int, list[Pedido]]:
@@ -36,6 +37,11 @@ async def get_orders(
         status_str = status_ticket.value if hasattr(
             status_ticket, "value") else status_ticket
         query = query.join(Pedido.tickets).where(Ticket.status == status_str)
+    
+    if nome_produto:
+        nome_produto_search = f"%{nome_produto}%"
+        query = query.join(Pedido.produto).where(
+            Produto.nome_produto.ilike(nome_produto_search))
 
     # 3. Filtros diretos
     if status:

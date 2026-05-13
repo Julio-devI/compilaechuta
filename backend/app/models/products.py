@@ -6,8 +6,9 @@ class Produto(Base):
     __tablename__ = "dim_produto"
 
     id_produto = Column(String, primary_key=True, index=True)
+    sku = Column(String, nullable=True)
     nome_produto = Column(String, nullable=False)
-    categoria = Column(String, nullable=True)
+    categoria = Column(String, ForeignKey("gold_categoria.nome_categoria"), nullable=True)
     fornecedor = Column(String, nullable=True)
     preco = Column(Float, nullable=True)
     peso_kg = Column(Float, nullable=True)

@@ -90,6 +90,27 @@ def validate_descriptions(descriptions: dict[str, Any]) -> None:
             if examples is not None and not isinstance(examples, list):
                 raise ValueError(
                     f"Campo 'tables.{table_name}.columns.{column_name}.examples' "
+                    f"deve ser uma lista."
+                )
+
+            sensitive = column_meta.get("sensitive")
+            if sensitive is not None and not isinstance(sensitive, bool):
+                raise ValueError(
+                    f"Campo 'tables.{table_name}.columns.{column_name}.sensitive' "
+                    f"deve ser um booleano."
+                )
+
+            mask_label = column_meta.get("mask_label")
+            if mask_label is not None:
+                if not isinstance(mask_label, str) or not mask_label.strip():
+                    raise ValueError(
+                        f"Campo 'tables.{table_name}.columns.{column_name}.mask_label' "
+                        f"deve ser uma string não vazia."
+                    )
+            examples = column_meta.get("examples")
+            if examples is not None and not isinstance(examples, list):
+                raise ValueError(
+                    f"Campo 'tables.{table_name}.columns.{column_name}.examples' "
                     "deve ser uma lista."
                 )
 

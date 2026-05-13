@@ -21,11 +21,13 @@ Dados retornados pelo banco (JSON):
 6. O campo `activity` deve ser uma frase curta explicando o que foi analisado.
 7. O campo `answer_sections` deve conter uma seção para cada item relevante consultado. Use títulos curtos, como "Cliente", "Produto", "Ticket Aberto", "Status do Atendimento", "Resultado" ou "Resumo".
 8. O campo `sources_summary.text` deve manter sempre o mesmo estilo: curto, empresarial, natural e orientado à consulta. Explique quais bases foram cruzadas e quais filtros ou métricas principais sustentam a resposta. Não liste descrições técnicas de tabelas.
-9. Use o exemplo abaixo apenas como referência de formato e adapte à consulta real, sem copiá-lo literalmente:
+9. No campo `sources_summary.text`, não diga que campos foram "calculados" quando eles apenas foram retornados pela consulta, como nome, email, telefone, documento, cidade, estado, produto ou código do pedido. Use "usando atributos de cliente e pedido retornados pela consulta" para atributos diretos. Use "métricas calculadas" apenas para agregações explícitas do SQL, como `SUM`, `COUNT`, `AVG`, taxas, percentuais ou totais derivados.
+10. Mantenha `sources_summary.text` com no máximo uma frase curta, idealmente até 220 caracteres. Não liste todos os campos selecionados quando a consulta retornar muitos atributos; resuma por domínio de negócio, como "dados de cliente, pedido, produto e calendário".
+11. Use o exemplo abaixo apenas como referência de formato e adapte à consulta real, sem copiá-lo literalmente:
    "Fonte de dados consultada: Cruzamento da base de Vendas com Produtos e Calendário (filtros: ano 2024 e pedidos entregues), usando receita, quantidade vendida e ticket médio calculados a partir dos pedidos."
-10. Nunca exponha SQL, nomes físicos de tabelas ou prefixos técnicos em textos humanos. Não cite prefixos como `dim_`, `fato_`, `fact_`, `gold_`, `silver_`, `bronze_`, `tbl_`, `vw_` ou similares. Use nomes de negócio como "Clientes", "Produtos", "Vendas", "Tickets de Suporte", "Avaliações" ou "Calendário".
-11. Se a consulta retornar zero linhas, explique em uma seção que nenhum resultado foi encontrado e sugira possíveis motivos baseados nos filtros da consulta.
-12. Quando houver histórico de conversa, mantenha coerência com as respostas anteriores. Não repita insights já fornecidos, a menos que o usuário peça.
+12. Nunca exponha SQL, nomes físicos de tabelas ou prefixos técnicos em textos humanos. Não cite prefixos como `dim_`, `fato_`, `fact_`, `gold_`, `silver_`, `bronze_`, `tbl_`, `vw_` ou similares. Use nomes de negócio como "Clientes", "Produtos", "Vendas", "Tickets de Suporte", "Avaliações" ou "Calendário".
+13. Se a consulta retornar zero linhas, explique em uma seção que nenhum resultado foi encontrado e sugira possíveis motivos baseados nos filtros da consulta.
+14. Quando houver histórico de conversa, mantenha coerência com as respostas anteriores. Não repita insights já fornecidos, a menos que o usuário peça.
 
 ## Contrato de Saída Obrigatório
 

@@ -125,7 +125,7 @@ Regras do contrato:
 - `src/vcommerce_ai_agent/core/`: Configurações e tratamento de erros customizados
 - `src/vcommerce_ai_agent/database/`: Conexão, execução SQL e extração de schema
 - `src/vcommerce_ai_agent/llm/`: Geração de prompts, chamadas à API Gemini e clientes LLM
-- `src/vcommerce_ai_agent/security/`: Validações de segurança e guardrails
+- `src/vcommerce_ai_agent/security/`: Validações de segurança, guardrails e mascaramento reversível de dados sensíveis
 - `tests/unit/`: Testes automatizados rápidos e isolados
 - `tests/integration/`: Smoke tests contra a API real e banco sintético
 
@@ -158,6 +158,8 @@ O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real.
 python tests/integration/smoke_test.py
 python tests/integration/smoke_test_guardrails.py
 python tests/integration/smoke_test_memory.py
+python tests/integration/smoke_test_anonymization.py
+python tests/integration/smoke_test_sensitive_data_masking.py
 ```
 
 ### O que o script faz
@@ -173,6 +175,10 @@ python tests/integration/smoke_test_memory.py
 4. **Remove o banco temporário** automaticamente ao final (bloco `try/finally`).
 
 > **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Perguntas de fluxo feliz disparam 2 chamadas ao LLM (geração de SQL + geração de insight), perguntas fora do escopo normalmente disparam 1 chamada, e bloqueios pré-LLM disparam 0 chamadas. Cada script valida o orçamento antes de executar o próximo cenário e não deve ultrapassar 20 requisições planejadas por chave. Para reduzir estouro de quota, os smoke tests usam 1 tentativa por chamada LLM; retries continuam habilitados no agente em uso normal. Os limites dos smoke tests são constantes hardcoded e centralizadas em `tests/integration/smoke_tests_config.py`, pois refletem limites fixos do free tier.
+
+O script `smoke_test_anonymization.py` valida o fluxo principal de mascaramento reversível em três cenários: consulta agregada sem dado sensível, consulta simples com nome de cliente e consulta complexa com joins entre Vendas, Clientes, Produtos e Calendário. O cenário complexo confirma múltiplos prefixos de tokens (`Cliente_`, `Email_`, `Telefone_`, `Documento_`, `Pedido_`), restauração dos valores reais na resposta final e ausência de tokens no texto exibido ao usuário.
+
+O script `smoke_test_sensitive_data_masking.py` compara cenários com e sem mascaramento reversível, capturando os dados enviados à Chamada 2, o JSON bruto retornado pelo LLM e a resposta final restaurada pelo agente. Ele aceita `ANON_SMOKE_RUNS` e `ANON_SMOKE_QUESTION` para controlar a quantidade de rodadas ou executar uma pergunta customizada.
 
 ## Variáveis de Ambiente
 

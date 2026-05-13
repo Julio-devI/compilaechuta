@@ -626,9 +626,11 @@ class VCommerceAgent:
             "trimestre",
         }
         metrics: list[str] = []
-        for key in data[0].keys():
+        for key, value in data[0].items():
             label = str(key).replace("_", " ").strip().lower()
             if not label or label in dimension_names:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
                 continue
             metrics.append(label)
         return metrics
@@ -644,7 +646,7 @@ class VCommerceAgent:
         if fallback_text:
             sanitized = self._sanitize_display_text(fallback_text).strip()
             lower = sanitized.lower()
-            if sanitized and (
+            if sanitized and len(sanitized) <= _MAX_SOURCES_TEXT_CHARS and (
                 "cruzamento" in lower
                 or "consulta da base" in lower
                 or "listagem de" in lower
@@ -673,13 +675,17 @@ class VCommerceAgent:
         filter_text = f" (filtros: {', '.join(filters)})" if filters else ""
         metric_text = ""
         if metrics:
-            metric_term = "calculado" if len(metrics) == 1 else "calculados"
+            metric_term = (
+                "principal métrica"
+                if len(metrics) == 1
+                else "principais métricas"
+            )
             metric_text = (
                 ", usando "
                 + ", ".join(metrics[:-1])
                 + (" e " if len(metrics) > 1 else "")
                 + metrics[-1]
-                + f" {metric_term} a partir dos dados consultados"
+                + f" como {metric_term} da consulta"
             )
 
         return _limit_sources_text(

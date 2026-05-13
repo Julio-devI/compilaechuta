@@ -15,11 +15,15 @@ Pergunta do usuário
   -> Chamada 1 ao LLM para gerar SQL
   -> validação de segurança e schema do SQL
   -> execução read-only no SQLite
+  -> mascaramento reversível de dados sensíveis antes da Chamada 2
   -> Chamada 2 ao LLM para gerar insight
+  -> restauração local dos tokens nos textos exibíveis
   -> AgentResponse
 ```
 
 O agente não cria tabelas, não popula dados e não gerencia migrações. O banco SQLite é responsabilidade do backend.
+
+Quando a query retorna colunas marcadas como sensíveis no `schema_descriptions.json`, o agente substitui esses valores por tokens temporários antes de enviar os dados ao Gemini na Chamada 2. A restauração acontece localmente antes da montagem do `AgentResponse`. O contrato público não muda: `user_response.data` continua trazendo as linhas reais retornadas pelo banco, enquanto o mapa `token -> valor real` nunca é retornado, persistido no histórico ou exposto em `developer_debug`.
 
 ## Pré-requisitos
 
@@ -472,6 +476,7 @@ class ResponseError:
 | `sql_validation` | `SQL_PARSE_ERROR` | Não | SQL não pôde ser parseado durante a validação de segurança após tentativas de correção. |
 | `sql_validation` | `SCHEMA_VIOLATION_ALLOWLIST` | Não | SQL usa tabela/coluna fora do schema permitido. |
 | `sql_validation` | `SCHEMA_VIOLATION_SEMANTIC` | Não | SQL referencia coluna fora da tabela/alias correto. |
+| `sql_validation` | `SENSITIVE_DATA_MASKING_ERROR` | Não | Falha ao mascarar coluna sensível antes da Chamada 2, por exemplo `SELECT *` inseguro ou agregação `MIN`/`MAX` sobre dado pessoal. |
 | `database` | `EXECUTION_TIMEOUT` | Sim | Query excedeu timeout configurado. |
 | `database` | `DB_EXECUTION_ERROR` | Não | SQLite falhou ao executar a query. |
 | `insight_generation` | `INSIGHT_PARSE_ERROR` | Sim | Chamada 2 retornou JSON fora do contrato. |
@@ -516,6 +521,8 @@ O agente sempre extrai o schema técnico diretamente do SQLite. O arquivo `schem
 - `description`: descrição da tabela ou coluna.
 - `columns`: metadados das colunas.
 - `examples`: exemplos de valores para orientar o LLM.
+- `sensitive`: marca uma coluna como sensível para mascaramento antes da Chamada 2.
+- `mask_label`: prefixo usado nos tokens temporários, como `Cliente_1` ou `Pedido_1`.
 
 O pacote inclui um arquivo padrão em `src/vcommerce_ai_agent/database/schema_descriptions.json`, mas em produção o backend deve preferir um arquivo externo configurável:
 
@@ -560,6 +567,12 @@ Exemplo curto e completo:
           "description": "Identificador único do cliente.",
           "examples": [101, 102]
         },
+        "nome_cliente": {
+          "description": "Nome completo ou razão social do cliente.",
+          "examples": ["Maria Silva", "Loja Exemplo Ltda"],
+          "sensitive": true,
+          "mask_label": "Cliente"
+        },
         "regiao": {
           "description": "Região comercial do cliente.",
           "examples": ["Sul", "Sudeste"]
@@ -579,6 +592,8 @@ Validações aplicadas no carregamento:
 - `columns`, quando presente, deve ser objeto.
 - Cada coluna deve ter metadados em objeto.
 - `examples`, quando presente, deve ser lista.
+- `sensitive`, quando presente, deve ser booleano.
+- `mask_label`, quando presente, deve ser string não vazia.
 
 Se a estrutura for inválida, `ask()` retorna `status="error"` com `developer_debug.error.stage == "schema"` e `code == "SCHEMA_LOAD_ERROR"`.
 
@@ -600,6 +615,7 @@ O agente aplica validações em camadas:
 - Bloqueio de múltiplos statements.
 - Bloqueio de tabelas/colunas fora do allowlist extraído do schema real.
 - Validação semântica de colunas por tabela/alias.
+- Mascaramento reversível de colunas sensíveis antes da Chamada 2.
 - Adição automática de `LIMIT` quando a query não possui limite.
 - Execução SQLite em modo read-only para arquivos em disco.
 
@@ -610,6 +626,7 @@ O backend ainda deve manter seus próprios controles de autenticação, autoriza
 - A primeira chamada após inicializar o agente carrega e formata o schema; chamadas seguintes usam cache.
 - Chame `invalidate_schema()` depois de mudanças no banco ou no arquivo de descrições.
 - O prompt de insight recebe no máximo 100 linhas de dados para preservar contexto, mas `user_response.data` mantém as linhas retornadas pelo banco até `max_rows`.
+- Dados sensíveis retornados pela query são mascarados antes da Chamada 2 e restaurados localmente nos textos exibíveis.
 - Falhas transitórias do LLM têm retry automático interno com backoff.
 - Perguntas fora do escopo não retornam `ResponseError`; elas usam `status="out_of_scope"`.
 - Pedidos por tabelas ocultas, internas ou fora do schema autorizado são bloqueados antes da chamada ao LLM.

@@ -585,7 +585,7 @@ def test_sources_summary_fallback_includes_filters_and_metrics():
     assert presentation.sources_summary.text == (
         "Fonte de dados consultada: Cruzamento da base de Vendas com Produtos "
         "e Calendário (filtros: ano 2024, pedidos entregues), usando receita "
-        "total e quantidade total vendida calculados a partir dos dados consultados."
+        "total e quantidade total vendida como principais métricas da consulta."
     )
 
 

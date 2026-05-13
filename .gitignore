@@ -1,0 +1,6 @@
+﻿.venv/
+banco_local.db
+.env
+__pycache__/
+seed.py
+alembic/versions/

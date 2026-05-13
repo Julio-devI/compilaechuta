@@ -1,0 +1,141 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Primary Blue - V-Commerce brand */
+  --primary: #1E5EFF;
+  --primary-light: #EBF1FF;
+  --primary-dark: #0D47A1;
+
+  /* Success Green */
+  --success: #00C48C;
+  --success-light: #E6F9F3;
+
+  /* Warning Yellow */
+  --warning: #FFD60A;
+  --warning-light: #FFF9E6;
+
+  /* Danger Red */
+  --danger: #FF4757;
+  --danger-light: #FFE8EA;
+
+  /* Neutrals */
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --muted: #64748B;
+  --muted-foreground: #94A3B8;
+  --border: #E2E8F0;
+
+  /* Sidebar */
+  --sidebar: #1E5EFF;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-glass-default: rgba(199, 201, 217, 0.30);
+  --sidebar-glass-hover: rgba(199, 201, 217, 0.60);
+
+  /* Charts */
+  --chart-1: #1E5EFF;
+  --chart-2: #00C48C;
+  --chart-3: #FFD60A;
+  --chart-4: #FF4757;
+  --chart-5: #64748B;
+
+  --radius: 0.75rem;
+
+  /* Chat IA */
+  --chat-bg: #ffffff;
+  --chat-sidebar-bg: #f8fafc;
+  --chat-border: #e2e8f0;
+  --chat-header-bg: #f8fafc;
+  --chat-msg-ai-bg: #eef2ff;
+  --chat-input-bg: #f1f5f9;
+  --chat-item-hover: rgba(0, 0, 0, 0.04);
+  --chat-quick-card-bg: #eef2ff;
+  --chat-history-active-bg: rgba(30, 94, 255, 0.08);
+  --chat-history-active-border: rgba(30, 94, 255, 0.25);
+  --chat-accent: #1E5EFF;
+}
+
+.dark {
+  --background: #0D1117;
+  --foreground: #E6EDF3;
+  --card: #161B22;
+  --card-foreground: #E6EDF3;
+  --muted: #8B949E;
+  --muted-foreground: #6E7681;
+  --border: #30363D;
+  --primary-light: #1C2D4F;
+  --success-light: #0D2E22;
+  --warning-light: #2A2000;
+  --danger-light: #2D1115;
+  --sidebar-glass-default: rgba(13, 17, 23, 0.55);
+  --sidebar-glass-hover: rgba(22, 27, 34, 0.88);
+
+  /* Chat IA */
+  --chat-bg: #111859;
+  --chat-sidebar-bg: #0d1347;
+  --chat-border: #1e2870;
+  --chat-header-bg: #0d1347;
+  --chat-msg-ai-bg: #1a2370;
+  --chat-input-bg: #0d1347;
+  --chat-item-hover: rgba(255, 255, 255, 0.05);
+  --chat-quick-card-bg: #1a2370;
+  --chat-history-active-bg: rgba(30, 94, 255, 0.2);
+  --chat-history-active-border: rgba(30, 94, 255, 0.4);
+  --chat-accent: #4D9FFF;
+}
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
+  --color-danger: var(--danger);
+  --color-danger-light: var(--danger-light);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes glass-float {
+  0%   { transform: rotate(15deg)   translate(0px,    0px);   }
+  25%  { transform: rotate(5deg)    translate(160px, -120px); }
+  50%  { transform: rotate(-10deg)  translate(220px,  100px); }
+  75%  { transform: rotate(10deg)   translate(60px,   200px); }
+  100% { transform: rotate(15deg)   translate(0px,    0px);   }
+}

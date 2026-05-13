@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, event, text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, event, text, ForeignKey
 from datetime import datetime
 from app.core.database import Base
 from sqlalchemy.orm import relationship
@@ -9,7 +9,7 @@ class Produto(Base):
     id_produto = Column(String, primary_key=True, index=True)
     sku = Column(String, nullable=False)
     nome_produto = Column(String, nullable=False)
-    id_categoria = Column(String, nullable=True, index=True)
+    id_categoria = Column(String, ForeignKey("gold_categoria.id_categoria"), nullable=True, index=True)
     fornecedor = Column(String, nullable=True)
     preco = Column(Float, nullable=True)
     peso_kg = Column(Float, nullable=True)
@@ -29,4 +29,5 @@ class Produto(Base):
     media_nota_suporte = Column(Float, nullable=True)
     total_tickets = Column(Integer, default=0)
 
-    pedido = relationship("Pedido", back_populates="produto")
+    categoria = relationship("Categoria", back_populates="produto")
+    pedido = relationship("Pedido", back_populates="produto", lazy="select")

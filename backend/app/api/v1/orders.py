@@ -26,8 +26,8 @@ class TipoCliente(str, Enum):
 
 
 class StatusTicket(str, Enum):
-    RESOLVIDO = "Resolvido"
-    ABERTO = "Aberto"
+    RESOLVIDO = "resolvido"
+    ABERTO = "aberto"
 
 router = APIRouter()
 
@@ -39,7 +39,6 @@ async def listar(
     data_inicio:   Optional[str] = Query(None, description="Filtrar por data início (YYYY-MM-DD)"),
     data_fim:      Optional[str] = Query(None, description="Filtrar por data fim (YYYY-MM-DD)"),
     tipo_cliente:  Optional[TipoCliente] = Query(None, description="Filtrar por tipo do cliente (ex. Novo cliente)"),
-    sku_produto:   Optional[str] = Query(None, description="Filtrar por SKU do produto"),
     status_ticket: Optional[StatusTicket] = Query(None, description="Filtrar por status do ticket (resolvido, aberto)"),
     skip:        int           = Query(0,    ge=0),
     limit:       int           = Query(100,  ge=1, le=500),
@@ -47,7 +46,7 @@ async def listar(
 ):
     print(id_produto)
     return await service.listar_pedidos(
-        db, status, id_produto, data_inicio, data_fim, tipo_cliente, sku_produto, status_ticket, skip, limit
+        db, status, id_produto, data_inicio, data_fim, tipo_cliente, status_ticket, skip, limit
     )
 
 

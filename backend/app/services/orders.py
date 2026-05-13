@@ -15,13 +15,12 @@ async def listar_pedidos(
     data_inicio: Optional[str],
     data_fim: Optional[str],
     tipo_cliente: Optional[str],
-    sku_produto: Optional[str],
     status_ticket: Optional[str],
     skip: int,
     limit: int,
 ) -> PedidoListOut:
     total, data = await crud.get_orders(
-        db, status, id_produto, data_inicio, data_fim, tipo_cliente, sku_produto, status_ticket, skip, limit
+        db, status, id_produto, data_inicio, data_fim, tipo_cliente, status_ticket, skip, limit
         )
     return PedidoListOut(total=total, skip=skip, limit=limit, data=data)
 

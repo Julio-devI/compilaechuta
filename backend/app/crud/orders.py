@@ -18,47 +18,49 @@ async def get_orders(
     data_inicio: Optional[str] = None,
     data_fim: Optional[str] = None,
     tipo_cliente: Optional[str] = None,
-    sku_produto: Optional[str] = None,
     status_ticket: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 10,
 ) -> tuple[int, list[Pedido]]:
+    # 1. Base da query
     query = select(Pedido)
 
-    if status:
-        status_str = status.value if hasattr(status, "value") else status
-        query = query.where(Pedido.status == status_str)
-
-    if id_produto:
-        query = query.where(Pedido.id_pedido_display == id_produto)
-
-    if data_inicio:
-        query = query.where(Pedido.id_data >= data_inicio)
-
-    if data_fim:
-        query = query.where(Pedido.id_data <= data_fim)
-
+    # 2. Aplicar Joins APENAS se os filtros existirem (Economiza processamento)
     if tipo_cliente:
         tipo_str = tipo_cliente.value if hasattr(
             tipo_cliente, "value") else tipo_cliente
-        query = query.join(Cliente, Pedido.id_cliente == Cliente.id_cliente)
-        query = query.where(Cliente.segmento_rfm == tipo_str)
+        query = query.join(Pedido.cliente).where(
+            Cliente.segmento_rfm == tipo_str)
 
     if status_ticket:
-        status_str = status_ticket.value if hasattr(status_ticket, "value") else status_ticket
-        query = query.join(Ticket, Pedido.id_pedido == Ticket.id_pedido)
-        query = query.where(Ticket.status == status_str)
+        status_str = status_ticket.value if hasattr(
+            status_ticket, "value") else status_ticket
+        query = query.join(Pedido.tickets).where(Ticket.status == status_str)
 
-    if sku_produto:
-        query = query.join(Produto, Pedido.id_produto == Produto.id_produto)
-        query = query.where(Produto.sku.ilike(f"%{sku_produto}%"))
+    # 3. Filtros diretos
+    if status:
+        status_str = status.value if hasattr(status, "value") else status
+        query = query.where(Pedido.status == status_str)
+    if id_produto:
+        query = query.where(Pedido.id_pedido_display == id_produto)
+    if data_inicio:
+        query = query.where(Pedido.id_data >= data_inicio)
+    if data_fim:
+        query = query.where(Pedido.id_data <= data_fim)
 
-    # Crucial: usar distinct para não duplicar Pedidos que tenham múltiplos matches (especialmente em Tickets)
+    count_stmt = query.with_only_columns(
+        func.count(func.distinct(Pedido.id_pedido))
+    ).order_by(None)
+
+    total = (await db.execute(count_stmt)).scalar_one()
+
     query = query.distinct()
 
-    count_query = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_query)).scalar_one()
+    query = query.options(
+        selectinload(Pedido.tickets)
+    )
 
+    # 7. Execução com Paginação
     result = await db.execute(query.offset(skip).limit(limit))
     data = result.scalars().all()
 

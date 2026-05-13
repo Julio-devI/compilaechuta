@@ -1,34 +1,39 @@
 import asyncio
 import os
 from logging.config import fileConfig
-
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from dotenv import load_dotenv
-
 from alembic import context
 
-# 1. Importe a Base e TODOS os modelos para o autogenerate funcionar
+
 from app.core.database import Base
 from app.models.clients import Cliente   # noqa: F401
 from app.models.tickets import Ticket    # noqa: F401
-from app.models.products import Produto  # noqa: F401 (Model do Rodrigo)
+from app.models.products import Produto  # noqa: F401
+from app.models.category import Categoria  # noqa: F401
+from app.models.orders import Pedido  # noqa: F401
+
 
 # Carrega as variáveis do .env
 load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
 
+
 config = context.config
 
-# Configura a URL do banco vinda do ambiente
+
 database_url = os.getenv("DATABASE_URL")
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+
 target_metadata = Base.metadata
+
 
 def run_migrations_offline() -> None:
     """Modo Offline."""
@@ -40,17 +45,19 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
     )
 
+
     with context.begin_transaction():
         context.run_migrations()
 
-# --- A FUNÇÃO QUE ESTAVA FALTANDO ---
+
 def do_run_migrations(connection: Connection) -> None:
     """Esta função executa as migrações de fato."""
     context.configure(connection=connection, target_metadata=target_metadata)
 
+
     with context.begin_transaction():
         context.run_migrations()
-# ------------------------------------
+
 
 async def run_async_migrations() -> None:
     """Cria a engine assíncrona e chama a do_run_migrations."""
@@ -60,15 +67,18 @@ async def run_async_migrations() -> None:
         poolclass=pool.NullPool,
     )
 
+
     async with connectable.connect() as connection:
-        # Aqui é onde a do_run_migrations é chamada
         await connection.run_sync(do_run_migrations)
 
+
     await connectable.dispose()
+
 
 def run_migrations_online() -> None:
     """Modo Online."""
     asyncio.run(run_async_migrations())
+
 
 if context.is_offline_mode():
     run_migrations_offline()

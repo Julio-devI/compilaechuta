@@ -42,7 +42,8 @@ async def get_orders(
         status_str = status.value if hasattr(status, "value") else status
         query = query.where(Pedido.status == status_str)
     if id_produto:
-        query = query.where(Pedido.id_pedido_display == id_produto)
+        str_search = f"%{id_produto}%"
+        query = query.where(Pedido.id_pedido_display.ilike(str_search))
     if data_inicio:
         query = query.where(Pedido.id_data >= data_inicio)
     if data_fim:

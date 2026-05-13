@@ -14,7 +14,7 @@ Módulo Python independente que traduz perguntas em linguagem natural (portuguê
 cd ai-agent
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e ".[test]"
 cp .env.example .env      # preencher GEMINI_API_KEY e DB_PATH
 ```
 
@@ -22,9 +22,12 @@ cp .env.example .env      # preencher GEMINI_API_KEY e DB_PATH
 
 ```python
 import asyncio
-from src.agent import VCommerceAgent
+from vcommerce_ai_agent import VCommerceAgent
 
-agent = VCommerceAgent(db_path='../backend/data/vcommerce.db')
+agent = VCommerceAgent(
+    db_path='../backend/data/vcommerce.db',
+    schema_descriptions_path='../backend/config/schema_descriptions.json',
+)
 
 # O agente lembra automaticamente do contexto (stateful)
 resp1 = asyncio.run(agent.ask('Quais os 10 produtos mais vendidos?'))
@@ -38,8 +41,8 @@ if resp2.developer_debug.error:
 
 # Persistência de sessão (opcional para o backend)
 history = agent.export_history()  # Retorna list[dict] serializável
-# ... salva em Redis/Banco de dados ...
-# ... restaura em uma nova requisição ...
+# ... o backend salva em Redis/Banco de dados por session_id ...
+# ... em uma nova requisição, o backend restaura em uma nova instância ...
 agent.import_history(history)
 
 # Inicia nova conversa
@@ -117,11 +120,12 @@ Regras do contrato:
 
 ## Estrutura
 
-- `src/agent.py` — Classe pública `VCommerceAgent` (Facade)
-- `src/core/` — Configurações e tratamento de erros customizados
-- `src/database/` — Conexão, execução SQL e extração de schema
-- `src/llm/` — Geração de prompts, chamadas à API Gemini e clientes LLM
-- `src/security/` — Validações de segurança e guardrails
+- `pyproject.toml` — Metadados de pacote instalável e dependências
+- `src/vcommerce_ai_agent/agent.py` — Classe pública `VCommerceAgent` (Facade)
+- `src/vcommerce_ai_agent/core/` — Configurações e tratamento de erros customizados
+- `src/vcommerce_ai_agent/database/` — Conexão, execução SQL e extração de schema
+- `src/vcommerce_ai_agent/llm/` — Geração de prompts, chamadas à API Gemini e clientes LLM
+- `src/vcommerce_ai_agent/security/` — Validações de segurança e guardrails
 - `tests/unit/` — Testes automatizados rápidos e isolados
 - `tests/integration/` — Smoke tests contra a API real e banco sintético
 
@@ -142,7 +146,7 @@ O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real.
 
 ### Pré-requisitos
 
-1. Ambiente virtual ativado e dependências instaladas (`pip install -r requirements.txt`).
+1. Ambiente virtual ativado e dependências instaladas (`pip install -e ".[test]"`).
 2. Arquivo `.env` na raiz do projeto com a chave da API:
    ```bash
    GEMINI_API_KEY=sua-chave-aqui
@@ -211,11 +215,11 @@ O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, 
 ## Limitações Conhecidas
 
 - O agente depende do schema do banco Gold estar atualizado.
-- A memória de conversa é mantida no estado da instância do agente. Para persistência entre requisições HTTP, o backend deve serializar os dados via `export_history()` e restaurá-los com `import_history()`.
+- A memória de conversa é manejada pelo agente e mantida no estado da instância. Para APIs com múltiplas sessões, o backend deve persistir o snapshot de `export_history()` por `session_id`, restaurá-lo com `import_history()` e aplicar lock por sessão para evitar chamadas concorrentes na mesma conversa.
+- O backend pode informar um `schema_descriptions_path` externo para manter descrições, aliases e exemplos do schema fora do pacote instalável.
 - Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
 - A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional — o escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
-- A validação semântica de colunas (`validate_semantic_schema`) usa um mapeamento flat de aliases. Se subqueries ou CTEs distintas reutilizarem o mesmo alias, podem ocorrer falsos positivos ou negativos. Queries com aliases colidentes são raras em geração por LLM; será revisado na branch `feat/ai-agent-extras`.
 
 ## Decisões Arquiteturais
 

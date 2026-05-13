@@ -9,13 +9,14 @@ import asyncio
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from sqlglot import exp, parse_one
 
-from src.core import config
-from src.database.db import Database
-from src.core.exceptions import (
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.database.db import Database
+from vcommerce_ai_agent.core.exceptions import (
     ErrorCode,
     GuardrailError,
     LLMAuthenticationError,
@@ -29,15 +30,15 @@ from src.core.exceptions import (
     LLMUnavailableError,
     LLMUnknownError,
 )
-from src.security.guardrails import (
+from vcommerce_ai_agent.security.guardrails import (
     apply_layer_2,
     validate_empty_input,
     validate_input_length,
     validate_prompt_injection,
 )
-from src.llm.insight_generator import generate_insight
-from src.database.schema import build_allowlist, format_schema, load_descriptions
-from src.llm.sql_generator import generate_sql, generate_sql_correction
+from vcommerce_ai_agent.llm.insight_generator import generate_insight
+from vcommerce_ai_agent.database.schema import build_allowlist, format_schema, load_descriptions
+from vcommerce_ai_agent.llm.sql_generator import generate_sql, generate_sql_correction
 
 
 @dataclass
@@ -232,6 +233,29 @@ def _strip_out_of_scope_marker(text: str) -> str:
     return stripped or "Não consigo responder essa pergunta com os dados disponíveis."
 
 
+_HIDDEN_TABLE_SCOPE_PATTERNS = (
+    re.compile(
+        r"\btabelas?\b.{0,120}\b(ocult[ao]s?|intern[ao]s?|"
+        r"n[aã]o\s+listad[ao]s?|fora\s+do\s+schema)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\b(ocult[ao]s?|intern[ao]s?|n[aã]o\s+listad[ao]s?|"
+        r"fora\s+do\s+schema)\b.{0,120}\btabelas?\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\btables?\b.{0,120}\b(hidden|internal|unlisted|outside\s+the\s+schema)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+)
+
+
+def _is_hidden_table_scope_request(question: str) -> bool:
+    """Detecta pedidos por tabelas ocultas/internas fora do schema autorizado."""
+    return any(pattern.search(question) for pattern in _HIDDEN_TABLE_SCOPE_PATTERNS)
+
+
 class VCommerceAgent:
     """Agente Text-to-SQL para o domínio V-Commerce."""
 
@@ -247,6 +271,7 @@ class VCommerceAgent:
         max_rows: int = config.MAX_ROWS,
         query_timeout_seconds: int = config.QUERY_TIMEOUT_SECONDS,
         llm_model: str = config.LLM_MODEL,
+        schema_descriptions_path: str | Path | None = None,
     ) -> None:
         """
         Inicializa o agente com o caminho do banco de dados.
@@ -259,6 +284,9 @@ class VCommerceAgent:
             max_rows: Número máximo de linhas retornadas por query.
             query_timeout_seconds: Timeout em segundos para execução de queries.
             llm_model: Identificador do modelo Gemini a ser usado.
+            schema_descriptions_path: Caminho opcional para um JSON externo
+                com descrições, aliases e exemplos do schema. Se omitido,
+                usa o arquivo padrão empacotado no módulo.
         """
         self._db = Database(
             db_path,
@@ -268,6 +296,7 @@ class VCommerceAgent:
         self._max_rows = max_rows
         self._excluded_tables: set[str] = excluded_tables or set()
         self._llm_model = llm_model
+        self._schema_descriptions_path = schema_descriptions_path
         self._schema_text: str | None = None
         self._technical_schema: dict[str, Any] | None = None
         self._descriptions: dict[str, Any] | None = None
@@ -390,7 +419,7 @@ class VCommerceAgent:
         if self._schema_text is not None and self._technical_schema is not None:
             return self._schema_text, self._technical_schema
 
-        descriptions = load_descriptions()
+        descriptions = load_descriptions(self._schema_descriptions_path)
         technical_schema = await self._db.get_technical_schema()
         self._descriptions = descriptions
         self._technical_schema = technical_schema
@@ -796,6 +825,13 @@ class VCommerceAgent:
                 message=str(exc),
                 retryable=False,
                 total_time_ms=_elapsed_ms(total_start),
+            )
+
+        if _is_hidden_table_scope_request(question):
+            return _make_out_of_scope_response(
+                f"{config.OUT_OF_SCOPE_MARKER} "
+                "Não posso consultar tabelas ocultas, internas ou não listadas "
+                "no schema disponível."
             )
 
         # Etapa 1: carregar schema

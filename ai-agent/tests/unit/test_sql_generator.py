@@ -7,7 +7,13 @@ Esta suite cobre o parser de SQL, a validação sintática mínima
 
 import pytest
 
-from src.llm.sql_generator import _strip_sql_comments, _validate_syntax
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.llm.sql_generator import (
+    _extract_out_of_scope,
+    _strip_sql_comments,
+    _validate_sql_response,
+    _validate_syntax,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -107,3 +113,30 @@ def test_validate_syntax_accepts_subquery_with_parens():
 
 def test_validate_syntax_accepts_select_after_multiple_parens():
     _validate_syntax("(((SELECT * FROM dim_cliente)))")
+
+
+def test_extract_out_of_scope_from_plain_marker():
+    raw = "FORA_DO_ESCOPO Pergunta fora do dominio."
+    assert _extract_out_of_scope(raw) == raw
+
+
+def test_extract_out_of_scope_from_markdown_fence():
+    raw = "```text\nFORA_DO_ESCOPO Pergunta fora do dominio.\n```"
+    assert (
+        _extract_out_of_scope(raw)
+        == "FORA_DO_ESCOPO Pergunta fora do dominio."
+    )
+
+
+def test_extract_out_of_scope_from_prose_response():
+    raw = "Não posso responder.\nFORA_DO_ESCOPO Tabelas ocultas não estão disponíveis."
+    assert (
+        _extract_out_of_scope(raw)
+        == "FORA_DO_ESCOPO Tabelas ocultas não estão disponíveis."
+    )
+
+
+def test_validate_sql_response_accepts_wrapped_out_of_scope():
+    _validate_sql_response(
+        f"```text\n{config.OUT_OF_SCOPE_MARKER} Tabelas ocultas não estão disponíveis.\n```"
+    )

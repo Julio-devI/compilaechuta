@@ -5,11 +5,11 @@ Cobre funcionalidades stateful, truncamento, export/import e formatação de his
 
 import pytest
 
-from src.agent import DeveloperDebug, UserResponse, VCommerceAgent, AgentResponse
-from src.core import config
-from src.core.exceptions import ErrorCode, LLMParseError
-from src.llm.sql_generator import format_history_for_sql
-from src.llm.insight_generator import format_history_for_insight
+from vcommerce_ai_agent.agent import DeveloperDebug, UserResponse, VCommerceAgent, AgentResponse
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.exceptions import ErrorCode, LLMParseError
+from vcommerce_ai_agent.llm.sql_generator import format_history_for_sql
+from vcommerce_ai_agent.llm.insight_generator import format_history_for_insight
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ async def test_ask_returns_controlled_response_when_generate_sql_parse_fails(mon
         raise LLMParseError("SQL malformado")
 
     monkeypatch.setattr(agent, "_load_schema", fake_load_schema)
-    monkeypatch.setattr("src.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
 
     response = await agent.ask("Qual a receita total?")
 

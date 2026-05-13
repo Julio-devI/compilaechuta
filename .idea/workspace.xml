@@ -5,8 +5,54 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="58482bf3-993b-4a64-93f4-dd797d2d882b" name="Changes" comment="fix: Query latency correction">
+      <change afterPath="$PROJECT_DIR$/ai-agent/GUIA_BACKEND.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/pyproject.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/insight_generator.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/prompts/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/prompts/insight_system.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/security/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/integration/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/integration/backend_pipeline_probe.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/integration/smoke_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/integration/smoke_test_db.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/integration/smoke_test_memory.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/integration/smoke_tests_config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/unit/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/unit/test_agent_response_contract.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/unit/test_memory.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ai-agent/tests/unit/test_schema.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/vcommerce.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/README_DECISOES.md" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/README_DECISOES.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/core/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/agent.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/core/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/database/db.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/exceptions.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/core/exceptions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/guardrails.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/security/guardrails.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/insight_generator.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/llm_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/llm_client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/prompts/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/database/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/prompts/insight_system.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/prompts/sql_correction_system.txt" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/prompts/sql_correction_system.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/prompts/sql_system.txt" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/prompts/sql_system.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/schema.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/database/schema.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/schema_descriptions.json" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/database/schema_descriptions.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/src/sql_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/src/vcommerce_ai_agent/llm/sql_generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/tests/smoke_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/tests/smoke_test_config.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/tests/smoke_test_guardrails.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/tests/integration/smoke_test_guardrails.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/tests/test_guardrails.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/tests/unit/test_guardrails.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/tests/test_schema.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai-agent/tests/test_sql_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai-agent/tests/unit/test_sql_generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/tickets.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/tickets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/crud/tickets.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/crud/tickets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/tickets.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/tickets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/docker-compose.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,32 +75,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.main.executor": "Run",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "feat/integration-orders-entity",
-    "ignore.virus.scanning.warn.message": "true",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "C:/Users/Lenovo LOQ-e/PycharmProjects/compilaechuta",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "C:\\Users\\Lenovo LOQ-e\\PycharmProjects\\compilaechuta\\frontend\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Merging feat/integration-orders-entity&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Lenovo LOQ-e/PycharmProjects/compilaechuta&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\Lenovo LOQ-e\\PycharmProjects\\compilaechuta\\frontend\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Lenovo LOQ-e\PycharmProjects\compilaechuta" />
@@ -126,7 +172,7 @@
       <workItem from="1778621688893" duration="13156000" />
       <workItem from="1778669536308" duration="4676000" />
       <workItem from="1778683833745" duration="44000" />
-      <workItem from="1778683926497" duration="17419000" />
+      <workItem from="1778683926497" duration="18905000" />
     </task>
     <task id="LOCAL-00001" summary="feat: update dependencies">
       <option name="closed" value="true" />

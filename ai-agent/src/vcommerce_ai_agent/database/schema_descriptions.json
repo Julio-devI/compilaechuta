@@ -1,6 +1,7 @@
 {
   "tables": {
     "fato_vendas": {
+      "display_name": "vendas",
       "description": "Tabela fato que registra cada linha de item em um pedido. Contém as métricas de venda (quantidade, valores unitário e total) e chaves para dimensões cliente, produto e tempo.",
       "columns": {
         "id_pedido": {
@@ -41,7 +42,8 @@
         }
       }
     },
-    "fato_suporte_tickets": {
+    "fato_suporte_ticket": {
+      "display_name": "tickets de suporte",
       "description": "Tabela fato com o histórico de tickets de atendimento ao cliente. Permite analisar volume, tempo de resolução e satisfação por tipo de problema, produto e agente.",
       "columns": {
         "id_ticket": {
@@ -87,6 +89,7 @@
       }
     },
     "fato_avaliacoes_pedido": {
+      "display_name": "avaliações de pedidos",
       "description": "Tabela fato que registra cada avaliação pós-compra feita pelo cliente sobre um pedido/produto.",
       "columns": {
         "id_avaliacao": {
@@ -128,6 +131,7 @@
       }
     },
     "fato_clickstream_navegacao": {
+      "display_name": "navegação",
       "description": "Tabela fato agregada com métricas de navegação e comportamento digital dos usuários no site/app.",
       "columns": {
         "id_cliente": {
@@ -173,6 +177,7 @@
       }
     },
     "dim_cliente": {
+      "display_name": "clientes",
       "description": "Dimensão de clientes com atributos cadastrais, geográficos e métricas agregadas de compra e suporte.",
       "columns": {
         "id_cliente": {
@@ -222,6 +227,7 @@
       }
     },
     "dim_produto": {
+      "display_name": "produtos",
       "description": "Dimensão de produtos com atributos de catálogo, estoque e métricas agregadas de desempenho e satisfação.",
       "columns": {
         "id_produto": {
@@ -291,6 +297,7 @@
       }
     },
     "dim_tempo": {
+      "display_name": "Calendário",
       "description": "Dimensão de tempo para análise temporal (dia, mês, ano, trimestre).",
       "columns": {
         "id_data": {
@@ -316,6 +323,7 @@
       }
     },
     "gold_satisfacao_agente": {
+      "display_name": "satisfação por agente",
       "description": "Tabela agregada (gold) com métricas de satisfação por agente de suporte.",
       "columns": {
         "agente_suporte": {
@@ -337,6 +345,7 @@
       }
     },
     "gold_satisfacao_problema": {
+      "display_name": "satisfação por tipo de problema",
       "description": "Tabela agregada (gold) com métricas de satisfação por tipo de problema.",
       "columns": {
         "tipo_problema": {

@@ -1,5 +1,7 @@
 from typing import Optional
 from datetime import datetime
+from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,7 +37,14 @@ async def get_tickets(
 
 
 async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketModel:
-    db_ticket = TicketModel(**ticket.model_dump())
+    dados = ticket.model_dump()
+
+    db_ticket = TicketModel(
+        id_ticket=str(uuid4()),
+        data_abertura=datetime.now(ZoneInfo("America/Sao_Paulo")).replace(microsecond=0),
+        **dados
+    )
+
     db.add(db_ticket)
     await db.commit()
     await db.refresh(db_ticket)
@@ -48,8 +57,19 @@ async def update_ticket(
     db_ticket = await get_ticket(db, ticket_id)
     if not db_ticket:
         return None
+    
+    dados = ticket.model_dump(exclude_unset=True)
 
-    for field, value in ticket.model_dump(exclude_unset=True).items():
+    # Converter UTC → São Paulo
+    if dados.get("data_resolucao"):
+        dados["data_resolucao"] = (
+            dados["data_resolucao"]
+            .astimezone(ZoneInfo("America/Sao_Paulo"))
+            .replace(tzinfo=None, microsecond=0)
+        )
+
+
+    for field, value in dados.items():
         setattr(db_ticket, field, value)
 
     await db.commit()

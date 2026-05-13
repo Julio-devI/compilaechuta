@@ -17,9 +17,10 @@ import re
 
 import sqlglot
 import sqlglot.expressions as exp
+from sqlglot.optimizer.scope import traverse_scope
 
-from src.config import MAX_INPUT_CHARS
-from src.exceptions import GuardrailError
+from vcommerce_ai_agent.core.config import MAX_INPUT_CHARS
+from vcommerce_ai_agent.core.exceptions import GuardrailError, ErrorCode
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@ def validate_empty_input(question: str) -> None:
         GuardrailError: Se a string, após strip(), estiver vazia.
     """
     if question.strip() == "":
-        raise GuardrailError("Input do usuario esta vazio.")
+        raise GuardrailError("Input do usuario esta vazio.", error_code=ErrorCode.EMPTY_INPUT)
 
 
 def validate_input_length(question: str) -> None:
@@ -54,7 +55,8 @@ def validate_input_length(question: str) -> None:
     if len(question) > MAX_INPUT_CHARS:
         raise GuardrailError(
             f"Input do usuario excede o limite de {MAX_INPUT_CHARS} caracteres. "
-            f"Comprimento recebido: {len(question)}."
+            f"Comprimento recebido: {len(question)}.",
+            error_code=ErrorCode.INPUT_TOO_LONG
         )
 
 
@@ -103,7 +105,8 @@ def validate_prompt_injection(question: str) -> None:
     """
     if _PROMPT_INJECTION_RE.search(question):
         raise GuardrailError(
-            "Tentativa de prompt injection detectada no input do usuario."
+            "Tentativa de prompt injection detectada no input do usuario.",
+            error_code=ErrorCode.PROMPT_INJECTION
         )
 
 
@@ -129,11 +132,12 @@ def validate_destructive_queries(sql: str) -> None:
     try:
         parsed = sqlglot.parse_one(sql, read="sqlite")
     except Exception as exc:
-        raise GuardrailError(f"Falha ao parsear SQL: {exc}") from exc
+        raise GuardrailError(f"Falha ao parsear SQL: {exc}", error_code=ErrorCode.SQL_PARSE_ERROR) from exc
     if not isinstance(parsed, exp.Select):
         raise GuardrailError(
             f"Apenas consultas SELECT são permitidas. "
-            f"Tipo detectado: {type(parsed).__name__}"
+            f"Tipo detectado: {type(parsed).__name__}",
+            error_code=ErrorCode.DESTRUCTIVE_QUERY
         )
 
 
@@ -156,7 +160,8 @@ def validate_multiple_statements(sql: str) -> None:
     if _MULTIPLE_STATEMENTS_RE.search(sql):
         raise GuardrailError(
             "Multiplos statements SQL detectados. "
-            "Apenas um unico statement SELECT e permitido."
+            "Apenas um unico statement SELECT e permitido.",
+            error_code=ErrorCode.MULTIPLE_STATEMENTS
         )
 
 
@@ -192,7 +197,8 @@ def validate_table_column_allowlist(
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
             raise GuardrailError(
-                f"Falha ao parsear SQL para allowlist: {exc}"
+                f"Falha ao parsear SQL para allowlist: {exc}",
+                error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
     cte_names = {cte.alias for cte in parsed.find_all(exp.CTE)}
@@ -202,20 +208,114 @@ def validate_table_column_allowlist(
             continue
         if table.name not in allowlist:
             raise GuardrailError(
-                f"Tabela '{table.name}' nao esta no allowlist do schema."
+                f"Tabela '{table.name}' nao esta no allowlist do schema.",
+                error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
             )
 
     allowed_columns: set[str] = set()
     for cols in allowlist.values():
         allowed_columns.update(cols)
 
+    select_aliases: set[str] = set()
+    for node in parsed.find_all(exp.Alias):
+        if isinstance(node.parent, (exp.Select, exp.Subquery)):
+            select_aliases.add(node.alias)
+
     for col in parsed.find_all(exp.Column):
         if col.name == "*":
             continue
+        if col.name in select_aliases:
+            continue
         if col.name not in allowed_columns:
             raise GuardrailError(
-                f"Coluna '{col.name}' nao esta no allowlist do schema."
+                f"Coluna '{col.name}' nao esta no allowlist do schema.",
+                error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
             )
+
+
+def _semantic_scope_sources(scope: object, allowlist: dict[str, set[str]]) -> dict[str, set[str]]:
+    """Mapeia fontes visíveis no escopo atual para suas colunas permitidas."""
+    sources: dict[str, set[str]] = {}
+
+    for source_alias, (_, source) in scope.selected_sources.items():
+        if isinstance(source, exp.Table):
+            if source.name in allowlist:
+                sources[source_alias] = allowlist[source.name]
+            continue
+
+        if hasattr(source, "expression"):
+            sources[source_alias] = _semantic_output_columns(source, allowlist)
+
+    return sources
+
+
+def _semantic_output_columns(scope: object, allowlist: dict[str, set[str]]) -> set[str]:
+    """Infere colunas expostas por CTEs e subqueries a partir do SELECT."""
+    output_columns: set[str] = set()
+
+    for projection in getattr(scope.expression, "expressions", []):
+        if isinstance(projection, exp.Star):
+            for columns in _semantic_scope_sources(scope, allowlist).values():
+                output_columns.update(columns)
+            continue
+
+        if projection.alias_or_name:
+            output_columns.add(projection.alias_or_name)
+
+    return output_columns
+
+
+def _semantic_select_aliases(scope: object) -> set[str]:
+    """Retorna aliases definidos no SELECT do escopo atual."""
+    return {
+        projection.alias
+        for projection in getattr(scope.expression, "expressions", [])
+        if isinstance(projection, exp.Alias) and projection.alias
+    }
+
+
+def _semantic_scope_columns(scope: object) -> list[exp.Column]:
+    """Retorna apenas colunas pertencentes ao escopo atual."""
+    return [
+        column
+        for column in scope.columns
+        if id(column) in scope.column_index
+    ]
+
+
+def _semantic_column_in_sources(
+    table_ref: str,
+    col_name: str,
+    sources: dict[str, set[str]],
+) -> bool:
+    """Verifica coluna qualificada contra as fontes do escopo atual."""
+    return table_ref in sources and col_name in sources[table_ref]
+
+
+def _semantic_unqualified_column_in_sources(
+    col_name: str,
+    sources: dict[str, set[str]],
+) -> bool:
+    """Verifica coluna sem prefixo contra qualquer fonte do escopo atual."""
+    return any(col_name in columns for columns in sources.values())
+
+
+def _semantic_column_in_parent_scope(
+    table_ref: str,
+    col_name: str,
+    scope: object,
+    allowlist: dict[str, set[str]],
+) -> bool:
+    """Resolve referências correlacionadas contra escopos ancestrais."""
+    parent = scope.parent
+
+    while parent is not None:
+        parent_sources = _semantic_scope_sources(parent, allowlist)
+        if _semantic_column_in_sources(table_ref, col_name, parent_sources):
+            return True
+        parent = parent.parent
+
+    return False
 
 
 def validate_semantic_schema(
@@ -227,12 +327,8 @@ def validate_semantic_schema(
     Valida se colunas referenciadas pertencem às tabelas declaradas
     no FROM e JOIN da query, resolvendo aliases corretamente.
 
-    Limitação conhecida (CR-08): o mapeamento de aliases é flat (um
-    único dicionário para toda a AST). Se subqueries ou CTEs distintas
-    usarem o mesmo alias (ex: ``t``), o último sobrescreve o anterior,
-    podendo gerar falsos positivos ou negativos. Queries com aliases
-    colidentes são raras em geração por LLM. Será revisado na branch
-    ``feat/ai-agent-extras``.
+    A validação percorre os escopos da AST separadamente para evitar
+    colisões quando subqueries ou CTEs reutilizam o mesmo alias.
 
     Args:
         sql: Query SQL já validado sintaticamente.
@@ -249,55 +345,38 @@ def validate_semantic_schema(
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
             raise GuardrailError(
-                f"Falha ao parsear SQL para validacao semantica: {exc}"
+                f"Falha ao parsear SQL para validacao semantica: {exc}",
+                error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
-    # Mapeia alias -> nome real das tabelas no escopo (inclui CTEs)
-    scope_tables: dict[str, str] = {}
-    for table in parsed.find_all(exp.Table):
-        alias = table.alias or table.name
-        scope_tables[alias] = table.name
+    for scope in traverse_scope(parsed):
+        scope_sources = _semantic_scope_sources(scope, allowlist)
+        select_aliases = _semantic_select_aliases(scope)
 
-    select_aliases: set[str] = set()
-    for node in parsed.find_all(exp.Alias):
-        if isinstance(node.parent, (exp.Select, exp.Subquery)):
-            select_aliases.add(node.alias)
-
-    for col in parsed.find_all(exp.Column):
-        col_name = col.name
-        if col_name in select_aliases:
-            continue
-        table_node = col.args.get("table")
-        table_ref = table_node.name if hasattr(table_node, "name") else None
-
-        if table_ref:
-            real_table = scope_tables.get(table_ref, table_ref)
-            if real_table in allowlist and col_name in allowlist[real_table]:
+        for col in _semantic_scope_columns(scope):
+            col_name = col.name
+            if col_name in select_aliases:
                 continue
-            # Fallback para CTEs genuínas: tabela não no allowlist,
-            # mas coluna existe em alguma tabela do escopo real
-            if real_table not in allowlist:
-                found = False
-                for scope_tbl in scope_tables.values():
-                    if scope_tbl in allowlist and col_name in allowlist[scope_tbl]:
-                        found = True
-                        break
-                if found:
+
+            table_node = col.args.get("table")
+            table_ref = table_node.name if hasattr(table_node, "name") else None
+
+            if table_ref:
+                if _semantic_column_in_sources(table_ref, col_name, scope_sources):
                     continue
-            raise GuardrailError(
-                f"Coluna '{col_name}' (tabela '{table_ref}') "
-                f"nao pertence ao schema."
-            )
-        else:
-            found = False
-            for tbl_name in scope_tables.values():
-                if tbl_name in allowlist and col_name in allowlist[tbl_name]:
-                    found = True
-                    break
-            if not found:
+                if _semantic_column_in_parent_scope(table_ref, col_name, scope, allowlist):
+                    continue
+                raise GuardrailError(
+                    f"Coluna '{col_name}' (tabela '{table_ref}') "
+                    f"nao pertence ao schema.",
+                    error_code=ErrorCode.SCHEMA_VIOLATION_SEMANTIC
+                )
+
+            if not _semantic_unqualified_column_in_sources(col_name, scope_sources):
                 raise GuardrailError(
                     f"Coluna '{col_name}' nao pertence a nenhuma "
-                    f"tabela do FROM/JOIN."
+                    f"tabela do FROM/JOIN.",
+                    error_code=ErrorCode.SCHEMA_VIOLATION_SEMANTIC
                 )
 
 
@@ -330,14 +409,15 @@ def apply_layer_2(
     Raises:
         GuardrailError: Se qualquer guardrail da Camada 2 falhar.
     """
-    validate_destructive_queries(sql)
     validate_multiple_statements(sql)
+    validate_destructive_queries(sql)
 
     try:
         parsed = sqlglot.parse_one(sql, read="sqlite")
     except Exception as exc:
         raise GuardrailError(
-            f"Falha ao parsear SQL na Camada 2: {exc}"
+            f"Falha ao parsear SQL na Camada 2: {exc}",
+            error_code=ErrorCode.SQL_PARSE_ERROR
         ) from exc
 
     validate_table_column_allowlist(sql, allowlist, parsed=parsed)
@@ -369,7 +449,8 @@ def add_limit_if_missing(
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
             raise GuardrailError(
-                f"Falha ao parsear SQL para verificar LIMIT: {exc}"
+                f"Falha ao parsear SQL para verificar LIMIT: {exc}",
+                error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
     if parsed.args.get("limit"):

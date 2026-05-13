@@ -7,7 +7,12 @@ e exclusão de tabelas sensíveis.
 
 import pytest
 
-from src.database.schema import build_allowlist, format_schema
+from vcommerce_ai_agent.database.schema import (
+    build_allowlist,
+    format_schema,
+    load_descriptions,
+    validate_descriptions,
+)
 
 
 @pytest.fixture
@@ -91,3 +96,81 @@ def test_format_schema_omits_missing_descriptions(sample_technical_schema):
     assert "CREATE TABLE usuarios" in text
     # Sem descrições, não há metadados extras
     assert "Descrição:" not in text
+
+
+def test_validate_descriptions_accepts_valid_structure(sample_descriptions):
+    validate_descriptions(sample_descriptions)
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_message"),
+    [
+        ([], "objeto JSON"),
+        ({}, "'tables' deve ser um objeto"),
+        ({"tables": []}, "'tables' deve ser um objeto"),
+        ({"tables": {"": {}}}, "Nomes de tabelas"),
+        ({"tables": {"dim_cliente": []}}, "Metadados da tabela"),
+        (
+            {"tables": {"dim_cliente": {"display_name": 123}}},
+            "display_name",
+        ),
+        (
+            {"tables": {"dim_cliente": {"description": 123}}},
+            "description",
+        ),
+        (
+            {"tables": {"dim_cliente": {"columns": []}}},
+            "columns' deve ser um objeto",
+        ),
+        (
+            {"tables": {"dim_cliente": {"columns": {"": {}}}}},
+            "Nomes de colunas",
+        ),
+        (
+            {"tables": {"dim_cliente": {"columns": {"nome": []}}}},
+            "Metadados da coluna",
+        ),
+        (
+            {"tables": {"dim_cliente": {"columns": {"nome": {"examples": "x"}}}}},
+            "examples",
+        ),
+    ],
+)
+def test_validate_descriptions_rejects_invalid_structure(payload, expected_message):
+    with pytest.raises(ValueError, match=expected_message):
+        validate_descriptions(payload)
+
+
+def test_load_descriptions_accepts_external_file(tmp_path):
+    descriptions_path = tmp_path / "schema_descriptions.json"
+    descriptions_path.write_text(
+        """
+        {
+          "tables": {
+            "dim_cliente": {
+              "display_name": "clientes",
+              "description": "Tabela de clientes.",
+              "columns": {
+                "nome_cliente": {
+                  "description": "Nome do cliente.",
+                  "examples": ["Ana"]
+                }
+              }
+            }
+          }
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    result = load_descriptions(descriptions_path)
+
+    assert result["tables"]["dim_cliente"]["display_name"] == "clientes"
+
+
+def test_load_descriptions_rejects_external_file_with_invalid_structure(tmp_path):
+    descriptions_path = tmp_path / "schema_descriptions.json"
+    descriptions_path.write_text('{"tables": []}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="'tables' deve ser um objeto"):
+        load_descriptions(descriptions_path)

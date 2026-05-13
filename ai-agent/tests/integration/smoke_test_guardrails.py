@@ -16,14 +16,15 @@ from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
+sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 from tests.integration.smoke_test_db import create_test_db
 
 
 
 
 async def _run_guardrails_smoke_test(db_path: str) -> None:
-    from src.agent import VCommerceAgent
-    from src.core.exceptions import LLMQuotaError
+    from vcommerce_ai_agent.agent import VCommerceAgent
+    from vcommerce_ai_agent.core.exceptions import LLMQuotaError
     from tests.integration.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
@@ -308,7 +309,7 @@ def _print_summary(results: list, all_scenarios: list, api_calls: int) -> None:
 
 
 def main() -> None:
-    from src.core import config
+    from vcommerce_ai_agent.core import config
 
     if not config.GEMINI_API_KEY:
         print(

@@ -32,7 +32,7 @@ uma tentativa por chamada LLM.
 
 def configure_llm_retries_for_smoke_tests() -> None:
     """Ajusta o cliente LLM para nao estourar quota durante smoke tests."""
-    from src.llm import llm_client
+    from vcommerce_ai_agent.llm import llm_client
 
     llm_client._MAX_RETRIES = LLM_RETRIES_IN_SMOKE_TESTS
 

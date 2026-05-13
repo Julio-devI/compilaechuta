@@ -11,9 +11,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.core import config
-from src.core.exceptions import LLMParseError
-from src.llm.llm_client import LLMAgent
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.exceptions import LLMParseError
+from vcommerce_ai_agent.llm.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "insight_system.txt"
 

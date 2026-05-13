@@ -9,7 +9,7 @@ validação semântica de schema.
 
 import pytest
 
-from src.security.guardrails import (
+from vcommerce_ai_agent.security.guardrails import (
     add_limit_if_missing,
     apply_layer_2,
     validate_destructive_queries,
@@ -20,13 +20,13 @@ from src.security.guardrails import (
     validate_semantic_schema,
     validate_table_column_allowlist,
 )
-from src.core.exceptions import GuardrailError
-from src.core.config import MAX_INPUT_CHARS
+from vcommerce_ai_agent.core.exceptions import GuardrailError
+from vcommerce_ai_agent.core.config import MAX_INPUT_CHARS
 
 
 # Fixture compartilhada para testes de allowlist e semântica
 _ALLOWLIST = {
-    "dim_cliente": {"id_cliente", "nome_cliente", "regiao", "email"},
+    "dim_cliente": {"id_cliente", "nome_cliente", "regiao", "segmento_rfm", "email"},
     "fato_vendas": {"id_pedido", "id_cliente", "valor_total_venda", "id_data", "status"},
     "dim_produto": {"id_produto", "nome_produto", "categoria", "preco"},
 }
@@ -218,6 +218,24 @@ def test_allowlist_rejects_column_in_cte_select():
 def test_allowlist_allows_count_star():
     """COUNT(*) deve passar sem erro na validação de colunas."""
     sql = "SELECT COUNT(*) FROM fato_vendas"
+    validate_table_column_allowlist(sql, _ALLOWLIST)
+
+
+def test_allowlist_accepts_order_by_select_alias():
+    """ORDER BY pode referenciar alias calculado no SELECT."""
+    sql = (
+        "SELECT SUM(valor_total_venda) AS receita_total "
+        "FROM fato_vendas ORDER BY receita_total DESC"
+    )
+    validate_table_column_allowlist(sql, _ALLOWLIST)
+
+
+def test_allowlist_accepts_group_by_query_ordered_by_count_alias():
+    """Rankings agrupados podem ordenar por alias agregado."""
+    sql = (
+        "SELECT segmento_rfm AS segmento_cliente, COUNT(id_cliente) AS total_clientes "
+        "FROM dim_cliente GROUP BY segmento_rfm ORDER BY total_clientes DESC"
+    )
     validate_table_column_allowlist(sql, _ALLOWLIST)
 
 
@@ -444,6 +462,44 @@ def test_semantic_accepts_subquery_column():
     sql = (
         "SELECT nome_cliente FROM dim_cliente WHERE id_cliente IN "
         "(SELECT id_cliente FROM fato_vendas WHERE valor_total_venda > 100)"
+    )
+    validate_semantic_schema(sql, _ALLOWLIST)
+
+
+def test_semantic_accepts_reused_alias_in_nested_scope():
+    """Alias reutilizado em subquery não deve sobrescrever o escopo externo."""
+    sql = (
+        "SELECT t.nome_cliente FROM dim_cliente t "
+        "WHERE EXISTS ("
+        "SELECT 1 FROM fato_vendas t WHERE t.id_cliente > 0"
+        ")"
+    )
+    validate_semantic_schema(sql, _ALLOWLIST)
+
+
+def test_semantic_rejects_wrong_column_with_reused_alias_in_nested_scope():
+    """Coluna deve ser validada contra o alias do escopo correto."""
+    sql = (
+        "SELECT t.valor_total_venda FROM dim_cliente t "
+        "WHERE EXISTS ("
+        "SELECT 1 FROM fato_vendas t WHERE t.id_cliente > 0"
+        ")"
+    )
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_semantic_schema(sql, _ALLOWLIST)
+    assert "valor_total_venda" in str(exc_info.value)
+    assert exc_info.value.error_code == "SCHEMA_VIOLATION_SEMANTIC"
+
+
+def test_semantic_accepts_reused_alias_in_distinct_ctes():
+    """Aliases iguais em CTEs distintas devem ser isolados por escopo."""
+    sql = (
+        "WITH clientes AS ("
+        "SELECT t.nome_cliente FROM dim_cliente t"
+        "), vendas AS ("
+        "SELECT t.valor_total_venda FROM fato_vendas t"
+        ") "
+        "SELECT nome_cliente FROM clientes"
     )
     validate_semantic_schema(sql, _ALLOWLIST)
 

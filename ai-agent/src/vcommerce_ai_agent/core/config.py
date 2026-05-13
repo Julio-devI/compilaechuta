@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Carrega variáveis do .env localizado na raiz do módulo ai-agent
-_ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
+_ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(dotenv_path=_ENV_PATH)
 
 

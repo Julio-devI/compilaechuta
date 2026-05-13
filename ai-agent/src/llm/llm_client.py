@@ -8,6 +8,7 @@ com configurações distintas.
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from google.api_core import exceptions as google_exceptions
@@ -113,6 +114,25 @@ _RETRYABLE_ERRORS = (LLMUnavailableError, LLMInternalError, LLMTimeoutError, LLM
 """Exceções de domínio que merecem retry automático (instabilidade temporária ou resposta malformada)."""
 
 
+@dataclass
+class LLMRunResult:
+    """Resultado de uma chamada ao LLM com metadados de execução."""
+
+    output: str
+    tokens_used: int | None = None
+
+
+def _extract_tokens(result: Any) -> int | None:
+    """Extrai o total de tokens da resposta do PydanticAI, se disponível."""
+    try:
+        usage = result.usage()
+        if usage is not None and hasattr(usage, "total_tokens"):
+            return int(usage.total_tokens)
+    except Exception:
+        pass
+    return None
+
+
 class LLMAgent:
     """Wrapper reutilizável para execução de prompts via Gemini."""
 
@@ -138,7 +158,11 @@ class LLMAgent:
             Como config.GEMINI_API_KEY é carregada no import de config.py,
             alterações em runtime após o import não serão refletidas aqui.
         """
-        config.assert_gemini_key()
+        if not config.GEMINI_API_KEY:
+            raise LLMAuthenticationError(
+                "Chave de API do Gemini não configurada. "
+                "Verifique a variável de ambiente GEMINI_API_KEY."
+            )
 
         model_name = model if model is not None else config.LLM_MODEL
         gemini_model = GeminiModel(model_name)
@@ -158,7 +182,7 @@ class LLMAgent:
         self,
         question: str,
         validator: Callable[[str], None] | None = None,
-    ) -> str:
+    ) -> LLMRunResult:
         """
         Executa o prompt contra o LLM e retorna o texto da resposta.
 
@@ -174,8 +198,9 @@ class LLMAgent:
                 permitindo que o LLM seja reinvocado automaticamente.
 
         Returns:
-            Texto bruto retornado pelo modelo (já validado, se `validator` foi
-            fornecido).
+            LLMRunResult com o texto bruto retornado pelo modelo (já validado,
+            se `validator` foi fornecido) e metadados de tokens quando
+            disponíveis.
 
         Raises:
             LLMError: Se a comunicação com a API falhar, incluindo subtipos
@@ -189,7 +214,8 @@ class LLMAgent:
                 output = result.output
                 if validator is not None:
                     validator(output)
-                return output
+                tokens = _extract_tokens(result)
+                return LLMRunResult(output=output, tokens_used=tokens)
             except google_exceptions.GoogleAPIError as exc:
                 mapped = map_google_error(exc)
                 if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:

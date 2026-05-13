@@ -5,7 +5,7 @@ Executa fluxos de conversa encadeados (follow-up) contra a API Gemini real,
 validando se o agente mantém e utiliza corretamente o histórico (DA-22, DA-23).
 
 As configuracoes compartilhadas (limites, timeouts, delays) estao em
-smoke_test_config.py para garantir consistencia entre todos os smoke tests.
+smoke_tests_config.py para garantir consistencia entre todos os smoke tests.
 """
 
 import asyncio
@@ -29,7 +29,7 @@ from tests.integration.smoke_test_db import create_test_db
 async def _run_smoke_test(db_path: str) -> None:
     from src.agent import VCommerceAgent
     from src.core.exceptions import LLMQuotaError
-    from tests.integration.smoke_test_config import (
+    from tests.integration.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         configure_llm_retries_for_smoke_tests,
         ensure_daily_budget,
@@ -125,21 +125,21 @@ async def _run_smoke_test(db_path: str) -> None:
         elapsed = time.perf_counter() - start
         api_calls += planned_calls
 
-        if resp.error:
+        if resp.status == "error":
             status = "ERRO"
-        elif resp.out_of_scope:
+        elif resp.status == "out_of_scope":
             status = "FORA_DO_ESCOPO"
         else:
             status = "SUCESSO"
 
         passed = status == "SUCESSO"
         if passed:
-            print(f" SQL: {resp.sql}")
-            print(f" Resposta: {resp.text}")
+            print(f" SQL: {resp.developer_debug.sql}")
+            print(f" Resposta: {resp.user_response.answer_text}")
         else:
             print(f" [FALHA] Status: {status}")
-            print(f" SQL: {resp.sql}")
-            print(f" Resposta: {resp.text}")
+            print(f" SQL: {resp.developer_debug.sql}")
+            print(f" Resposta: {resp.user_response.answer_text}")
             print("[ABORTANDO] Cadeia de memoria depende do turno anterior.")
 
         results.append({
@@ -147,7 +147,7 @@ async def _run_smoke_test(db_path: str) -> None:
             "status": status,
             "passed": passed,
             "elapsed": elapsed,
-            "sql": resp.sql,
+            "sql": resp.developer_debug.sql,
         })
 
         if not passed:

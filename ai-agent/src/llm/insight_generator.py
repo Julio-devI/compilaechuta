@@ -3,8 +3,7 @@ Módulo de geração de insight (Chamada 2).
 
 Responsável por receber os dados brutos retornados pelo banco,
 chamar o LLM (Gemini via PydanticAI) e produzir uma resposta
-estruturada em JSON contendo insight textual, dados tabulares e
-sugestão de gráfico.
+estruturada em JSON contendo apresentação textual e sugestão de gráfico.
 """
 
 import json
@@ -13,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from src.core import config
+from src.core.exceptions import LLMParseError
 from src.llm.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "insight_system.txt"
@@ -38,51 +38,84 @@ def _load_system_prompt(
     return template
 
 
+def _extract_json_text(raw: str) -> str:
+    """Extrai o trecho JSON de uma resposta possivelmente envelopada em markdown."""
+    match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL | re.IGNORECASE)
+    if not match:
+        match = re.search(r"```\s*(.*?)\s*```", raw, re.DOTALL)
+    text_to_parse = match.group(1).strip() if match else raw.strip()
+
+    if text_to_parse.startswith("{"):
+        return text_to_parse
+
+    json_match = re.search(r"(\{.*\})", text_to_parse, re.DOTALL)
+    if json_match:
+        return json_match.group(1)
+    return text_to_parse
+
+
 def _parse_json(raw: str) -> dict[str, Any]:
     """
     Extrai e parseia o JSON da resposta do LLM.
 
-    Tenta primeiro encontrar um bloco ```json ... ```;
-    caso contrário, faz parsing do texto completo.
-    Se ambos falharem, retorna um fallback com o texto bruto.
+    Levanta `LLMParseError` quando a resposta não é JSON válido, permitindo
+    retry automático pelo cliente LLM.
     """
-    # Tenta bloco markdown com tag json
-    match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL | re.IGNORECASE)
-    if not match:
-        # Tenta bloco markdown sem tag de linguagem
-        match = re.search(r"```\s*(.*?)\s*```", raw, re.DOTALL)
-    text_to_parse = match.group(1).strip() if match else raw.strip()
-
-    # Se ainda não for JSON válido, tenta extrair entre primeira '{' e última '}'
+    text_to_parse = _extract_json_text(raw)
     try:
         parsed = json.loads(text_to_parse)
-    except json.JSONDecodeError:
-        json_match = re.search(r"(\{.*\})", text_to_parse, re.DOTALL)
-        if json_match:
-            try:
-                parsed = json.loads(json_match.group(1))
-            except json.JSONDecodeError:
-                parsed = None
-        else:
-            parsed = None
+    except json.JSONDecodeError as exc:
+        raise LLMParseError("A Chamada 2 retornou JSON malformado.") from exc
 
-    if parsed is None:
-        # Fallback gracioso: retorna o texto bruto como insight
-        return {
-            "text": raw.strip(),
-            "data": None,
-            "chart": None,
-        }
-
-    # Garante presença da chave obrigatória; se ausente, retorna fallback
-    if "text" not in parsed:
-        return {
-            "text": raw.strip(),
-            "data": None,
-            "chart": None,
-        }
+    if not isinstance(parsed, dict):
+        raise LLMParseError("A Chamada 2 não retornou um objeto JSON.")
 
     return parsed
+
+
+def _validate_insight_payload(raw: str) -> None:
+    """Valida o contrato mínimo da apresentação retornada pela Chamada 2."""
+    parsed = _parse_json(raw)
+
+    activity = parsed.get("activity")
+    if not isinstance(activity, str) or not activity.strip():
+        raise LLMParseError("Campo obrigatório ausente ou inválido: activity.")
+
+    answer_sections = parsed.get("answer_sections")
+    if not isinstance(answer_sections, list):
+        raise LLMParseError("Campo obrigatório ausente ou inválido: answer_sections.")
+    for section in answer_sections:
+        if not isinstance(section, dict):
+            raise LLMParseError("Cada seção da resposta deve ser um objeto.")
+        title = section.get("title")
+        content = section.get("content")
+        if not isinstance(title, str) or not title.strip():
+            raise LLMParseError("Seção com título inválido.")
+        if not isinstance(content, str) or not content.strip():
+            raise LLMParseError("Seção com conteúdo inválido.")
+
+    sources_summary = parsed.get("sources_summary")
+    if sources_summary is not None:
+        if not isinstance(sources_summary, dict):
+            raise LLMParseError("Campo sources_summary deve ser objeto ou null.")
+        text = sources_summary.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise LLMParseError("Campo sources_summary.text é obrigatório.")
+
+    chart = parsed.get("chart")
+    if chart is not None and not isinstance(chart, dict):
+        raise LLMParseError("Campo chart deve ser objeto ou null.")
+
+
+def _normalize_insight(parsed: dict[str, Any]) -> dict[str, Any]:
+    """Normaliza campos opcionais e ignora dados devolvidos indevidamente pelo LLM."""
+    return {
+        "activity": parsed["activity"],
+        "answer_sections": parsed["answer_sections"],
+        "sources_summary": parsed.get("sources_summary"),
+        "chart": parsed.get("chart"),
+    }
+
 
 
 def _validate_chart(insight: dict[str, Any], data: list[dict[str, Any]]) -> None:
@@ -154,7 +187,7 @@ async def generate_insight(
     sql: str,
     history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], int | None]:
     """
     Gera um insight estruturado a partir dos dados de uma consulta SQL.
 
@@ -165,17 +198,13 @@ async def generate_insight(
         model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
-        Dicionário com estrutura {"text": str, "data": list[dict] | None, "chart": dict | None}.
+        Tupla contendo o dicionário de insight e o número de tokens
+        consumidos na chamada, quando disponível.
 
     Raises:
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
         LLMError: Se a chamada ao LLM falhar.
     """
-    # Edge case: dados vazios — deixa o LLM contextualizar no prompt
-    is_empty = not data
-
-    is_scalar = len(data) == 1 and len(data[0]) == 1
-
     # Trunca dados para o prompt a fim de preservar context window (P4)
     data_for_prompt = data[:_MAX_ROWS_FOR_INSIGHT_PROMPT]
     history_text = format_history_for_insight(history)
@@ -190,21 +219,11 @@ async def generate_insight(
         model=model,
     )
 
-    raw_output = await agent.run(question)
+    result = await agent.run(question, validator=_validate_insight_payload)
+    raw_output = result.output
 
-    insight = _parse_json(raw_output)
+    insight = _normalize_insight(_parse_json(raw_output))
 
-    if is_empty:
-        # Quando não há dados, força data/chart como None e preserva o texto do LLM
-        insight["data"] = None
-        insight["chart"] = None
-    elif is_scalar:
-        insight["data"] = None
-        insight["chart"] = None
-    else:
-        # Garante que o campo data do insight seja consistente com os dados brutos
-        if insight.get("data") is None and data:
-            insight["data"] = data
-        _validate_chart(insight, insight.get("data") or [])
+    _validate_chart(insight, data)
 
-    return insight
+    return insight, result.tokens_used

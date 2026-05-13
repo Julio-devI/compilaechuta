@@ -6,7 +6,7 @@ instancia VCommerceAgent e executa 5 perguntas de fluxo feliz
 contra a API Gemini real.
 
 As configuracoes compartilhadas (limites, timeouts, delays) estao em
-smoke_test_config.py para garantir consistencia entre todos os smoke tests.
+smoke_tests_config.py para garantir consistencia entre todos os smoke tests.
 
 Pré-requisito: variavel de ambiente GEMINI_API_KEY configurada no .env
 """
@@ -31,7 +31,7 @@ from tests.integration.smoke_test_db import create_test_db
 
 async def _run_smoke_test(db_path: str) -> None:
     from src.agent import VCommerceAgent
-    from tests.integration.smoke_test_config import (
+    from tests.integration.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
         configure_llm_retries_for_smoke_tests,
@@ -128,44 +128,54 @@ async def _run_smoke_test(db_path: str) -> None:
         elapsed = time.perf_counter() - start
         api_calls += planned_calls
 
-        if response.out_of_scope:
+        if response.status == "out_of_scope":
             print(f"[FORA DO ESCOPO] ({elapsed:.2f}s)")
-            print(f"   Texto: {response.text[:200]}")
+            print(f"   Texto: {response.user_response.answer_text[:200]}")
             results.append({
                 "question": question,
                 "status": "FORA_DO_ESCOPO",
                 "elapsed": elapsed,
                 "sql": "",
             })
-        elif response.error:
+        elif response.status == "error":
             print(f"[ERRO] ({elapsed:.2f}s)")
-            print(f"   Texto: {response.text[:200]}")
-            print(f"   SQL  : {response.sql[:100] if response.sql else ''}")
+            print(f"   Texto: {response.user_response.answer_text[:200]}")
+            sql = response.developer_debug.sql
+            print(f"   SQL  : {sql[:100] if sql else ''}")
             results.append({
                 "question": question,
                 "status": "ERRO",
                 "elapsed": elapsed,
-                "error": response.text,
-                "sql": response.sql,
+                "error": response.user_response.answer_text,
+                "sql": sql,
             })
         else:
             print(f"[SUCESSO] ({elapsed:.2f}s)")
-            print(f"   SQL  : {response.sql[:120]}...")
-            print(f"   Texto: {response.text[:200]}...")
-            if response.data:
-                print(f"   Dados: {len(response.data)} linha(s)")
-            if response.chart:
+            print(f"   SQL  : {response.developer_debug.sql[:120]}...")
+            print(f"   Texto: {response.user_response.answer_text[:200]}...")
+            if response.user_response.data:
+                print(f"   Dados: {len(response.user_response.data)} linha(s)")
+            if response.user_response.chart:
                 print(
-                    f"   Grafico: {response.chart.type} "
-                    f"(x={response.chart.x_axis}, y={response.chart.y_axis})"
+                    f"   Grafico: {response.user_response.chart.type} "
+                    f"(x={response.user_response.chart.x_axis}, "
+                    f"y={response.user_response.chart.y_axis})"
                 )
             results.append({
                 "question": question,
                 "status": "SUCESSO",
                 "elapsed": elapsed,
-                "sql": response.sql,
-                "data_rows": len(response.data) if response.data else 0,
-                "chart_type": response.chart.type if response.chart else None,
+                "sql": response.developer_debug.sql,
+                "data_rows": (
+                    len(response.user_response.data)
+                    if response.user_response.data
+                    else 0
+                ),
+                "chart_type": (
+                    response.user_response.chart.type
+                    if response.user_response.chart
+                    else None
+                ),
             })
 
         print(f"   Chamadas API planejadas: {planned_calls} | Total: {api_calls}/{MAX_API_CALLS_PER_DAY}")
@@ -181,7 +191,7 @@ async def _run_smoke_test(db_path: str) -> None:
 
 def _print_summary(results: list, all_questions: list, api_calls: int = 0) -> None:
     """Imprime resumo dos resultados."""
-    from tests.integration.smoke_test_config import MAX_API_CALLS_PER_DAY
+    from tests.integration.smoke_tests_config import MAX_API_CALLS_PER_DAY
 
     print("\n--- RESUMO ---")
     success_count = sum(1 for r in results if r["status"] == "SUCESSO")

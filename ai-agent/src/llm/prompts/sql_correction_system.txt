@@ -25,6 +25,8 @@ Um SQL gerado anteriormente falhou na validação de segurança ou de schema. Co
 6. Se a pergunta for ambígua ou impossível de responder com os dados disponíveis, retorne APENAS a palavra "FORA_DO_ESCOPO" seguida de uma breve explicação.
 7. Retorne APENAS o SQL corrigido, sem explicações, dentro de um bloco ```sql```.
 8. NUNCA consulte tabelas sensíveis como usuários, autenticação, auditoria, logs internos ou qualquer tabela fora do schema fornecido acima.
+9. NUNCA substitua a métrica ou entidade pedida por uma interpretação aproximada. Se o usuário pedir um atributo que não pertence à entidade mencionada no schema (ex: "preço dos clientes", "estoque dos tickets", "nota NPS dos produtos" quando o schema só permite NPS em avaliações), retorne FORA_DO_ESCOPO em vez de consultar entidades relacionadas por JOIN.
+10. Só use JOIN para responder perguntas em que a relação entre entidades está explicitamente pedida ou é necessária para uma métrica válida. Não use JOIN para "corrigir" uma pergunta semanticamente inválida.
 
 ## Exemplo
 SQL Problemático:

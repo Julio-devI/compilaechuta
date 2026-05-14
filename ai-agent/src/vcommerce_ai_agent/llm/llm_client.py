@@ -19,6 +19,7 @@ from pydantic_ai.models.gemini import GeminiModel
 from pydantic_ai.settings import ModelSettings
 
 from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.logger import logger
 from vcommerce_ai_agent.core.exceptions import (
     LLMAuthenticationError,
     LLMError,
@@ -250,8 +251,18 @@ class LLMAgent:
                     raise
                 last_error = exc
 
-            # Backoff exponencial: 1s, 2s, 4s
-            await asyncio.sleep(_BACKOFF_BASE_SECONDS * (2 ** attempt))
+            backoff = _BACKOFF_BASE_SECONDS * (2 ** attempt)
+            logger.info(
+                "llm_retry_attempted",
+                extra={
+                    "event": "llm_retry_attempted",
+                    "attempt": attempt + 1,
+                    "error_code": getattr(last_error, 'error_code', 'UNKNOWN') if last_error else 'UNKNOWN',
+                    "retryable": True,
+                    "backoff_seconds": backoff,
+                },
+            )
+            await asyncio.sleep(backoff)
 
         # Fallback — nunca deveria chegar aqui, mas garante tipagem segura
         if last_error is not None:

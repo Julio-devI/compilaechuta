@@ -18,6 +18,7 @@ from sqlglot import exp, parse_one
 from sqlglot.optimizer.scope import traverse_scope
 
 from vcommerce_ai_agent.core.exceptions import ErrorCode, GuardrailError
+from vcommerce_ai_agent.core.logger import logger
 
 _MASK_LABEL_RE = re.compile(r"[^a-zA-Z0-9_]")
 
@@ -569,6 +570,14 @@ def mask_sensitive_data(
                 if token != original:
                     masked_columns.add(key)
         llm_data.append(new_row)
+
+    logger.info(
+        "sensitive_masking_applied",
+        extra={
+            "event": "sensitive_masking_applied",
+            "masked_columns_count": len(sensitive_keys),
+        },
+    )
 
     return MaskingResult(
         llm_data=llm_data,

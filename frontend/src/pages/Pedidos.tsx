@@ -111,6 +111,7 @@ export function Pedidos() {
 
   // --- Filter State ---
   const [searchTerm, setSearchTerm] = useState('')
+  const [productNameFilter, setProductNameFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [tipoClienteFilter] = useState<string>('')
   const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
@@ -138,7 +139,7 @@ export function Pedidos() {
   };
 
   const fetchPedidosData = useCallback(async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const filtros: FiltrosPedidos = {
         id_produto: searchTerm || undefined,
@@ -146,6 +147,7 @@ export function Pedidos() {
         tipo_cliente: tipoClienteFilter || undefined,
         data_inicio: dataInicioFilter || undefined,
         data_fim: dataFimFilter || undefined,
+        nome_produto: productNameFilter || undefined,
         status_ticket:
           ticketFilter === "Aberto"
             ? "aberto"
@@ -154,8 +156,8 @@ export function Pedidos() {
               : undefined,
       };
 
-      const res = await getPedidos((page - 1) * pageSize, pageSize, filtros)
-      
+      const res = await getPedidos((page - 1) * pageSize, pageSize, filtros);
+
       const pedidosMapeados: Pedido[] = res.data.map((p) => ({
         id: p.id,
         idReal: p.idReal,
@@ -175,18 +177,26 @@ export function Pedidos() {
         nomeProduto: p.nomeProduto,
         valorUnitario: p.valorUnitario,
         skuProduto: p.skuProduto,
-        metodo_pagamento: p.metodo_pagamento
+        metodo_pagamento: p.metodo_pagamento,
       }));
 
-      setPedidos(pedidosMapeados)
+      setPedidos(pedidosMapeados);
       console.log(res.total);
-      setTotalItems(res.total)
+      setTotalItems(res.total);
     } catch (error) {
-      console.error(error)
+      console.error(error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [page, searchTerm, statusFilter, tipoClienteFilter, ticketFilter, periodoFilter])
+  }, [
+    page,
+    searchTerm,
+    statusFilter,
+    tipoClienteFilter,
+    ticketFilter,
+    periodoFilter,
+    productNameFilter,
+  ]);
 
   const getFormattedDate = (date: Date) => {
     const year = date.getFullYear();
@@ -371,13 +381,17 @@ export function Pedidos() {
             <div className="space-y-6">
               <div>
                 <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
-                  <Box className="w-4 h-4" /> SKU Produto
+                  <Box className="w-4 h-4" /> Nome do Produto
                 </label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-background rounded-2xl border-none text-muted-foreground outline-none appearance-none cursor-pointer">
-                    <option>Todos os Produtos</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Digite o nome..."
+                    value={productNameFilter}
+                    onChange={(e) => setProductNameFilter(e.target.value)}
+                    className="w-full p-4 bg-background rounded-2xl border-none text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                  <Search className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
                 </div>
               </div>
 
@@ -479,9 +493,24 @@ export function Pedidos() {
                     <Ticket className="w-4 h-4" /> Ticket
                   </label>
                   <div className="flex gap-2">
-                    <button onClick={() => toggleTicket('Não tem')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Não tem' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Não tem</button>
-                    <button onClick={() => toggleTicket('Aberto')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Aberto' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Aberto</button>
-                    <button onClick={() => toggleTicket('Finalizado')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Finalizado' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Finalizado</button>
+                    <button
+                      onClick={() => toggleTicket("Não tem")}
+                      className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Não tem" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
+                    >
+                      Não tem
+                    </button>
+                    <button
+                      onClick={() => toggleTicket("Aberto")}
+                      className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Aberto" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
+                    >
+                      Aberto
+                    </button>
+                    <button
+                      onClick={() => toggleTicket("Finalizado")}
+                      className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Finalizado" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
+                    >
+                      Finalizado
+                    </button>
                   </div>
                 </div>
               </div>
@@ -600,7 +629,8 @@ export function Pedidos() {
                         </div>
                         <div className="flex items-center gap-3 text-[10px] font-bold">
                           <span className="flex items-center gap-1 text-muted-foreground">
-                            <History className="w-3 h-3" /> metodo de pagamento - {pedido.metodo_pagamento}
+                            <History className="w-3 h-3" /> metodo de pagamento
+                            - {pedido.metodo_pagamento}
                           </span>
                         </div>
                       </div>

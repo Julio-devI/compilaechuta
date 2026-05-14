@@ -121,6 +121,28 @@ def test_validate_multiple_statements_allows_whitespace_after_semicolon():
     validate_multiple_statements(sql)
 
 
+def test_validate_multiple_statements_allows_semicolon_in_string_literal():
+    sql = "SELECT 'x; y' AS texto"
+    validate_multiple_statements(sql)
+
+
+def test_validate_multiple_statements_allows_string_starting_with_semicolon():
+    sql = "SELECT ';abc' AS texto"
+    validate_multiple_statements(sql)
+
+
+def test_validate_multiple_statements_detects_drop_after_semicolon():
+    sql = "SELECT 1; DROP TABLE dim_cliente"
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_multiple_statements(sql)
+    assert exc_info.value.error_code == "MULTIPLE_STATEMENTS"
+
+
+def test_validate_multiple_statements_allows_select_with_trailing_semicolon():
+    sql = "SELECT 1;"
+    validate_multiple_statements(sql)
+
+
 # ---------------------------------------------------------------------------
 # Camada 1 — validação do input do usuário
 # ---------------------------------------------------------------------------

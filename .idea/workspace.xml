@@ -7,7 +7,7 @@
     <list default="true" id="58482bf3-993b-4a64-93f4-dd797d2d882b" name="Changes" comment="fix: Fixing delay latency in tickets queries">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/ModalDetalhesPedido.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ModalDetalhesPedido.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/supportService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/supportService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Pedidos.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Pedidos.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -129,7 +129,7 @@
       <workItem from="1778683833745" duration="44000" />
       <workItem from="1778683926497" duration="18905000" />
       <workItem from="1778758546049" duration="5406000" />
-      <workItem from="1778774298490" duration="7701000" />
+      <workItem from="1778774298490" duration="11150000" />
     </task>
     <task id="LOCAL-00001" summary="feat: update dependencies">
       <option name="closed" value="true" />

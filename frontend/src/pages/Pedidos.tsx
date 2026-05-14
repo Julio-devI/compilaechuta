@@ -28,6 +28,7 @@ interface Pedido {
   nomeProduto: string
   valorUnitario: string
   skuProduto: string
+  metodo_pagamento: string
 }
 
 type SortConfig = {
@@ -163,7 +164,8 @@ export function Pedidos() {
         totalPedidosCliente: p.totalPedidosCliente,
         nomeProduto: p.nomeProduto,
         valorUnitario: p.valorUnitario,
-        skuProduto: p.skuProduto
+        skuProduto: p.skuProduto,
+        metodo_pagamento: p.metodo_pagamento
       }));
 
       setPedidos(pedidosMapeados)
@@ -452,10 +454,7 @@ export function Pedidos() {
                         </div>
                         <div className="flex items-center gap-3 text-[10px] font-bold">
                           <span className="flex items-center gap-1 text-muted-foreground">
-                            <History className="w-3 h-3" /> {pedido.tempoAberto}
-                          </span>
-                          <span className="flex items-center gap-1 text-red-500 uppercase italic">
-                            <AlertCircle className="w-3 h-3" /> Fora do prazo
+                            <History className="w-3 h-3" /> metodo de pagamento - {pedido.metodo_pagamento}
                           </span>
                         </div>
                       </div>

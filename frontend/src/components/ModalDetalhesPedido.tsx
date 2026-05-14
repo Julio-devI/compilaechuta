@@ -47,7 +47,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
 
   const getTempoAberto = () => {
     if (!ticket || !ticket.dataAberturaRaw) {
-      return pedido?.tempoAberto !== 'N/A' ? `${pedido.tempoAberto.split(' ')[0]} dias` : 'N/A';
+      return pedido?.tempoAberto !== '----' ? `${pedido.tempoAberto.split(' ')[0]} dias` : '----';
     }
 
     const dataAbertura = new Date(ticket.dataAberturaRaw);

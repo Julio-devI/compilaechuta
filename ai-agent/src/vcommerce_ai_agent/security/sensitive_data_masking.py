@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlglot import exp, parse_one
+from sqlglot.optimizer.scope import traverse_scope
 
 from vcommerce_ai_agent.core.exceptions import ErrorCode, GuardrailError
 
@@ -86,49 +87,81 @@ def _build_sensitive_index(
     return index
 
 
-def _resolve_table_alias(
-    parsed: exp.Select,
+def _raise_masking_error(message: str) -> None:
+    """Interrompe o fluxo quando a sensibilidade não pode ser inferida."""
+    raise GuardrailError(
+        message,
+        error_code=ErrorCode.SENSITIVE_DATA_MASKING_ERROR,
+    )
+
+
+def _merge_sensitive_key(
+    result: dict[str, str],
+    key: str,
+    mask_label: str,
+) -> None:
+    """Adiciona uma chave sensível, bloqueando colisões ambíguas."""
+    existing = result.get(key)
+    if existing is not None and existing != mask_label:
+        _raise_masking_error(
+            f"Coluna sensível ambígua no resultado da query: '{key}'."
+        )
+    result[key] = mask_label
+
+
+def _table_sensitive_columns(
+    table_name: str,
+    sensitive_index: dict[tuple[str, str], str],
 ) -> dict[str, str]:
-    """Mapeia alias de tabela para nome real a partir do FROM/JOIN."""
-    alias_map: dict[str, str] = {}
-    for table in parsed.find_all(exp.Table):
-        real_name = table.name
-        alias = table.alias
-        if alias:
-            alias_map[alias] = real_name
-        # Também mapeia o próprio nome (sem alias) para si mesmo
-        alias_map[real_name] = real_name
-    return alias_map
+    """Retorna as colunas sensíveis conhecidas de uma tabela física."""
+    return {
+        column_name: mask_label
+        for (indexed_table, column_name), mask_label in sensitive_index.items()
+        if indexed_table == table_name
+    }
 
 
-def _find_mask_label(
-    col_name: str,
-    table_ref: str | None,
+def _physical_star_requires_schema(
+    table_name: str,
     sensitive_index: dict[tuple[str, str], str],
+    technical_schema: dict[str, Any] | None,
+) -> None:
+    """Bloqueia SELECT * físico sem schema quando há coluna sensível."""
+    if technical_schema is not None:
+        return
+    if _table_sensitive_columns(table_name, sensitive_index):
+        _raise_masking_error(
+            "SELECT * não pode ser expandido com segurança "
+            f"pois a tabela '{table_name}' contém colunas sensíveis."
+        )
+
+
+def _resolve_column_sensitive_label(
+    column: exp.Column,
+    source_outputs: dict[str, dict[str, str]],
 ) -> str | None:
-    """Busca o mask_label de uma coluna no índice sensível."""
+    """Resolve a sensibilidade de uma coluna no escopo atual."""
+    if column.name == "*":
+        return None
+
+    table_ref = column.table if column.table else None
     if table_ref:
-        return sensitive_index.get((table_ref, col_name))
-    # Coluna sem qualificação: busca em todas as tabelas
-    for (t, c), label in sensitive_index.items():
-        if c == col_name:
-            return label
-    return None
+        return source_outputs.get(table_ref, {}).get(column.name)
 
+    labels = [
+        columns[column.name]
+        for columns in source_outputs.values()
+        if column.name in columns
+    ]
+    if not labels:
+        return None
 
-def _has_sensitive_column_in_expression(
-    expression: exp.Expression,
-    alias_map: dict[str, str],
-    sensitive_index: dict[tuple[str, str], str],
-) -> bool:
-    """Verifica se uma expressão contém alguma coluna sensível."""
-    for col in expression.find_all(exp.Column):
-        col_name = col.name
-        table_ref = col.table if col.table else None
-        resolved_ref = alias_map.get(table_ref, table_ref) if table_ref else None
-        if _find_mask_label(col_name, resolved_ref, sensitive_index):
-            return True
-    return False
+    unique_labels = set(labels)
+    if len(unique_labels) > 1:
+        _raise_masking_error(
+            f"Coluna sensível sem qualificação é ambígua: '{column.name}'."
+        )
+    return labels[0]
 
 
 def _is_aggregation(expression: exp.Expression) -> bool:
@@ -152,109 +185,273 @@ def _is_aggregation(expression: exp.Expression) -> bool:
     )
 
 
-def _expand_star_columns(
-    parsed: exp.Select,
-    alias_map: dict[str, str],
+def _build_source_outputs(
+    scope: Any,
     sensitive_index: dict[tuple[str, str], str],
     technical_schema: dict[str, Any] | None,
-) -> dict[str, str]:
-    """Expande SELECT * para colunas individuais e identifica sensíveis."""
-    if technical_schema is None:
-        # Não conseguimos expandir com segurança: verificar se há tabelas com colunas sensíveis
-        for table_name in alias_map.values():
-            for (t, c) in sensitive_index:
-                if t == table_name:
-                    raise GuardrailError(
-                        f"SELECT * não pode ser expandido com segurança "
-                        f"pois a tabela '{table_name}' contém colunas sensíveis.",
-                        error_code=ErrorCode.SENSITIVE_DATA_MASKING_ERROR,
-                    )
-        return {}
+    cache: dict[int, dict[str, str]],
+    scope_by_expression: dict[int, Any],
+) -> dict[str, dict[str, str]]:
+    """Mapeia fontes visíveis no escopo para colunas sensíveis expostas."""
+    outputs: dict[str, dict[str, str]] = {}
 
-    result: dict[str, str] = {}
-    schema_tables = technical_schema.get("tables", {})
-
-    for table_name in alias_map.values():
-        table_info = schema_tables.get(table_name, {})
-        if not table_info:
+    for source_alias, (_, source) in scope.selected_sources.items():
+        if isinstance(source, exp.Table):
+            outputs[source_alias] = _table_sensitive_columns(
+                source.name, sensitive_index
+            )
             continue
-        for col in table_info.get("columns", []):
-            col_name = col["name"]
-            mask_label = sensitive_index.get((table_name, col_name))
-            if mask_label:
-                result[col_name] = mask_label
+
+        if hasattr(source, "expression"):
+            outputs[source_alias] = _extract_sensitive_outputs_from_scope(
+                source,
+                sensitive_index,
+                technical_schema,
+                cache,
+                scope_by_expression,
+            )
+            continue
+
+        outputs[source_alias] = {}
+
+    return outputs
+
+
+def _expand_star_outputs(
+    scope: Any,
+    table_ref: str | None,
+    sensitive_index: dict[tuple[str, str], str],
+    technical_schema: dict[str, Any] | None,
+    cache: dict[int, dict[str, str]],
+    scope_by_expression: dict[int, Any],
+) -> dict[str, str]:
+    """Expande SELECT * ou alias.* preservando sensibilidade de fontes."""
+    result: dict[str, str] = {}
+
+    for source_alias, (_, source) in scope.selected_sources.items():
+        if table_ref and source_alias != table_ref:
+            continue
+
+        if isinstance(source, exp.Table):
+            _physical_star_requires_schema(
+                source.name, sensitive_index, technical_schema
+            )
+            source_outputs = _table_sensitive_columns(source.name, sensitive_index)
+        elif hasattr(source, "expression"):
+            source_outputs = _extract_sensitive_outputs_from_scope(
+                source,
+                sensitive_index,
+                technical_schema,
+                cache,
+                scope_by_expression,
+            )
+        else:
+            source_outputs = {}
+
+        for key, mask_label in source_outputs.items():
+            _merge_sensitive_key(result, key, mask_label)
 
     return result
 
 
-def _extract_sensitive_keys_from_select(
-    parsed: exp.Select,
-    alias_map: dict[str, str],
+def _current_scope_columns(
+    expression: exp.Expression,
+    scope: Any,
+) -> list[exp.Column]:
+    """Retorna colunas da expressão que pertencem ao escopo atual."""
+    column_index = getattr(scope, "column_index", {})
+    return [
+        column
+        for column in expression.find_all(exp.Column)
+        if id(column) in column_index and column.name != "*"
+    ]
+
+
+def _subquery_sensitive_labels(
+    expression: exp.Expression,
     sensitive_index: dict[tuple[str, str], str],
     technical_schema: dict[str, Any] | None,
-    cte_names: set[str],
-) -> dict[str, str]:
-    """Extrai chaves sensíveis das projeções de um SELECT."""
-    result: dict[str, str] = {}
+    cache: dict[int, dict[str, str]],
+    scope_by_expression: dict[int, Any],
+) -> list[str]:
+    """Detecta saídas sensíveis em subqueries escalares da expressão."""
+    labels: list[str] = []
 
-    for expr in parsed.expressions:
-        # SELECT *
-        if isinstance(expr, exp.Star):
-            star_sensitive = _expand_star_columns(
-                parsed, alias_map, sensitive_index, technical_schema
+    for subquery in expression.find_all(exp.Subquery):
+        sub_scope = scope_by_expression.get(id(subquery.this))
+        if sub_scope is None:
+            continue
+        outputs = _extract_sensitive_outputs_from_scope(
+            sub_scope,
+            sensitive_index,
+            technical_schema,
+            cache,
+            scope_by_expression,
+        )
+        labels.extend(outputs.values())
+
+    return labels
+
+
+def _expression_sensitive_labels(
+    expression: exp.Expression,
+    scope: Any,
+    source_outputs: dict[str, dict[str, str]],
+    sensitive_index: dict[tuple[str, str], str],
+    technical_schema: dict[str, Any] | None,
+    cache: dict[int, dict[str, str]],
+    scope_by_expression: dict[int, Any],
+) -> list[str]:
+    """Lista labels sensíveis referenciados por uma expressão."""
+    labels: list[str] = []
+
+    for column in _current_scope_columns(expression, scope):
+        mask_label = _resolve_column_sensitive_label(column, source_outputs)
+        if mask_label:
+            labels.append(mask_label)
+
+    labels.extend(
+        _subquery_sensitive_labels(
+            expression,
+            sensitive_index,
+            technical_schema,
+            cache,
+            scope_by_expression,
+        )
+    )
+    return labels
+
+
+def _sensitive_label_for_alias(
+    expression: exp.Expression,
+    alias_name: str,
+    scope: Any,
+    source_outputs: dict[str, dict[str, str]],
+    sensitive_index: dict[tuple[str, str], str],
+    technical_schema: dict[str, Any] | None,
+    cache: dict[int, dict[str, str]],
+    scope_by_expression: dict[int, Any],
+) -> str | None:
+    """Infere a sensibilidade de uma projeção com alias."""
+    if isinstance(expression, exp.Column) and expression.name != "*":
+        return _resolve_column_sensitive_label(expression, source_outputs)
+
+    labels = _expression_sensitive_labels(
+        expression,
+        scope,
+        source_outputs,
+        sensitive_index,
+        technical_schema,
+        cache,
+        scope_by_expression,
+    )
+    if not labels:
+        return None
+
+    if _is_aggregation(expression):
+        if isinstance(expression, (exp.Min, exp.Max)):
+            _raise_masking_error(
+                "Agregação MIN/MAX sobre coluna sensível não é permitida: "
+                f"'{alias_name}'."
             )
-            result.update(star_sensitive)
+        return None
+
+    return _derive_mask_label(alias_name)
+
+
+def _extract_sensitive_outputs_from_scope(
+    scope: Any,
+    sensitive_index: dict[tuple[str, str], str],
+    technical_schema: dict[str, Any] | None,
+    cache: dict[int, dict[str, str]],
+    scope_by_expression: dict[int, Any],
+) -> dict[str, str]:
+    """Extrai colunas sensíveis expostas pelo SELECT de um escopo."""
+    scope_id = id(scope)
+    if scope_id in cache:
+        return cache[scope_id]
+
+    cache[scope_id] = {}
+    result: dict[str, str] = {}
+    source_outputs = _build_source_outputs(
+        scope,
+        sensitive_index,
+        technical_schema,
+        cache,
+        scope_by_expression,
+    )
+
+    for projection in scope.expression.expressions:
+        if isinstance(projection, exp.Star):
+            for key, mask_label in _expand_star_outputs(
+                scope,
+                None,
+                sensitive_index,
+                technical_schema,
+                cache,
+                scope_by_expression,
+            ).items():
+                _merge_sensitive_key(result, key, mask_label)
             continue
 
-        # Alias: SELECT nome_cliente AS cliente
-        if isinstance(expr, exp.Alias):
-            alias_name = expr.alias
-            inner = expr.this
-
-            # Coluna direta com alias
-            if isinstance(inner, exp.Column):
-                col_name = inner.name
-                table_ref = inner.table if inner.table else None
-                resolved_ref = alias_map.get(table_ref, table_ref) if table_ref else None
-                mask_label = _find_mask_label(col_name, resolved_ref, sensitive_index)
-                if mask_label:
-                    result[alias_name] = mask_label
-                continue
-
-            # Verifica se é agregação
-            if _is_aggregation(inner):
-                if _has_sensitive_column_in_expression(inner, alias_map, sensitive_index):
-                    # Agregação com coluna sensível: se for COUNT(*), não revela valor pessoal
-                    if isinstance(inner, exp.Count) and not list(inner.find_all(exp.Column)):
-                        continue
-                    # Para outras agregações (SUM, AVG, etc.), o resultado não revela o valor individual
-                    # exceto se for MIN/MAX que podem expor o valor exato
-                    if isinstance(inner, (exp.Min, exp.Max)):
-                        raise GuardrailError(
-                            f"Agregação MIN/MAX sobre coluna sensível não é permitida: '{alias_name}'.",
-                            error_code=ErrorCode.SENSITIVE_DATA_MASKING_ERROR,
-                        )
-                    # SUM, AVG, COUNT com coluna sensível não revelam valores individuais
-                    continue
-                continue
-
-            # Expressão derivada (concat, etc.)
-            if _has_sensitive_column_in_expression(inner, alias_map, sensitive_index):
-                result[alias_name] = _derive_mask_label(alias_name)
-                continue
-
+        if isinstance(projection, exp.Column) and projection.name == "*":
+            for key, mask_label in _expand_star_outputs(
+                scope,
+                projection.table if projection.table else None,
+                sensitive_index,
+                technical_schema,
+                cache,
+                scope_by_expression,
+            ).items():
+                _merge_sensitive_key(result, key, mask_label)
             continue
 
-        # Coluna direta sem alias
-        if isinstance(expr, exp.Column):
-            col_name = expr.name
-            table_ref = expr.table if expr.table else None
-            resolved_ref = alias_map.get(table_ref, table_ref) if table_ref else None
-            mask_label = _find_mask_label(col_name, resolved_ref, sensitive_index)
+        if isinstance(projection, exp.Alias):
+            mask_label = _sensitive_label_for_alias(
+                projection.this,
+                projection.alias,
+                scope,
+                source_outputs,
+                sensitive_index,
+                technical_schema,
+                cache,
+                scope_by_expression,
+            )
             if mask_label:
-                result[col_name] = mask_label
+                _merge_sensitive_key(result, projection.alias, mask_label)
             continue
 
+        if isinstance(projection, exp.Column):
+            mask_label = _resolve_column_sensitive_label(
+                projection, source_outputs
+            )
+            if mask_label:
+                _merge_sensitive_key(
+                    result, projection.alias_or_name, mask_label
+                )
+            continue
+
+        labels = _expression_sensitive_labels(
+            projection,
+            scope,
+            source_outputs,
+            sensitive_index,
+            technical_schema,
+            cache,
+            scope_by_expression,
+        )
+        if labels:
+            output_name = projection.alias_or_name
+            if not output_name:
+                _raise_masking_error(
+                    "Expressão derivada de coluna sensível precisa de alias "
+                    "para ser mascarada com segurança."
+                )
+            _merge_sensitive_key(
+                result, output_name, _derive_mask_label(output_name)
+            )
+
+    cache[scope_id] = result
     return result
 
 
@@ -276,53 +473,22 @@ def _extract_sensitive_keys(
 
     if not isinstance(parsed, exp.Select):
         return {}
-
-    # Identifica CTEs para não tratá-las como tabelas físicas
-    cte_names = {cte.alias for cte in parsed.find_all(exp.CTE)}
-
-    # Resolve aliases do escopo principal
-    alias_map = _resolve_table_alias(parsed)
-
-    # Filtra CTEs do alias_map (não são tabelas físicas)
-    physical_alias_map = {
-        alias: real for alias, real in alias_map.items() if real not in cte_names
-    }
-
-    result = _extract_sensitive_keys_from_select(
-        parsed, physical_alias_map, sensitive_index, technical_schema, cte_names
+    scopes = list(traverse_scope(parsed))
+    root_scope = next(
+        (scope for scope in scopes if scope.expression is parsed),
+        None,
     )
+    if root_scope is None:
+        return {}
 
-    # Propaga sensibilidade de subqueries no SELECT
-    for subquery in parsed.find_all(exp.Subquery):
-        sub_select = subquery.this
-        if isinstance(sub_select, exp.Select):
-            sub_alias_map = _resolve_table_alias(sub_select)
-            sub_sensitive = _extract_sensitive_keys_from_select(
-                sub_select, sub_alias_map, sensitive_index, technical_schema, cte_names
-            )
-            # Se a subquery é usada como fonte no FROM/JOIN, propaga seus aliases
-            # para o escopo externo quando referenciados
-            for alias, real in alias_map.items():
-                if real in cte_names:
-                    # É uma CTE: propaga colunas sensíveis com o alias da CTE
-                    for col_key, mask_label in sub_sensitive.items():
-                        result[col_key] = mask_label
-
-    # Propaga sensibilidade de CTEs
-    for cte in parsed.find_all(exp.CTE):
-        cte_select = cte.this
-        if isinstance(cte_select, exp.Select):
-            cte_alias_map = _resolve_table_alias(cte_select)
-            cte_sensitive = _extract_sensitive_keys_from_select(
-                cte_select, cte_alias_map, sensitive_index, technical_schema, cte_names
-            )
-            # As colunas da CTE são acessíveis pelo alias da CTE
-            cte_alias_name = cte.alias
-            for col_key, mask_label in cte_sensitive.items():
-                # Se a CTE projeta uma coluna sensível, ela é sensível quando referenciada
-                result[col_key] = mask_label
-
-    return result
+    scope_by_expression = {id(scope.expression): scope for scope in scopes}
+    return _extract_sensitive_outputs_from_scope(
+        root_scope,
+        sensitive_index,
+        technical_schema,
+        cache={},
+        scope_by_expression=scope_by_expression,
+    )
 
 
 def _tokenize(

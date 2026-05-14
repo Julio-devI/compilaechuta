@@ -45,7 +45,23 @@ export interface Produto {
 }
 
 export interface FiltrosProdutos {
-  categoria?: string
+  categoria?: string;
+  status?: string; // 'ativo', 'inativo', 'baixo_estoque'
+  precoMin?: number;
+  precoMax?: number;
+}
+
+export async function getCategorias(): Promise<string[]> {
+  try {
+    // Tenta buscar da API (se você tiver criado a rota GET /categorias)
+    const response = await fetch('http://localhost:8800/categorias');
+    if (response.ok) {
+      return await response.json();
+    }
+    return [];
+  } catch {
+    return [];
+  }
 }
 
 export type ProdutoStatus = Produto['status']
@@ -85,8 +101,8 @@ function mapearProduto(p: ProdutoDaAPI): Produto {
 // Buscar todos os produtos (com paginação e filtros)
 export async function getProdutos(
   skip: number = 0,
-  limit: number = 100,
-  filtros?: FiltrosProdutos
+  limit: number = 1000,
+  filtros?: FiltrosProdutos // Recebe os filtros aqui
 ): Promise<Produto[]> {
   try {
     const params = new URLSearchParams({
@@ -94,20 +110,19 @@ export async function getProdutos(
       limit: limit.toString(),
     })
 
-    if (filtros?.categoria && filtros.categoria !== 'todas') {
+    // Adicionando os filtros na URL da API
+    if (filtros?.categoria && filtros.categoria !== 'Todas as Categorias') {
       params.append('categoria', filtros.categoria)
     }
+    if (filtros?.status) params.append('status', filtros.status)
+    if (filtros?.precoMin !== undefined) params.append('preco_min', filtros.precoMin.toString())
+    if (filtros?.precoMax !== undefined) params.append('preco_max', filtros.precoMax.toString())
 
     const response = await fetch(`${API_URL}/?${params.toString()}`)
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
 
-    // Se a sua API devolve a lista direto ou dentro de um objeto { data: [...] }
-    // Ajuste aqui se necessário dependendo de como está o JSON de retorno do seu backend
-    const data: ProdutoDaAPI[] = await response.json() 
-
-    // Se o seu backend devolve { data: [...] }, mude "data.map" para "data.data.map"
+    const data: ProdutoDaAPI[] = await response.json()
     return data.map(mapearProduto)
-
   } catch (error) {
     console.error('Erro ao buscar produtos:', error)
     return []
@@ -126,5 +141,81 @@ export async function getProduto(id: string): Promise<Produto | null> {
   } catch (error) {
     console.error('Erro ao buscar produto:', error)
     return null
+  }
+}
+
+export interface ProdutoPayload {
+  id_produto: string; 
+  sku: string;
+  nome_produto: string;
+  categoria: string;
+  fornecedor: string;
+  preco: number;
+  peso_kg: number;
+  estoque_disponivel: number;
+  ativo: string | boolean; 
+  precisa_revisao: string | boolean;
+}
+
+export async function criarProduto(produto: ProdutoPayload): Promise<boolean> {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(produto),
+    })
+
+    if (!response.ok) throw new Error(`Erro ao criar: ${response.status}`)
+    return true
+  } catch (error) {
+    console.error('Erro ao criar produto:', error)
+    return false
+  }
+}
+
+export async function atualizarProduto(id: string, produto: Partial<ProdutoPayload>): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: 'PATCH', 
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(produto),
+    })
+
+    if (!response.ok) throw new Error(`Erro ao atualizar: ${response.status}`)
+    return true
+  } catch (error) {
+    console.error('Erro ao atualizar produto:', error)
+    return false
+  }
+}
+
+export async function deleteProduto(id: string): Promise<void> {
+  const response = await fetch(`${API_URL}/${id}`, {
+    method: 'DELETE',
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Erro ao deletar produto: ${response.status}`)
+  }
+}
+
+export async function exportarProdutosCSV(): Promise<void> {
+  try {
+    const response = await fetch(`${API_URL}/exportar/csv`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'produtos.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Erro ao exportar produtos:', error)
   }
 }

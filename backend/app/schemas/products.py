@@ -23,7 +23,7 @@ class ProductUpdate(BaseModel):
     preco: Optional[float] = Field(None, gt=0)
     peso_kg: Optional[float] = Field(None, gt=0)
     estoque_disponivel: Optional[int] = Field(None, ge=0)
-    ativo: Optional[bool] = None
+    ativo: Optional[str] = None  # "Sim" ou "Não"
 
 class ProductResponse(ProductBase):
     id_produto: str

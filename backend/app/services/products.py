@@ -31,9 +31,24 @@ async def get_productById(db: AsyncSession, id_produto: str) -> Produto:
     return product
 
 async def get_all_products(
-    db: AsyncSession, skip: int = 0, limit: int = 100, categoria: Optional[str] = None
+    db: AsyncSession, 
+    skip: int = 0, 
+    limit: int = 100, 
+    categoria: Optional[str] = None,
+    status: Optional[str] = None,       # <-- Filtro novo
+    preco_min: Optional[float] = None,  # <-- Filtro novo
+    preco_max: Optional[float] = None   # <-- Filtro novo
 ) -> List[Produto]:
-    return await crud_products.get_all_products(db=db, skip=skip, limit=limit, categoria=categoria)
+    
+    return await crud_products.get_all_products(
+        db=db, 
+        skip=skip, 
+        limit=limit, 
+        categoria=categoria,
+        status=status,
+        preco_min=preco_min,
+        preco_max=preco_max
+    )
 
 async def update_product(db: AsyncSession, id_produto: str, product_in: ProductUpdate) -> Produto:
     updated_product = await crud_products.update_product(

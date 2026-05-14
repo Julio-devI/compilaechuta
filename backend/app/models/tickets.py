@@ -20,5 +20,6 @@ class Ticket(Base):
     agente_suporte         = Column(String, nullable=True)
     nota_avaliacao         = Column(Float, nullable=True)
 
-    pedido = relationship("Pedido", back_populates="tickets", lazy="joined")
-    cliente = relationship("Cliente", back_populates="tickets", lazy="joined")
+    # Alterado para lazy="select" para evitar LEFT OUTER JOIN massivos nas listagens
+    pedido = relationship("Pedido", back_populates="tickets", lazy="select")
+    cliente = relationship("Cliente", back_populates="tickets", lazy="select")

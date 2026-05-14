@@ -197,7 +197,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                         <Package className="w-3 h-3" /> Transportadora
                       </span>
                       <span className="text-sm font-bold text-foreground block">
-                        Loggi Express
+                        Loggin Express
                       </span>
                       <span className="text-[10px] text-muted-foreground uppercase font-medium">
                         LE9982KX-BR
@@ -211,54 +211,63 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                       Pipeline logístico
                     </span>
                     <div className="flex justify-between items-center relative">
-                      {[
-                        { label: "Compra", active: pedido.progresso >= 1 },
-                        {
-                          label: "Processamento",
-                          active: pedido.progresso >= 2,
-                        },
-                        { label: "Enviado", active: pedido.progresso >= 3 },
-                        {
-                          label: "Atrasado",
-                          active:
-                            pedido.status === "Atrasado"
-                              ? "current"
-                              : pedido.progresso >= 4,
-                        },
-                        { label: "Entregue", active: pedido.progresso >= 5 },
-                      ].map((step, i, arr) => (
-                        <div
-                          key={i}
-                          className="flex flex-col items-center flex-1 relative"
-                        >
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center z-10
-                            ${
-                              step.active === true
-                                ? "bg-[#020854] text-white"
-                                : step.active === "current"
-                                  ? "bg-red-500 text-white"
-                                  : "bg-background text-muted-foreground"
-                            }`}
-                          >
-                            {step.active === true ? (
-                              <Check className="w-5 h-5" />
-                            ) : (
-                              <span className="font-bold">{i + 1}</span>
-                            )}
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold mt-2 ${step.active === "current" ? "text-red-500" : "text-slate-400"}`}
-                          >
-                            {step.label}
-                          </span>
-                          {i < arr.length - 1 && (
+                      {(() => {
+                        // Definimos os passos lógicos do modal
+                        const pipelineSteps = [
+                          "Processando",
+                          "Reembolsado",
+                          "Aprovado",
+                          "Recusado",
+                        ];
+                        const currentStepIndex = pipelineSteps.indexOf(
+                          pedido.status,
+                        );
+
+                        return pipelineSteps.map((statusName, i, arr) => {
+                          const isActive = statusName === pedido.status;
+                          const isCompleted = i < currentStepIndex;
+
+                          // Estilo dinâmico baseado no dicionário statusStyles
+                          const stepStyle = isActive
+                            ? statusStyles[statusName]
+                            : isCompleted
+                              ? "bg-slate-700 border-slate-700 text-white"
+                              : "bg-background border-border text-muted-foreground";
+
+                          return (
                             <div
-                              className={`absolute h-[2px] w-full top-5 left-1/2 -z-0 ${step.active === true ? "bg-[#020854]" : "bg-border"}`}
-                            />
-                          )}
-                        </div>
-                      ))}
+                              key={statusName}
+                              className="flex flex-col items-center flex-1 relative"
+                            >
+                              {/* Bolinha com Número Fixo */}
+                              <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center z-10 border-2 transition-all duration-300
+              ${stepStyle} ${isActive ? "scale-110 shadow-sm" : ""}`}
+                              >
+                                <span className="font-black text-xs">
+                                  {i + 1}
+                                </span>
+                              </div>
+
+                              {/* Label do Status */}
+                              <span
+                                className={`text-[10px] font-bold mt-2 transition-colors duration-300
+              ${isActive ? "text-foreground" : "text-slate-400"}`}
+                              >
+                                {statusName}
+                              </span>
+
+                              {/* Linha Conectora (posicionada absolutamente atrás das bolinhas) */}
+                              {i < arr.length - 1 && (
+                                <div
+                                  className={`absolute h-[2px] w-full top-5 left-1/2 -z-0 transition-colors duration-500
+                ${isCompleted ? "bg-slate-700" : "bg-border"}`}
+                                />
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 </div>

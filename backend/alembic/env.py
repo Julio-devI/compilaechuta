@@ -14,6 +14,9 @@ from app.core.database import Base
 from app.models.clients import Cliente   # noqa: F401
 from app.models.tickets import Ticket    # noqa: F401
 from app.models.products import Produto  # noqa: F401 (Model do Rodrigo)
+from app.models.orders import Pedido  # noqa: F401 (Model do Rodrigo)
+from app.models.category import Categoria  # noqa: F401 (Model do Rodrigo)
+
 
 # Carrega as variáveis do .env
 load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))

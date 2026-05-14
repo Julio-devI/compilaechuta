@@ -37,7 +37,7 @@ async def get_orders(
         status_str = status_ticket.value if hasattr(
             status_ticket, "value") else status_ticket
         query = query.join(Pedido.tickets).where(Ticket.status == status_str)
-    
+
     if nome_produto:
         nome_produto_search = f"%{nome_produto}%"
         query = query.join(Pedido.produto).where(
@@ -74,6 +74,10 @@ async def get_orders(
     return total, data
 
 
-async def get_all_orders_for_export(db: AsyncSession) -> list[Pedido]:
-    result = await db.execute(select(Pedido))
-    return result.scalars().all()
+async def get_orders_stream(db: AsyncSession, skip: int = 0, limit: int = 1000):
+    query = select(Pedido).offset(skip).limit(
+        limit).execution_options(yield_per=1000)
+    result = await db.stream(query)
+
+    async for row in result.scalars():
+        yield row

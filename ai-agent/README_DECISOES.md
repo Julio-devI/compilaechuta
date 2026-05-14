@@ -112,7 +112,7 @@
 
 - **Contexto:** Os system prompts são extensos e precisam ser iterados sem alterar código Python.
 
-- **Decisão:** Manter `sql_system.txt` e `insight_system.txt` em `src/prompts/`, carregados em runtime com substituição de placeholders (`{schema}`, `{question}`, `{data}`, `{sql}`).
+- **Decisão:** Manter `sql_system.txt` e `insight_system.txt` em `src/vcommerce_ai_agent/llm/prompts/`, carregados em runtime com substituição de placeholders (`{schema}`, `{question}`, `{data}`, `{sql}`).
 
 - **Justificativa:** Prompts em arquivos externos permitem ajustes de engenharia de prompt (few-shot examples, regras de formatação) sem reimplantação de código. Isso acelera iterações com o time de dados e facilita testes A/B de diferentes versões de prompt.
 
@@ -292,7 +292,7 @@
 
 - **Contexto:** A estrutura original agrupava todos os arquivos no diretório src/ raiz e tests/ raiz, misturando componentes de diferentes naturezas (LLM, banco de dados, segurança) e tipos de teste (unitários rápidos e smoke tests lentos de integração).
 
-- **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade: src/core, src/database, src/llm, src/security e separando os testes em tests/unit/ e tests/integration/. O agent.py atua como facade na raiz do src/.
+- **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade sob `src/vcommerce_ai_agent/`: `core/`, `database/`, `llm/` e `security/`. Os testes ficam separados em `tests/unit/` e `tests/integration/`. O `agent.py` atua como facade do pacote.
 
 - **Justificativa:** O agrupamento por domínio de responsabilidade facilita tanto a manutenção quanto a revisão do código, tornando explícita a fronteira entre componentes (LLM, banco de dados, segurança, core). Além disso, a separação entre `tests/unit/` e `tests/integration/` permite executar os testes unitários isoladamente via `pytest tests/unit/`, sem consumir chamadas de API do Gemini. Os smoke tests de integração, que dependem da API real, ficam em `tests/integration/` e são executados separadamente conforme a disponibilidade de quota.
 
@@ -397,5 +397,5 @@
 
 - **Contexto:** A Chamada 2 recebe os dados retornados pela query SQL para gerar insights. Quando esses dados contêm colunas sensíveis, enviar os valores reais ao LLM expõe informações da empresa ao provedor do modelo de IA.
 - **Decisão:** Mascarar valores sensíveis depois da execução SQL e antes da Chamada 2, usando tokens temporários por requisição (ex.: `Email_1`, `Cliente_1`) e um mapa local de reversão mantido apenas em memória. A Chamada 2 recebe somente dados mascarados. Após o retorno do LLM, o agente substitui os tokens pelos valores reais antes de montar o `AgentResponse`.
-- **Justificativa:** O objetivo do mascaramento é proteger os dados sensíveis da empresa exclusivamente na fronteira de comunicação com o provedor do LLM (Gemini), impedindo que essas informações sejam enviadas à API externa. Esta anonimização é restrita ao agente; o processo é revertido antes da resposta final, garantindo que o usuário da plataforma receba os dados reais de forma transparente e não perceba diferença no output.
+- **Justificativa:** O objetivo do mascaramento é proteger os dados sensíveis da empresa exclusivamente na fronteira de comunicação com o provedor do LLM (Gemini), impedindo que essas informações sejam enviadas à API externa. Este mascaramento reversível é restrito ao agente; o processo é revertido antes da resposta final, garantindo que o usuário da plataforma receba os dados reais de forma transparente e não perceba diferença no output.
 - **Implicações:** O `schema_descriptions.json` passa a marcar colunas sensíveis que devem ser mascaradas antes da Chamada 2. O mapa `token -> valor real` não pode ser enviado ao LLM, retornado no contrato, serializado no histórico ou registrado em logs. A resposta final pode voltar a conter os valores reais quando a política da plataforma permitir exibição ao usuário autorizado. O contrato atual de comunicação com o backend deve permanecer inalterado; mascaramento e reversão são responsabilidades internas do módulo `ai-agent`.

@@ -25,6 +25,11 @@ from tests.integration.smoke_test_db import create_test_db
 async def _run_guardrails_smoke_test(db_path: str) -> None:
     from vcommerce_ai_agent.agent import VCommerceAgent
     from vcommerce_ai_agent.core.exceptions import LLMQuotaError
+    from tests.integration.smoke_error_utils import (
+        print_exception,
+        print_response_error,
+        response_error_fields,
+    )
     from tests.integration.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
@@ -203,7 +208,8 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
                 print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {error_msg}")
                 _print_summary(results, scenarios, api_calls)
                 return
-            print(f"[EXCECAO] ({elapsed:.2f}s): {exc}")
+            print(f"[EXCECAO] ({elapsed:.2f}s)")
+            print_exception(exc)
             api_calls += planned_calls
             results.append({
                 "scenario": scenario["name"],
@@ -245,7 +251,7 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
         status_icon = "[PASSOU]" if passed else "[FALHOU]"
         print(f"{status_icon} ({elapsed:.2f}s) -> Status: {got_status}")
         if response.developer_debug.error:
-            print(f"   Error Code: {response.developer_debug.error.code}")
+            print_response_error(response)
         print(f"   Texto: {response.user_response.answer_text[:200]}...")
         if response.developer_debug.sql:
             print(f"   SQL  : {response.developer_debug.sql[:120]}...")
@@ -270,6 +276,7 @@ async def _run_guardrails_smoke_test(db_path: str) -> None:
                 else 0
             ),
             "is_empty": is_empty,
+            **response_error_fields(response),
         })
 
         await wait_after_llm_interaction(planned_calls, is_last)
@@ -306,6 +313,12 @@ def _print_summary(results: list, all_scenarios: list, api_calls: int) -> None:
         icon = "[OK]" if r.get("passed") else "[FALHA]"
         print(f"  {i}. {icon} ({r['elapsed']:.2f}s) {r['scenario']}")
         print(f"      Esperado: {r['expected']} | Obtido: {r['got']}")
+        if r.get("error_code"):
+            print(
+                f"      Erro: {r['error_code']} | "
+                f"Stage: {r.get('error_stage')} | "
+                f"Retryable: {r.get('error_retryable')}"
+            )
 
 
 def main() -> None:

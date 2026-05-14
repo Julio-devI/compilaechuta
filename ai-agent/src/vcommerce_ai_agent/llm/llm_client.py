@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from google.api_core import exceptions as google_exceptions
 from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelHTTPError
@@ -224,6 +225,15 @@ class LLMAgent:
             except ModelHTTPError as exc:
                 mapped = _map_http_error(exc)
                 if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
+                    raise mapped from exc
+                last_error = mapped
+            except httpx.TimeoutException as exc:
+                mapped = LLMTimeoutError(
+                    "A API Gemini demorou demais para responder. "
+                    "Tente novamente ou simplifique a pergunta.",
+                    original_error=exc,
+                )
+                if attempt == _MAX_RETRIES - 1:
                     raise mapped from exc
                 last_error = mapped
             except TimeoutError as exc:

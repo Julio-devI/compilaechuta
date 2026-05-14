@@ -469,6 +469,73 @@ def test_mask_cte_simple(sample_descriptions):
     assert result.token_to_value == {"Cliente_1": "Maria"}
 
 
+def test_mask_subquery_from_propagates_sensitive_alias(sample_descriptions):
+    data = [{"cliente": "Maria"}]
+    result = mask_sensitive_data(
+        data,
+        sql=(
+            "SELECT cliente FROM ("
+            "SELECT nome_cliente AS cliente FROM dim_cliente"
+            ") sub"
+        ),
+        descriptions=sample_descriptions,
+    )
+    assert result.llm_data[0]["cliente"] == "Cliente_1"
+    assert result.token_to_value == {"Cliente_1": "Maria"}
+    assert result.masked_columns == {"cliente"}
+
+
+def test_mask_cte_propagates_sensitive_alias(sample_descriptions):
+    data = [{"cliente": "Ana"}]
+    result = mask_sensitive_data(
+        data,
+        sql=(
+            "WITH clientes AS ("
+            "SELECT nome_cliente AS cliente FROM dim_cliente"
+            ") SELECT cliente FROM clientes"
+        ),
+        descriptions=sample_descriptions,
+    )
+    assert result.llm_data[0]["cliente"] == "Cliente_1"
+    assert result.token_to_value == {"Cliente_1": "Ana"}
+    assert result.masked_columns == {"cliente"}
+
+
+def test_mask_nested_subquery_propagates_sensitive_alias(sample_descriptions):
+    data = [{"cliente": "Paula"}]
+    result = mask_sensitive_data(
+        data,
+        sql=(
+            "SELECT cliente FROM ("
+            "SELECT cliente FROM ("
+            "SELECT nome_cliente AS cliente FROM dim_cliente"
+            ") s1"
+            ") s2"
+        ),
+        descriptions=sample_descriptions,
+    )
+    assert result.llm_data[0]["cliente"] == "Cliente_1"
+    assert result.token_to_value == {"Cliente_1": "Paula"}
+    assert result.masked_columns == {"cliente"}
+
+
+def test_mask_select_star_from_subquery_with_sensitive_alias(sample_descriptions):
+    data = [{"cliente": "Bruna", "regiao": "Sul"}]
+    result = mask_sensitive_data(
+        data,
+        sql=(
+            "SELECT * FROM ("
+            "SELECT nome_cliente AS cliente, regiao FROM dim_cliente"
+            ") sub"
+        ),
+        descriptions=sample_descriptions,
+    )
+    assert result.llm_data[0]["cliente"] == "Cliente_1"
+    assert result.llm_data[0]["regiao"] == "Sul"
+    assert result.token_to_value == {"Cliente_1": "Bruna"}
+    assert result.masked_columns == {"cliente"}
+
+
 def test_mask_cte_without_star_fails_when_ambiguous(sample_descriptions):
     data = [{"cliente": "Maria"}]
     with pytest.raises(GuardrailError) as exc_info:

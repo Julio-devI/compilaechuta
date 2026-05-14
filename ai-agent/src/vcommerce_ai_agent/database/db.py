@@ -65,22 +65,28 @@ class Database:
             TimeoutError: Se a execução exceder QUERY_TIMEOUT_SECONDS.
         """
 
-        async def _run() -> tuple[list[dict[str, Any]], bool]:
-            async with aiosqlite.connect(self._get_connection_uri(), uri=True) as conn:
-                conn.row_factory = aiosqlite.Row
+        conn: aiosqlite.Connection | None = None
+
+        try:
+            conn = await aiosqlite.connect(self._get_connection_uri(), uri=True)
+            conn.row_factory = aiosqlite.Row
+
+            async def _run() -> tuple[list[dict[str, Any]], bool]:
                 cursor = await conn.execute(sql)
                 rows = await cursor.fetchmany(self._max_rows + 1)
+                await cursor.close()
                 truncated = len(rows) > self._max_rows
                 if truncated:
                     rows = rows[: self._max_rows]
                 result = [dict(row) for row in rows]
                 return result, truncated
 
-        try:
             return await asyncio.wait_for(
                 _run(), timeout=self._query_timeout_seconds
             )
         except asyncio.TimeoutError as exc:
+            if conn is not None:
+                await conn.interrupt()
             raise TimeoutError(
                 f"A consulta excedeu o limite de {self._query_timeout_seconds} segundos. "
                 "Tente simplificar a pergunta ou adicionar filtros mais específicos."
@@ -93,6 +99,9 @@ class Database:
             raise RuntimeError(
                 f"Erro de banco de dados: {exc}"
             ) from exc
+        finally:
+            if conn is not None:
+                await conn.close()
 
     async def get_technical_schema(self) -> dict[str, Any]:
         """

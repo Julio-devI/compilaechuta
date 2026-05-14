@@ -1,4 +1,4 @@
-# ai-agent — Módulo de Agente de IA (Text-to-SQL)
+# ai-agent: Módulo de Agente de IA (Text-to-SQL)
 
 Módulo Python independente que traduz perguntas em linguagem natural (português) para queries SQL, executa contra o banco de dados da V-Commerce e retorna insights de negócio estruturados.
 
@@ -120,14 +120,14 @@ Regras do contrato:
 
 ## Estrutura
 
-- `pyproject.toml` — Metadados de pacote instalável e dependências
-- `src/vcommerce_ai_agent/agent.py` — Classe pública `VCommerceAgent` (Facade)
-- `src/vcommerce_ai_agent/core/` — Configurações e tratamento de erros customizados
-- `src/vcommerce_ai_agent/database/` — Conexão, execução SQL e extração de schema
-- `src/vcommerce_ai_agent/llm/` — Geração de prompts, chamadas à API Gemini e clientes LLM
-- `src/vcommerce_ai_agent/security/` — Validações de segurança e guardrails
-- `tests/unit/` — Testes automatizados rápidos e isolados
-- `tests/integration/` — Smoke tests contra a API real e banco sintético
+- `pyproject.toml`: Metadados de pacote instalável e dependências
+- `src/vcommerce_ai_agent/agent.py`: Classe pública `VCommerceAgent` (Facade)
+- `src/vcommerce_ai_agent/core/`: Configurações e tratamento de erros customizados
+- `src/vcommerce_ai_agent/database/`: Conexão, execução SQL e extração de schema
+- `src/vcommerce_ai_agent/llm/`: Geração de prompts, chamadas à API Gemini e clientes LLM
+- `src/vcommerce_ai_agent/security/`: Validações de segurança e guardrails
+- `tests/unit/`: Testes automatizados rápidos e isolados
+- `tests/integration/`: Smoke tests contra a API real e banco sintético
 
 ## Testes
 
@@ -200,6 +200,7 @@ O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, 
 | `sql_validation` | `MULTIPLE_STATEMENTS` | Não | Guardrail detectou múltiplos statements. |
 | `sql_validation` | `SCHEMA_VIOLATION_ALLOWLIST` | Não | SQL usa tabela ou coluna inexistente no schema permitido. |
 | `sql_validation` | `SCHEMA_VIOLATION_SEMANTIC` | Não | SQL referencia coluna fora da tabela/alias correto. |
+| `sql_validation` | `SENSITIVE_DATA_MASKING_ERROR` | Não | Falha ao mascarar coluna sensível antes da Chamada 2 (ex: SELECT * inseguro ou agregação MIN/MAX sobre dado pessoal). |
 | `database` | `EXECUTION_TIMEOUT` | Sim | Query excedeu `QUERY_TIMEOUT_SECONDS`. |
 | `database` | `DB_EXECUTION_ERROR` | Não | SQLite recusou ou falhou ao executar a query. |
 | `insight_generation` | `INSIGHT_PARSE_ERROR` | Sim | Chamada 2 retornou JSON malformado ou fora do contrato após retries. |
@@ -219,7 +220,8 @@ O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, 
 - O backend pode informar um `schema_descriptions_path` externo para manter descrições, aliases e exemplos do schema fora do pacote instalável.
 - Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
-- A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional — o escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
+- A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional. O escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
+- Dados sensíveis (ex: `nome_cliente`) são mascarados por tokens temporários antes do envio ao LLM na Chamada 2. A classificação de sensibilidade é determinística e baseada no `schema_descriptions.json`. A resposta final restaura os valores reais localmente, mas o mapa de reversão nunca cruza a fronteira do processo.
 
 ## Decisões Arquiteturais
 

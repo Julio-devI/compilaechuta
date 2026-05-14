@@ -1,4 +1,4 @@
-# Guia de Integração Backend — Módulo `ai-agent`
+# Guia de Integração Backend: Módulo `ai-agent`
 
 Este documento orienta o time de backend a consumir o módulo Python do agente de IA Text-to-SQL da V-Commerce. O conteúdo abaixo foi validado contra a implementação atual em `src/vcommerce_ai_agent/agent.py`, `src/vcommerce_ai_agent/core/config.py`, `src/vcommerce_ai_agent/core/exceptions.py`, `src/vcommerce_ai_agent/database/db.py`, `src/vcommerce_ai_agent/llm/sql_generator.py`, `src/vcommerce_ai_agent/llm/insight_generator.py` e os testes unitários do contrato.
 

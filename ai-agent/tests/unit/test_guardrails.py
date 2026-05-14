@@ -28,7 +28,7 @@ from vcommerce_ai_agent.core.config import MAX_INPUT_CHARS
 _ALLOWLIST = {
     "dim_cliente": {"id_cliente", "nome_cliente", "regiao", "segmento_rfm", "email"},
     "fato_vendas": {"id_pedido", "id_cliente", "valor_total_venda", "id_data", "status"},
-    "dim_produto": {"id_produto", "nome_produto", "categoria", "preco"},
+    "dim_produto": {"id_produto", "nome_produto", "id_categoria", "preco"},
 }
 
 

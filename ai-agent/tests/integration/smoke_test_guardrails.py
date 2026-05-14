@@ -322,14 +322,19 @@ def _print_summary(results: list, all_scenarios: list, api_calls: int) -> None:
 
 
 def main() -> None:
-    from vcommerce_ai_agent.core import config
+    from tests.integration.smoke_tests_config import resolve_api_key
 
-    if not config.GEMINI_API_KEY:
+    api_key = resolve_api_key(sys.argv[1:])
+    if not api_key:
         print(
-            "Erro: GEMINI_API_KEY nao esta definida.\n"
-            "Verifique o arquivo .env na raiz do projeto."
+            "Erro: GEMINI_API_KEY nao definida.\n"
+            "Use --api-key SUA_CHAVE ou defina a variavel de ambiente."
         )
         raise SystemExit(1)
+
+    from vcommerce_ai_agent.core import config
+
+    config.GEMINI_API_KEY = api_key
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name

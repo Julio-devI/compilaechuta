@@ -666,6 +666,45 @@ O backend ainda deve manter seus próprios controles de autenticação, autoriza
 - Perguntas fora do escopo não retornam `ResponseError`; elas usam `status="out_of_scope"`.
 - Pedidos por tabelas ocultas, internas ou fora do schema autorizado são bloqueados antes da chamada ao LLM.
 
+## Logging e Observabilidade
+
+O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. O backend deve configurar handlers, nível e formato. O pacote **nunca** chama `logging.basicConfig`.
+
+Exemplo de configuração mínima no backend:
+
+```python
+import logging
+
+vcommerce_logger = logging.getLogger("vcommerce_ai_agent")
+vcommerce_logger.setLevel(logging.INFO)
+
+# Opcional: adicionar um handler se o root logger ainda nao estiver configurado
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
+vcommerce_logger.addHandler(handler)
+```
+
+Eventos úteis para dashboards:
+
+| Evento | Nível | Campos úteis para dashboards |
+|---|---|---|
+| `ask_started` | INFO | `model` |
+| `schema_loaded` | INFO | `elapsed_ms` |
+| `sql_generated` | INFO | `elapsed_ms`, `tokens_used`, `model` |
+| `layer_2_blocked` | WARNING | `error_code`, `stage`, `attempt` |
+| `query_executed` | INFO | `elapsed_ms`, `rows_count`, `truncated` |
+| `sensitive_masking_applied` | INFO | `masked_columns_count` |
+| `insight_generated` | INFO | `elapsed_ms`, `tokens_used`, `model` |
+| `ask_finished` | INFO | `status`, `total_time_ms`, `tokens_used`, `error_code` |
+| `llm_retry_attempted` | INFO | `attempt`, `error_code`, `backoff_seconds` |
+
+Interpretação de níveis:
+
+- `INFO` indica progresso normal do pipeline.
+- `WARNING` indica tentativas de ataque (prompt injection, `layer_2_blocked`) ou situações que exigem atenção. O backend pode usar esses eventos para alertas de segurança.
+
+O pacote garante que nenhum log contém PII: a pergunta do usuário, dados do banco, mapa de tokens e nomes de colunas sensíveis nunca aparecem nos extras dos eventos. O campo `sql` é incluído apenas em eventos de erro, como `layer_2_blocked`, para facilitar auditoria de tentativas maliciosas.
+
 ## Checklist de Integração
 
 1. Instalar o pacote local com `pip install -e ../ai-agent` ou adicionar `-e ../ai-agent` ao `requirements.txt` do backend.

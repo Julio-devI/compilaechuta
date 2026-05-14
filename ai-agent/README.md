@@ -142,13 +142,35 @@ Regras do contrato:
 
 ## Testes
 
-```bash
-# Testes unitários (rápidos, sem consumo de cota API)
-pytest tests/unit/ -v
+O projeto possui três categorias de testes:
 
-# Smoke tests de integração (consomem cota API)
-pytest tests/integration/ -v
-# ou rodar os scripts python manualmente
+### 1. Testes unitários (rápidos, sem consumo de cota API)
+
+```bash
+pytest tests/unit/ -v
+```
+
+### 2. Testes de integração offline (banco SQLite temporário e LLM mockado)
+
+```bash
+pytest tests/integration/test_integration_offline.py -v
+```
+
+### 3. Smoke tests manuais (consomem cota da API Gemini real)
+
+```bash
+python tests/integration/smoke_test.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_guardrails.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_memory.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_anonymization.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_suggestions.py --api-key SUA_CHAVE
+```
+
+Também é possível passar a chave via variável de ambiente:
+
+```bash
+GEMINI_API_KEY=SUA_CHAVE python tests/integration/smoke_test.py
 ```
 
 ## Smoke Test
@@ -191,6 +213,31 @@ python tests/integration/smoke_test_suggestions.py
 O script `smoke_test_anonymization.py` valida o fluxo principal de mascaramento reversível em três cenários: consulta agregada sem dado sensível, consulta simples com nome de cliente e consulta complexa com joins entre Vendas, Clientes, Produtos e Calendário. O cenário complexo confirma múltiplos prefixos de tokens (`Cliente_`, `Email_`, `Telefone_`, `Documento_`, `Pedido_`), restauração dos valores reais na resposta final e ausência de tokens no texto exibido ao usuário.
 
 O script `smoke_test_sensitive_data_masking.py` compara cenários com e sem mascaramento reversível, capturando os dados enviados à Chamada 2, o JSON bruto retornado pelo LLM e a resposta final restaurada pelo agente. Ele aceita `ANON_SMOKE_RUNS` e `ANON_SMOKE_QUESTION` para controlar a quantidade de rodadas ou executar uma pergunta customizada.
+
+## Logging Interno
+
+O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. O backend é responsável por configurar handlers, nível e formato. O pacote **nunca** chama `logging.basicConfig`.
+
+Eventos principais emitidos:
+
+- `ask_started` — início do processamento de uma pergunta.
+- `prompt_injection_detected` — tentativa de prompt injection detectada na Camada 1.
+- `schema_loaded` — schema carregado com sucesso.
+- `sql_generated` — SQL gerado pela Chamada 1.
+- `layer_2_blocked` — guardrail da Camada 2 bloqueou o SQL (nível WARNING).
+- `sql_correction_attempted` — tentativa de correção automática do SQL.
+- `query_executed` — query executada no banco.
+- `sensitive_masking_applied` — dados sensíveis foram mascarados antes da Chamada 2.
+- `insight_generated` — insight gerado pela Chamada 2.
+- `ask_finished` — fim do processamento, com status e métricas.
+- `suggestions_started`, `suggestions_generated`, `suggestions_fallback`, `suggestions_finished` — ciclo de geração de sugestões iniciais.
+- `llm_retry_attempted` — retry automático em caso de instabilidade do LLM.
+
+Garantias de segurança nos logs:
+
+- Nenhum log contém a pergunta do usuário, dados retornados pelo banco, mapa de tokens ou nomes de colunas sensíveis.
+- O campo `sql` aparece apenas em eventos de erro (por exemplo, `layer_2_blocked`), nunca em logs de sucesso.
+- O backend pode usar esses eventos para dashboards de observabilidade, auditoria e alertas de segurança.
 
 ## Variáveis de Ambiente
 

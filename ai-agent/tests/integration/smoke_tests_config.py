@@ -7,6 +7,7 @@ por minuto por chave de API.
 """
 
 import asyncio
+import os
 
 
 MAX_API_CALLS_PER_DAY = 20
@@ -52,3 +53,22 @@ async def wait_after_llm_interaction(planned_calls: int, is_last: bool) -> None:
         f"para respeitar {MAX_API_CALLS_PER_MINUTE} req/min..."
     )
     await asyncio.sleep(DELAY_BETWEEN_LLM_INTERACTIONS_SECONDS)
+
+
+def resolve_api_key(argv: list[str] | None = None) -> str | None:
+    """
+    Resolve a API key para smoke tests na seguinte prioridade:
+        1. Argumento --api-key na linha de comando
+        2. Variavel de ambiente GEMINI_API_KEY
+        3. .env (ja carregado pelo config.py)
+    """
+    args = argv or []
+    for i, arg in enumerate(args):
+        if arg == "--api-key" and i + 1 < len(args):
+            return args[i + 1]
+    env_key = os.getenv("GEMINI_API_KEY", "")
+    if env_key:
+        return env_key
+    from vcommerce_ai_agent.core import config
+
+    return config.GEMINI_API_KEY or None

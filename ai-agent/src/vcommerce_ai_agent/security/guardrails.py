@@ -22,6 +22,7 @@ from sqlglot.tokens import Tokenizer, TokenType
 
 from vcommerce_ai_agent.core.config import MAX_INPUT_CHARS
 from vcommerce_ai_agent.core.exceptions import GuardrailError, ErrorCode
+from vcommerce_ai_agent.core.logger import logger
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +136,10 @@ def validate_destructive_queries(sql: str) -> None:
     except Exception as exc:
         raise GuardrailError(f"Falha ao parsear SQL: {exc}", error_code=ErrorCode.SQL_PARSE_ERROR) from exc
     if not isinstance(parsed, exp.Select):
+        logger.warning(
+            "layer_2_blocked",
+            extra={"event": "layer_2_blocked", "error_code": ErrorCode.DESTRUCTIVE_QUERY.value},
+        )
         raise GuardrailError(
             f"Apenas consultas SELECT são permitidas. "
             f"Tipo detectado: {type(parsed).__name__}",
@@ -182,6 +187,10 @@ def validate_multiple_statements(sql: str) -> None:
 
     statements = [expr for expr in expressions if expr is not None]
     if len(statements) > 1:
+        logger.warning(
+            "layer_2_blocked",
+            extra={"event": "layer_2_blocked", "error_code": ErrorCode.MULTIPLE_STATEMENTS.value},
+        )
         raise GuardrailError(
             "Multiplos statements SQL detectados. "
             "Apenas um unico statement SELECT e permitido.",
@@ -231,6 +240,10 @@ def validate_table_column_allowlist(
         if table.name in cte_names:
             continue
         if table.name not in allowlist:
+            logger.warning(
+                "layer_2_blocked",
+                extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_ALLOWLIST.value},
+            )
             raise GuardrailError(
                 f"Tabela '{table.name}' nao esta no allowlist do schema.",
                 error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
@@ -251,6 +264,10 @@ def validate_table_column_allowlist(
         if col.name in select_aliases:
             continue
         if col.name not in allowed_columns:
+            logger.warning(
+                "layer_2_blocked",
+                extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_ALLOWLIST.value},
+            )
             raise GuardrailError(
                 f"Coluna '{col.name}' nao esta no allowlist do schema.",
                 error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
@@ -390,6 +407,10 @@ def validate_semantic_schema(
                     continue
                 if _semantic_column_in_parent_scope(table_ref, col_name, scope, allowlist):
                     continue
+                logger.warning(
+                    "layer_2_blocked",
+                    extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_SEMANTIC.value},
+                )
                 raise GuardrailError(
                     f"Coluna '{col_name}' (tabela '{table_ref}') "
                     f"nao pertence ao schema.",
@@ -397,6 +418,10 @@ def validate_semantic_schema(
                 )
 
             if not _semantic_unqualified_column_in_sources(col_name, scope_sources):
+                logger.warning(
+                    "layer_2_blocked",
+                    extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_SEMANTIC.value},
+                )
                 raise GuardrailError(
                     f"Coluna '{col_name}' nao pertence a nenhuma "
                     f"tabela do FROM/JOIN.",
@@ -439,6 +464,10 @@ def apply_layer_2(
     try:
         parsed = sqlglot.parse_one(sql, read="sqlite")
     except Exception as exc:
+        logger.warning(
+            "layer_2_blocked",
+            extra={"event": "layer_2_blocked", "error_code": ErrorCode.SQL_PARSE_ERROR.value},
+        )
         raise GuardrailError(
             f"Falha ao parsear SQL na Camada 2: {exc}",
             error_code=ErrorCode.SQL_PARSE_ERROR
@@ -472,6 +501,10 @@ def add_limit_if_missing(
         try:
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
+            logger.warning(
+                "layer_2_blocked",
+                extra={"event": "layer_2_blocked", "error_code": ErrorCode.SQL_PARSE_ERROR.value},
+            )
             raise GuardrailError(
                 f"Falha ao parsear SQL para verificar LIMIT: {exc}",
                 error_code=ErrorCode.SQL_PARSE_ERROR

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from datetime import datetime
+from datetime import date
 
 from app.api.deps import get_db
 from app.services import tickets as service
@@ -14,8 +14,8 @@ router = APIRouter()
 async def listar(
     skip:       int                = Query(0,    ge=0),
     limit:      int                = Query(100,  ge=1, le=500),
-    start_date: Optional[datetime] = Query(None, description="Filtro início (ISO 8601)"),
-    end_date:   Optional[datetime] = Query(None, description="Filtro fim (ISO 8601)"),
+    start_date: Optional[date] = Query(None,description="Filtro início (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query( None,description="Filtro fim (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db),
 ):
     return await service.listar_tickets(db, skip, limit, start_date, end_date)

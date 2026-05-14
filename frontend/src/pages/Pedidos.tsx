@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Maximize2, Minimize2, ChevronDown, ChevronUp, History,
   AlertCircle, CheckCircle2, Database, Box, Calendar,
   Filter, Ticket, Table, Grid
 } from 'lucide-react'
 import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
+import { getPedidos, FiltrosPedidos } from '../services/orderService'
 
 // --- Interfaces ---
+// Mantemos a interface do layout original para não quebrar os cards
 interface Pedido {
   id: string
   cliente: string
@@ -15,11 +17,13 @@ interface Pedido {
   produtos: number
   valor: string
   data: string
-  status: 'Atrasado' | 'No prazo'
+  status: 'Atrasado' | 'No prazo' | string
   recorrente: boolean
   ticket: number
   tempoAberto: string
   progresso: number
+  mediaEstrelas: number
+  totalPedidosCliente: number
 }
 
 // --- Mock de Dados ---
@@ -35,7 +39,9 @@ const pedidosMock: Pedido[] = Array(5).fill({
   recorrente: true,
   ticket: 1,
   tempoAberto: '3d aberto',
-  progresso: 4
+  progresso: 4,
+  mediaEstrelas: 5.0,
+  totalPedidosCliente: 38
 }).map((pedido, index) => ({ ...pedido, id: `VC-30842${index}` }));
 
 export function Pedidos() {
@@ -43,6 +49,64 @@ export function Pedidos() {
   const [isFiltrosOpen, setIsFiltrosOpen] = useState(true)
   const [viewMode, setViewMode] = useState<'tabela' | 'grade'>('tabela')
   const [isLoading, setIsLoading] = useState(false)
+
+  // --- API State ---
+  const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [totalItems, setTotalItems] = useState(0)
+  const [page, setPage] = useState(1)
+  const pageSize = 20
+
+  // --- Filter State ---
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [tipoClienteFilter, setTipoClienteFilter] = useState<string>('')
+  const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
+  const [ticketFilter, setTicketFilter] = useState<string>('')
+
+  const fetchPedidosData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const filtros: FiltrosPedidos = {
+        id_produto: searchTerm || undefined,
+        status: statusFilter || undefined,
+        tipo_cliente: tipoClienteFilter || undefined,
+        status_ticket: ticketFilter === 'Aberto' ? 'aberto' : ticketFilter === 'Finalizado' ? 'resolvido' : undefined,
+      }
+
+      const res = await getPedidos((page - 1) * pageSize, pageSize, filtros)
+      
+      const pedidosMapeados: Pedido[] = res.data.map((p) => ({
+        id: p.id,
+        cliente: p.cliente,
+        cidade: p.cidade,
+        estado: p.estado,
+        produtos: p.produtos,
+        valor: p.valor,
+        data: p.data,
+        status: p.status,
+        recorrente: p.recorrente,
+        ticket: p.ticket,
+        tempoAberto: p.tempoAberto,
+        progresso: p.progresso,
+        mediaEstrelas: p.mediaEstrelas,
+        totalPedidosCliente: p.totalPedidosCliente
+      }));
+
+      setPedidos(pedidosMapeados)
+      setTotalItems(res.total)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [page, searchTerm, statusFilter, tipoClienteFilter, ticketFilter, periodoFilter])
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchPedidosData()
+    }, 500)
+    return () => clearTimeout(handler)
+  }, [fetchPedidosData])
 
   const handleViewChange = (mode: 'tabela' | 'grade') => {
     if (viewMode === mode) return;
@@ -55,6 +119,11 @@ export function Pedidos() {
     }, 500);
   };
 
+  const toggleStatus = (label: string) => setStatusFilter(prev => prev === label ? '' : label)
+  const toggleTicket = (label: string) => setTicketFilter(prev => prev === label ? '' : label)
+
+  const dataSource = pedidos.length > 0 ? pedidos : pedidosMock;
+
   const PedidoCardSkeleton = () => (
     <div className="bg-card p-6 rounded-3xl border border-border animate-pulse flex flex-col justify-between h-full">
       <div>
@@ -65,7 +134,6 @@ export function Pedidos() {
           </div>
           <div className="h-5 w-16 bg-slate-200 rounded-full"></div>
         </div>
-
 
         <div className="bg-background rounded-2xl p-4 mb-4 space-y-2">
           <div className="h-5 bg-slate-200 rounded w-3/4"></div>
@@ -111,7 +179,7 @@ export function Pedidos() {
             Consultar Database
           </div>
           <div className="text-sm font-semibold text-muted-foreground">
-            Total <span className="text-blue-700 ml-2 font-black">300.000</span>
+            Total <span className="text-blue-700 ml-2 font-black">{totalItems > 0 ? totalItems : "300.000"}</span>
           </div>
         </div>
 
@@ -120,11 +188,13 @@ export function Pedidos() {
           <input
             type="text"
             placeholder="Buscar por ID do pedido, cliente ou SKU..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-4 bg-background rounded-2xl border-none text-foreground focus:ring-2 focus:ring-blue-500 outline-none"
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
             <span className="text-muted-foreground text-sm">Exibindo</span>
-            <span className="bg-sky-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">6</span>
+            <span className="bg-sky-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">{dataSource.length}</span>
           </div>
         </div>
       </div>
@@ -163,36 +233,10 @@ export function Pedidos() {
                   <Filter className="w-4 h-4" /> Status
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <StatusChip label="Compra" color="bg-background dark:bg-card text-purple-600" dot="bg-purple-500" />
-                  <StatusChip label="Processamento" color="bg-background dark:bg-card text-orange-600" dot="bg-orange-500" />
-                  <StatusChip label="Enviado" color="bg-background dark:bg-card text-yellow-500" dot="bg-yellow-400" />
-                  <StatusChip label="Em Trânsito" color="bg-background dark:bg-card text-blue-600" dot="bg-blue-500" />
-                  <StatusChip label="Atrasado" color="bg-background dark:bg-card text-red-600" dot="bg-red-500" />
-                  <StatusChip label="Entregue" color="bg-background dark:bg-card text-green-600" dot="bg-green-500" />
-                  <StatusChip label="Cancelado" color="bg-background dark:bg-card text-foreground" dot="bg-[#020854]" />
-                </div>
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
-                  <Calendar className="w-4 h-4" /> Tipo de Cliente
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button className="bg-[#020854] text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-2">
-                    <span>👑</span> VIP
-                  </button>
-                  <button className="bg-[#BDEBFF] text-[#0070E0] px-4 py-2 rounded-full text-xs font-black flex items-center gap-2">
-                    <History className="w-3.5 h-3.5 rotate-180" /> Recorrente
-                  </button>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-2">
-                    <span className="text-sm">✦</span> 1ª Compra
-                  </button>
-                  <button className="bg-red-500 text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[10px]">×</div> Inativo
-                  </button>
-                  <button className="bg-yellow-400 text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-2">
-                    <AlertCircle className="w-3.5 h-3.5" /> Em risco
-                  </button>
+                  <StatusChip label="Aprovado" color="bg-background dark:bg-card text-purple-600" dot="bg-purple-500" isActive={statusFilter === 'Aprovado'} onClick={() => toggleStatus('Aprovado')} />
+                  <StatusChip label="Processando" color="bg-background dark:bg-card text-orange-600" dot="bg-orange-500" isActive={statusFilter === 'Processando'} onClick={() => toggleStatus('Processando')} />
+                  <StatusChip label="Recusado" color="bg-background dark:bg-card text-red-600" dot="bg-red-500" isActive={statusFilter === 'Recusado'} onClick={() => toggleStatus('Recusado')} />
+                  <StatusChip label="Reembolsado" color="bg-background dark:bg-card text-blue-600" dot="bg-blue-500" isActive={statusFilter === 'Reembolsado'} onClick={() => toggleStatus('Reembolsado')} />
                 </div>
               </div>
             </div>
@@ -204,10 +248,10 @@ export function Pedidos() {
                   <Calendar className="w-4 h-4" /> Período de Abertura
                 </label>
                 <div className="flex gap-2">
-                  <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Todos</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Hoje</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Últimos 7 dias</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Personalizado</button>
+                  <button onClick={() => setPeriodoFilter('Todos')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Todos' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Todos</button>
+                  <button onClick={() => setPeriodoFilter('Hoje')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Hoje' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Hoje</button>
+                  <button onClick={() => setPeriodoFilter('Últimos 7 dias')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Últimos 7 dias' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Últimos 7 dias</button>
+                  <button onClick={() => setPeriodoFilter('Personalizado')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Personalizado' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Personalizado</button>
                 </div>
               </div>
 
@@ -216,9 +260,9 @@ export function Pedidos() {
                   <Ticket className="w-4 h-4" /> Ticket
                 </label>
                 <div className="flex gap-2">
-                  <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Não tem</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Aberto</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold">Finalizado</button>
+                  <button onClick={() => toggleTicket('Não tem')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Não tem' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Não tem</button>
+                  <button onClick={() => toggleTicket('Aberto')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Aberto' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Aberto</button>
+                  <button onClick={() => toggleTicket('Finalizado')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Finalizado' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Finalizado</button>
                 </div>
               </div>
             </div>
@@ -228,7 +272,7 @@ export function Pedidos() {
 
       {/* 3. Tabela Header */}
       <div className="flex justify-between items-end mb-6">
-        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">3 Pedidos Encontrados</h2>
+        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">{dataSource.length} Pedidos Encontrados</h2>
         <div className="flex items-center gap-2 bg-slate-200 dark:bg-border p-1 rounded-xl">
           <button
             onClick={() => handleViewChange('tabela')}
@@ -269,7 +313,7 @@ export function Pedidos() {
                 </tr>
               </thead>
               <tbody>
-                {pedidosMock.map((pedido, idx) => (
+                {dataSource.map((pedido, idx) => (
                   <tr
                     key={idx}
                     className="bg-card group cursor-pointer hover:bg-background transition-colors"
@@ -359,7 +403,7 @@ export function Pedidos() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pedidosMock.map((pedido) => (
+            {dataSource.map((pedido) => (
               <div 
                 key={pedido.id} 
                 className="bg-card p-6 rounded-3xl border border-border flex flex-col justify-between hover:shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] transition-shadow cursor-pointer h-full"
@@ -429,9 +473,12 @@ export function Pedidos() {
   )
 }
 
-function StatusChip({ label, color, dot }: { label: string, color: string, dot: string }) {
+function StatusChip({ label, color, dot, isActive, onClick }: { label: string, color: string, dot: string, isActive?: boolean, onClick?: () => void }) {
   return (
-    <button className={`${color} px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 border-none hover:opacity-80 transition-opacity`}>
+    <button 
+      onClick={onClick}
+      className={`${color} px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 border-none hover:opacity-80 transition-transform ${isActive ? 'scale-105 ring-2 ring-current ring-offset-2' : ''}`}
+    >
       <span className={`w-2 h-2 rounded-full ${dot}`}></span>
       {label}
     </button>

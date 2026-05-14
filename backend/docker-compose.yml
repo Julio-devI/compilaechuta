@@ -4,9 +4,7 @@ services:
     ports:
       - "8800:8000"
     env_file:
-      - .env
-    environment:
-      DATABASE_URL: sqlite+aiosqlite:////app/data/banco_local.db
+      - ../.env
     volumes:
       - ./data:/app/data
     restart: unless-stopped

@@ -1,6 +1,6 @@
 import {
   X, Clock, Truck, Package,
-  Check, Phone, Mail, MapPin, ArrowUpRight, Headphones
+  Check, MapPin, ArrowUpRight, Headphones, Star, Ticket
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MouseEvent } from 'react'
@@ -17,6 +17,8 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
       onClose();
     }
   };
+
+  if (!pedido) return null;
 
   return (
     <AnimatePresence>
@@ -57,25 +59,27 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
 
                 {/* Card Info Principal */}
                 <div className="border border-border rounded-3xl p-6 relative">
-                  <span className="bg-red-500 text-white text-[10px] font-black px-3 py-1 rounded-full absolute top-6 right-6">
-                    ● ATRASADO
-                  </span>
+                  {pedido.status === 'Atrasado' && (
+                    <span className="bg-red-500 text-white text-[10px] font-black px-3 py-1 rounded-full absolute top-6 right-6">
+                      ● ATRASADO
+                    </span>
+                  )}
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pedido</span>
                   <h3 className="text-3xl font-black text-[#020854] dark:text-foreground mt-1">{pedido.id}</h3>
-                  <p className="text-muted-foreground text-sm font-medium">Comprado em {pedido.data}, 14:32:00</p>
+                  <p className="text-muted-foreground text-sm font-medium">Comprado em {pedido.data}</p>
 
                   <div className="grid grid-cols-3 gap-4 mt-6">
                     <div className="bg-background p-4 rounded-2xl border border-border">
                       <span className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground mb-1">
                         <Clock className="w-3 h-3" /> Tempo aberto
                       </span>
-                      <span className="text-lg font-bold text-foreground">{pedido.tempoAberto.split(' ')[0]} dias</span>
+                      <span className="text-lg font-bold text-foreground">{pedido.tempoAberto !== 'N/A' ? pedido.tempoAberto.split(' ')[0] : 'N/A'} dias</span>
                     </div>
-                    <div className="bg-red-50 text-red-500 p-4 rounded-2xl border border-red-100">
+                    <div className={pedido.status === 'Atrasado' ? "bg-red-50 text-red-500 p-4 rounded-2xl border border-red-100" : "bg-emerald-50 text-emerald-500 p-4 rounded-2xl border border-emerald-100"}>
                       <span className="flex items-center gap-1.5 text-[10px] font-bold mb-1">
                         <Truck className="w-3 h-3" /> Entrega
                       </span>
-                      <span className="text-lg font-bold">Fora do prazo</span>
+                      <span className="text-lg font-bold">{pedido.status === 'Atrasado' ? 'Fora do prazo' : 'No prazo'}</span>
                     </div>
                     <div className="bg-background p-4 rounded-2xl border border-border">
                       <span className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground mb-1">
@@ -91,11 +95,11 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-4">Pipeline logístico</span>
                     <div className="flex justify-between items-center relative">
                       {[
-                        { label: 'Compra', active: true },
-                        { label: 'Processamento', active: true },
-                        { label: 'Enviado', active: true },
-                        { label: 'Atrasado', active: 'current' },
-                        { label: 'Entregue', active: false }
+                        { label: 'Compra', active: pedido.progresso >= 1 },
+                        { label: 'Processamento', active: pedido.progresso >= 2 },
+                        { label: 'Enviado', active: pedido.progresso >= 3 },
+                        { label: 'Atrasado', active: pedido.status === 'Atrasado' ? 'current' : pedido.progresso >= 4 },
+                        { label: 'Entregue', active: pedido.progresso >= 5 }
                       ].map((step, i, arr) => (
                         <div key={i} className="flex flex-col items-center flex-1 relative">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10
@@ -127,7 +131,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                   <div className="bg-background rounded-2xl p-4 flex items-center justify-between shadow-sm">
                     <div>
                       <div className="flex gap-2 mb-1">
-                        <span className="font-black text-foreground">TK-77821</span>
+                        <span className="font-black text-foreground">TK-{Math.floor(Math.random() * 100000)}</span>
                         <span className="text-[9px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded font-bold">ALTA</span>
                         <span className="text-[9px] bg-amber-400 text-white px-2 py-0.5 rounded font-bold">ABERTA</span>
                       </div>
@@ -153,31 +157,29 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
 
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-sky-200 rounded-4xl mb-17 flex items-center justify-center text-sky-700 font-black text-xl">
-                      AA
+                      {pedido.cliente?.substring(0, 2).toUpperCase() || 'AA'}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-black text-[#020854] dark:text-foreground text-xl">{pedido.cliente}</span>
-                        <span className="bg-[#020854] text-white text-[9px] px-2 py-0.5 rounded-md font-bold">Alta</span>
+                        {pedido.recorrente && <span className="bg-[#020854] text-white text-[9px] px-2 py-0.5 rounded-md font-bold">Alta</span>}
                       </div>
                       <div className="flex gap-6 mt-2">
 
                         {/* Lista vertical de informações */}
                         <div className="flex flex-col gap-1 min-w-0 flex-1">
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
-                            <Mail className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">marina.alb@email.com</span>
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" /> Média de Estrelas dada: {pedido.mediaEstrelas?.toFixed(1) || '0.0'}
                           </span>
 
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
-                            <Phone className="w-3 h-3 flex-shrink-0" />
-                            <span>(11) 98821-4477</span>
+                            <Ticket className="w-4 h-4 text-blue-500" /> Tickets de suporte: {pedido.ticket || '0'}
                           </span>
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
                             <MapPin className="w-3 h-3 flex-shrink-0" />
-                            <span>São Paulo, SP</span>
+                            <span>{pedido.cidade}, {pedido.estado}</span>
                           </span>
-                          <span className="text-muted-foreground text-xs font-bold">38 pedidos no total</span>
+                          <span className="text-muted-foreground text-xs font-bold">{pedido.totalPedidosCliente || '1'} pedidos no total</span>
                         </div>
 
                         {/* Segunda coluna */}
@@ -202,8 +204,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
 
                   <div className="space-y-4">
                     {[
-                      { name: 'Smart TV 55" QLED 4K Vivara', sku: 'ELE-9921', price: '3.499,00', tags: ['Mais vendido', 'Alta devolução'] },
-                      { name: 'Soundbar Bluetooth 2.1 Atmos', sku: 'LAR-2210', price: '790,90', tags: ['Novo'] }
+                      { name: 'Produto Principal', sku: 'SKU-001', price: pedido.valor, tags: ['Mais vendido'] },
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-4 group">
                         <div className="w-12 h-12 bg-background border border-border rounded-xl flex items-center justify-center">
@@ -212,11 +213,11 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                         <div className="flex-1">
                           <div className="flex justify-between">
                             <span className="font-bold text-[#020854] dark:text-foreground text-sm">{item.name}</span>
-                            <span className="font-black text-[#020854] dark:text-foreground text-sm">R$ {item.price}</span>
+                            <span className="font-black text-[#020854] dark:text-foreground text-sm">{item.price}</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase">SKU {item.sku} - Qtd 1</span>
-                            <span className="text-[9px] text-slate-400 font-medium italic text-right">R$ {item.price} un</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">SKU {item.sku} - Qtd {pedido.produtos}</span>
+                            <span className="text-[9px] text-slate-400 font-medium italic text-right">{item.price} un</span>
                           </div>
                           <div className="flex gap-2 mt-1">
                             {item.tags.map(tag => (

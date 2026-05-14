@@ -15,7 +15,6 @@ class StatusPedido(str, Enum):
     RECUSADO = "Recusado"
     REEMBOLSADO = "Reembolsado"
 
-
 class TipoCliente(str, Enum):
     CAMPEAO = "Campeão"
     CLIENTE_VIP = "Cliente VIP"
@@ -24,7 +23,6 @@ class TipoCliente(str, Enum):
     NOVO_CLIENTE = "Novo cliente"
     EM_RISCO = "Em risco"
     INATIVO = "Inativo"
-
 
 class StatusTicket(str, Enum):
     RESOLVIDO = "resolvido"
@@ -54,9 +52,17 @@ async def listar(
     limit:       int = Query(100,  ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
-    print(id_produto)
     return await service.listar_pedidos(
-        db, status, id_produto, data_inicio, data_fim, tipo_cliente, status_ticket, nome_produto, skip, limit
+        db=db, 
+        status=status, 
+        id_produto=id_produto, 
+        data_inicio=data_inicio, 
+        data_fim=data_fim, 
+        tipo_cliente=tipo_cliente, 
+        status_ticket=status_ticket, 
+        nome_produto=nome_produto, 
+        skip=skip, 
+        limit=limit
     )
 
 

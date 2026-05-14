@@ -8,20 +8,24 @@ Responsável por montar o prompt com o schema do banco, invocar o LLM
 import re
 from pathlib import Path
 
-from src import config
-from src.exceptions import LLMParseError
-from src.llm_client import LLMAgent
+from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.exceptions import LLMParseError
+from vcommerce_ai_agent.llm.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_system.txt"
 _CORRECTION_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_correction_system.txt"
+_OUT_OF_SCOPE_RE = re.compile(
+    rf"\b{re.escape(config.OUT_OF_SCOPE_MARKER)}\b\s*[:\-]?\s*(.*)",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
-def _load_system_prompt(schema: str) -> str:
-    """Carrega o template do system prompt e injeta o schema dinâmico."""
+def _load_system_prompt(schema: str, history_text: str = "") -> str:
+    """Carrega o template do system prompt e injeta o schema dinâmico e o histórico."""
     if not _PROMPT_PATH.exists():
         raise FileNotFoundError(f"Prompt não encontrado: {_PROMPT_PATH}")
     template = _PROMPT_PATH.read_text(encoding="utf-8")
-    replacements = {"{schema}": schema}
+    replacements = {"{schema}": schema, "{history}": history_text}
     pattern = re.compile("|".join(re.escape(k) for k in replacements))
     return pattern.sub(lambda m: replacements[m.group(0)], template)
 
@@ -39,6 +43,21 @@ def _extract_sql(raw: str) -> str:
     if match:
         return match.group(1).strip()
     return raw.strip()
+
+
+def _extract_out_of_scope(raw: str) -> str | None:
+    """Extrai marcador FORA_DO_ESCOPO mesmo quando envelopado em markdown."""
+    text = raw.strip()
+    fenced = re.search(r"```\w*\s*(.*?)\s*```", text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+
+    match = _OUT_OF_SCOPE_RE.search(text)
+    if not match:
+        return None
+
+    reason = match.group(1).strip()
+    return f"{config.OUT_OF_SCOPE_MARKER} {reason}".strip()
 
 
 def _strip_sql_comments(sql: str) -> str:
@@ -83,8 +102,7 @@ def _validate_sql_response(raw: str) -> None:
     a chamada automaticamente.
     """
     # Marcador de fora do escopo é válido — não deve disparar retry
-    stripped = raw.strip()
-    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
+    if _extract_out_of_scope(raw) is not None:
         return
 
     sql = _extract_sql(raw)
@@ -97,9 +115,40 @@ def _validate_sql_response(raw: str) -> None:
         ) from exc
 
 
+def format_history_for_sql(history: list[dict[str, str | None]] | None) -> str:
+    """Formata o histórico de conversa para injeção no prompt da Chamada 1."""
+    if not history:
+        return ""
+
+    lines = ["## Histórico da Conversa\n"]
+    turn = 0
+    for i in range(0, len(history), 2):
+        if i + 1 >= len(history):
+            break
+        turn += 1
+        user_msg = history[i]
+        assistant_msg = history[i + 1]
+        lines.append(f"Interação {turn}:")
+        lines.append(f"Pergunta: {user_msg['content']}")
+        lines.append(f"Resposta: {assistant_msg['content']}")
+        if assistant_msg.get("sql"):
+            lines.append(f"SQL gerado: {assistant_msg['sql']}")
+        lines.append("")
+
+    lines.append(
+        "Considere o histórico acima ao gerar o SQL para a pergunta atual. "
+        "Resolva pronomes e referências implícitas com base nas perguntas, "
+        "respostas e SQLs das interações anteriores.\n"
+    )
+    return "\n".join(lines)
+
+
 async def generate_sql(
-    question: str, schema: str, model: str | None = None
-) -> str:
+    question: str,
+    schema: str,
+    history: list[dict[str, str | None]] | None = None,
+    model: str | None = None,
+) -> tuple[str, int | None]:
     """
     Gera uma query SQL a partir de uma pergunta em linguagem natural.
 
@@ -109,14 +158,16 @@ async def generate_sql(
         model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
-        String contendo a query SQL (ou o marcador "FORA_DO_ESCOPO ...").
+        Tupla contendo a query SQL (ou o marcador "FORA_DO_ESCOPO ...") e
+        o número de tokens consumidos na chamada, quando disponível.
 
     Raises:
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
         ValueError: Se o SQL gerado não passar na validação sintática.
         RuntimeError: Se a chamada ao LLM falhar.
     """
-    system_prompt = _load_system_prompt(schema)
+    history_text = format_history_for_sql(history)
+    system_prompt = _load_system_prompt(schema, history_text=history_text)
 
     agent = LLMAgent(
         system_prompt=system_prompt,
@@ -125,26 +176,34 @@ async def generate_sql(
         model=model,
     )
 
-    raw_output = await agent.run(question, validator=_validate_sql_response)
+    result = await agent.run(question, validator=_validate_sql_response)
+    raw_output = result.output
 
     # Detecta marcador de fora do escopo antes de qualquer parsing
-    stripped = raw_output.strip()
-    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
-        return stripped
+    out_of_scope = _extract_out_of_scope(raw_output)
+    if out_of_scope is not None:
+        return out_of_scope, result.tokens_used
 
     sql = _extract_sql(raw_output)
     _validate_syntax(sql)
-    return sql
+    return sql, result.tokens_used
 
 
-def _load_correction_prompt(schema: str, sql: str, error: str) -> str:
+def _load_correction_prompt(
+    schema: str, sql: str, error: str, history_text: str = ""
+) -> str:
     """Carrega o template do prompt de correção e injeta variáveis."""
     if not _CORRECTION_PROMPT_PATH.exists():
         raise FileNotFoundError(
             f"Prompt de correcao nao encontrado: {_CORRECTION_PROMPT_PATH}"
         )
     template = _CORRECTION_PROMPT_PATH.read_text(encoding="utf-8")
-    replacements = {"{schema}": schema, "{sql}": sql, "{error}": error}
+    replacements = {
+        "{schema}": schema,
+        "{sql}": sql,
+        "{error}": error,
+        "{history}": history_text,
+    }
     pattern = re.compile("|".join(re.escape(k) for k in replacements))
     return pattern.sub(lambda m: replacements[m.group(0)], template)
 
@@ -154,8 +213,9 @@ async def generate_sql_correction(
     sql: str,
     error: str,
     schema: str,
+    history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
-) -> str:
+) -> tuple[str, int | None]:
     """
     Solicita ao LLM uma correção do SQL que falhou nos guardrails.
 
@@ -167,13 +227,15 @@ async def generate_sql_correction(
         model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
-        SQL corrigido (ou marcador "FORA_DO_ESCOPO ...").
+        Tupla contendo o SQL corrigido (ou marcador "FORA_DO_ESCOPO ...") e
+        o número de tokens consumidos na chamada, quando disponível.
 
     Raises:
         FileNotFoundError: Se o arquivo de prompt não for encontrado.
         LLMError: Se a chamada ao LLM falhar.
     """
-    system_prompt = _load_correction_prompt(schema, sql, error)
+    history_text = format_history_for_sql(history)
+    system_prompt = _load_correction_prompt(schema, sql, error, history_text=history_text)
 
     agent = LLMAgent(
         system_prompt=system_prompt,
@@ -182,12 +244,13 @@ async def generate_sql_correction(
         model=model,
     )
 
-    raw_output = await agent.run(question, validator=_validate_sql_response)
+    result = await agent.run(question, validator=_validate_sql_response)
+    raw_output = result.output
 
-    stripped = raw_output.strip()
-    if stripped.upper().startswith(config.OUT_OF_SCOPE_MARKER):
-        return stripped
+    out_of_scope = _extract_out_of_scope(raw_output)
+    if out_of_scope is not None:
+        return out_of_scope, result.tokens_used
 
     corrected = _extract_sql(raw_output)
     _validate_syntax(corrected)
-    return corrected
+    return corrected, result.tokens_used

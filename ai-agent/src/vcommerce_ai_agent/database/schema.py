@@ -14,9 +14,94 @@ from typing import Any
 _DESCRIPTIONS_PATH = Path(__file__).resolve().parent / "schema_descriptions.json"
 
 
-def load_descriptions() -> dict[str, Any]:
+def _validate_optional_string(value: Any, field_path: str) -> None:
+    """Valida campos textuais opcionais do arquivo de descrições."""
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"Campo '{field_path}' deve ser uma string.")
+
+
+def validate_descriptions(descriptions: dict[str, Any]) -> None:
+    """
+    Valida a estrutura mínima do `schema_descriptions.json`.
+
+    Estrutura esperada:
+    {
+      "tables": {
+        "nome_tabela": {
+          "display_name": "Nome exibível",
+          "description": "Descrição da tabela",
+          "columns": {
+            "nome_coluna": {
+              "description": "Descrição da coluna",
+              "examples": ["valor1", 2, ...]
+            }
+          }
+        }
+      }
+    }
+
+    Raises:
+        ValueError: Se a estrutura não seguir o contrato esperado.
+    """
+    if not isinstance(descriptions, dict):
+        raise ValueError("Arquivo de descrições deve conter um objeto JSON.")
+
+    tables = descriptions.get("tables")
+    if not isinstance(tables, dict):
+        raise ValueError("Campo obrigatório 'tables' deve ser um objeto.")
+
+    for table_name, table_meta in tables.items():
+        if not isinstance(table_name, str) or not table_name.strip():
+            raise ValueError("Nomes de tabelas em 'tables' devem ser strings não vazias.")
+        if not isinstance(table_meta, dict):
+            raise ValueError(f"Metadados da tabela '{table_name}' devem ser um objeto.")
+
+        _validate_optional_string(
+            table_meta.get("display_name"),
+            f"tables.{table_name}.display_name",
+        )
+        _validate_optional_string(
+            table_meta.get("description"),
+            f"tables.{table_name}.description",
+        )
+
+        columns = table_meta.get("columns", {})
+        if columns is None:
+            continue
+        if not isinstance(columns, dict):
+            raise ValueError(f"Campo 'tables.{table_name}.columns' deve ser um objeto.")
+
+        for column_name, column_meta in columns.items():
+            if not isinstance(column_name, str) or not column_name.strip():
+                raise ValueError(
+                    f"Nomes de colunas em 'tables.{table_name}.columns' "
+                    "devem ser strings não vazias."
+                )
+            if not isinstance(column_meta, dict):
+                raise ValueError(
+                    f"Metadados da coluna 'tables.{table_name}.columns.{column_name}' "
+                    "devem ser um objeto."
+                )
+            _validate_optional_string(
+                column_meta.get("description"),
+                f"tables.{table_name}.columns.{column_name}.description",
+            )
+            examples = column_meta.get("examples")
+            if examples is not None and not isinstance(examples, list):
+                raise ValueError(
+                    f"Campo 'tables.{table_name}.columns.{column_name}.examples' "
+                    "deve ser uma lista."
+                )
+
+
+def load_descriptions(
+    schema_descriptions_path: str | Path | None = None,
+) -> dict[str, Any]:
     """
     Carrega e parseia o arquivo `schema_descriptions.json`.
+
+    Quando `schema_descriptions_path` é informado, carrega esse arquivo externo.
+    Caso contrário, usa o JSON padrão empacotado com o módulo.
 
     Returns:
         Dicionário com a estrutura de metadados de negócio.
@@ -25,18 +110,27 @@ def load_descriptions() -> dict[str, Any]:
         FileNotFoundError: Se o arquivo JSON não for encontrado.
         ValueError: Se o conteúdo não for um JSON válido.
     """
-    if not _DESCRIPTIONS_PATH.exists():
+    descriptions_path = (
+        Path(schema_descriptions_path)
+        if schema_descriptions_path is not None
+        else _DESCRIPTIONS_PATH
+    )
+
+    if not descriptions_path.exists():
         raise FileNotFoundError(
-            f"Arquivo de descrições não encontrado: {_DESCRIPTIONS_PATH}"
+            f"Arquivo de descrições não encontrado: {descriptions_path}"
         )
 
     try:
-        with _DESCRIPTIONS_PATH.open("r", encoding="utf-8") as f:
-            return json.load(f)  # type: ignore[no-any-return]
+        with descriptions_path.open("r", encoding="utf-8") as f:
+            descriptions = json.load(f)
     except json.JSONDecodeError as exc:
         raise ValueError(
-            f"Falha ao parsear {_DESCRIPTIONS_PATH}: {exc}"
+            f"Falha ao parsear {descriptions_path}: {exc}"
         ) from exc
+
+    validate_descriptions(descriptions)
+    return descriptions  # type: ignore[no-any-return]
 
 
 def format_schema(

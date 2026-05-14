@@ -14,15 +14,15 @@ router = APIRouter()
 async def get_all_tickets(
     skip:       int                = Query(0,    ge=0),
     limit:      int                = Query(100,  ge=1, le=500),
-    start_date: Optional[date] = Query(None,description="Filtro início (YYYY-MM-DD)"),
-    end_date: Optional[date] = Query( None,description="Filtro fim (YYYY-MM-DD)"),
-    status:     Optional[str]  = Query(None, description="Status do ticket (Aberto/Resolvido)"),
-    agente_id:  Optional[str]  = Query(None, description="Filtrar por agente específico"),
-    tipo:       Optional[str]  = Query(None, description="Filtrar por tipo de problema"),
-    search:     Optional[str]  = Query(None, description="Busca por ID do ticket ou cliente"),
+    start_date: Optional[date] = Query(None, description="Filtro início (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Filtro fim (YYYY-MM-DD)"),
+    status: Optional[str] = Query(None, description="Status do ticket (aberto/resolvido)"),
+    agente: Optional[str] = Query(None, description="Filtrar por nome do agente de suporte"),
+    tipo: Optional[str] = Query(None, description="Filtrar por tipo de problema"),
+    search: Optional[str] = Query(None, description="Busca por ID do ticket ou cliente"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.get_all_tickets(db, skip, limit, start_date, end_date, status, agente_id, tipo, search)
+    return await service.get_all_tickets(db, skip, limit, start_date, end_date, status, agente, tipo, search)
 
 
 @router.get("/{ticket_id}", response_model=TicketOut)

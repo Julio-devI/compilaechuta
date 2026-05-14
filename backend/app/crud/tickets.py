@@ -39,9 +39,9 @@ async def get_all_tickets(
     if status:
         query = query.where(TicketModel.status == status)
     if agente:
-        query = query.where(TicketModel.agente_suporte == agente)
+        query = query.where(TicketModel.agente_suporte.ilike(f"%{agente}%"))
     if tipo:
-        query = query.where(TicketModel.tipo_problema == tipo)
+        query = query.where(TicketModel.tipo_problema.ilike(f"%{tipo}%"))
 
     # Busca Global (ID ou Nome do Cliente)
     if search:

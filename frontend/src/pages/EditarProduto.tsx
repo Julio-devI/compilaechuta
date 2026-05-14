@@ -1,12 +1,19 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Save, Upload, Tag, Box, DollarSign, BarChart2 } from 'lucide-react'
+import { ArrowLeft, Save, Tag, DollarSign, BarChart2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+
+// Importando as funções do serviço
+import { getProduto, atualizarProduto, ProdutoPayload } from '../services/productService'
+import { getCategorias } from '../services/categoryService'
 
 export function EditarProduto() {
   const navigate = useNavigate()
-  const { id } = useParams() // Captura o ID da URL se necessário
+  const { id } = useParams() // Captura o ID da URL
 
-  // Estado inicial simulando um produto sendo carregado
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [categoriasLista, setCategoriasLista] = useState<string[]>([])
+
   const [formData, setFormData] = useState({
     nome: '',
     sku: '',
@@ -17,33 +24,94 @@ export function EditarProduto() {
     descricao: ''
   })
 
-  // Simula o carregamento dos dados baseados no ID
   useEffect(() => {
-    // Aqui você faria uma chamada à sua API: fetch(`/api/produtos/${id}`)
-    // Simulando que os dados chegaram:
-    if (id) {
-      setFormData({
-        nome: 'Smartphone Galaxy S24',
-        sku: 'SKU-001234',
-        categoria: 'Eletrônicos',
-        preco: '4.299,00',
-        estoque: '145',
-        status: 'Ativo',
-        descricao: 'Smartphone de última geração com tela AMOLED e bateria de longa duração.'
-      })
+    getCategorias().then(data => {
+      setCategoriasLista(data.map((c: any) => c.nome_categoria))
+    })
+  }, [])
+
+  // 1. CARREGAR DADOS DO PRODUTO AO ABRIR A PÁGINA
+  useEffect(() => {
+    async function carregarProduto() {
+      if (!id) return
+
+      try {
+        const produtoData = await getProduto(id)
+
+        if (produtoData) {
+          // Limpando o preço (de "R$ 4.299,00" para "4299,00") para o input
+          const precoLimpo = produtoData.preco
+            .replace('R$', '')
+            .replace(/\./g, '')
+            .trim()
+
+          setFormData({
+            nome: produtoData.nome,
+            sku: produtoData.sku,
+            categoria: produtoData.categoria,
+            preco: precoLimpo,
+            estoque: produtoData.estoque.toString(),
+            status: produtoData.status === 'inativo' ? 'Inativo' : 'Ativo',
+            descricao: 'Produto carregado da base de dados real.'
+          })
+        } else {
+          alert('Produto não encontrado!')
+          navigate('/produtos')
+        }
+      } catch (error) {
+        console.error('Erro ao carregar produto:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [id])
+
+    carregarProduto()
+  }, [id, navigate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // 2. ENVIAR ATUALIZAÇÃO PARA A API
+  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
-    // Lógica para salvar as alterações do produto
-    console.log(`Produto ${id} atualizado:`, formData)
-    navigate('/produtos')
+    if (!id) return
+
+    setIsSubmitting(true)
+
+    // Tratamento do preço: "4.299,00" -> 4299.00
+    const precoNumerico = parseFloat(
+      formData.preco.replace(/\./g, '').replace(',', '.')
+    ) || 0
+
+    const payload: Partial<ProdutoPayload> = {
+      nome_produto: formData.nome,
+      sku: formData.sku,
+      categoria: formData.categoria,
+      preco: precoNumerico,
+      estoque_disponivel: parseInt(formData.estoque) || 0,
+      ativo: formData.status === 'Ativo' ? 'Sim' : 'Não'
+    }
+
+    const sucesso = await atualizarProduto(id, payload)
+
+    if (sucesso) {
+      navigate('/produtos')
+    } else {
+      console.error('Erro ao atualizar produto.')
+      setIsSubmitting(false) // Libera o botão
+    }
+
+    setIsSubmitting(false)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <p className="text-[#020854] font-black animate-pulse">A carregar dados do produto...</p>
+      </div>
+    )
   }
 
   return (
@@ -51,7 +119,7 @@ export function EditarProduto() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={() => navigate('/produtos')}
             className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm"
           >
@@ -59,35 +127,35 @@ export function EditarProduto() {
           </button>
           <div>
             <h1 className="text-3xl font-black text-[#020854]">Editar Produto</h1>
-            <p className="text-slate-500 text-sm mt-1">Atualize as informações do produto selecionado.</p>
+            <p className="text-slate-500 text-sm mt-1">ID: {id}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={handleSubmit}
-          className="flex items-center gap-2 bg-[#1E5EFF] text-white px-8 py-3.5 rounded-full font-black hover:bg-[#1E5EFF]/90 transition-colors shadow-sm"
+          disabled={isSubmitting}
+          className="flex items-center gap-2 bg-[#1E5EFF] text-white px-8 py-3.5 rounded-full font-black hover:bg-[#1E5EFF]/90 transition-colors shadow-sm disabled:opacity-50"
         >
           <Save className="w-5 h-5" />
-          Salvar Alterações
+          {isSubmitting ? 'A Guardar...' : 'Guardar Alterações'}
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Coluna Esquerda: Informações Principais */}
+        {/* Coluna Esquerda: Form */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-xl font-black text-[#020854] mb-6 flex items-center gap-2">
               <Tag className="w-5 h-5 text-blue-600" /> Informações Básicas
             </h2>
-            
+
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Produto *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="nome"
                   value={formData.nome}
                   onChange={handleChange}
-                  placeholder="Ex: Smart TV 55 QLED 4K"
                   className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700"
                   required
                 />
@@ -96,40 +164,32 @@ export function EditarProduto() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">SKU *</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="sku"
                     value={formData.sku}
                     onChange={handleChange}
-                    placeholder="Ex: SKU-12345"
                     className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Categoria</label>
-                  <select 
-                    name="categoria"
-                    value={formData.categoria}
-                    onChange={handleChange}
-                    className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700 appearance-none"
-                  >
+                  <select name="categoria" value={formData.categoria} onChange={handleChange} className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700 appearance-none">
                     <option value="">Selecione uma categoria</option>
-                    <option value="Eletrônicos">Eletrônicos</option>
-                    <option value="Informática">Informática</option>
-                    <option value="Áudio">Áudio</option>
-                    <option value="Móveis">Móveis</option>
+                    {categoriasLista.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Descrição do Produto</label>
-                <textarea 
+                <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
+                <textarea
                   name="descricao"
                   value={formData.descricao}
                   onChange={handleChange}
-                  placeholder="Descreva os detalhes, especificações e diferenciais do produto..."
                   rows={4}
                   className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700 resize-none"
                 />
@@ -145,89 +205,51 @@ export function EditarProduto() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Preço (R$) *</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
-                  <input 
-                    type="text" 
-                    name="preco"
-                    value={formData.preco}
-                    onChange={handleChange}
-                    placeholder="0,00"
-                    className="w-full pl-12 pr-4 py-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-black text-slate-800"
-                    required
-                  />
-                </div>
+                <input
+                  type="text"
+                  name="preco"
+                  value={formData.preco}
+                  onChange={handleChange}
+                  className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-emerald-500 transition-all font-black text-slate-800"
+                  required
+                />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Quantidade em Estoque *</label>
-                <div className="relative">
-                  <Box className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                  <input 
-                    type="number" 
-                    name="estoque"
-                    value={formData.estoque}
-                    onChange={handleChange}
-                    placeholder="0"
-                    className="w-full pl-12 pr-4 py-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-bold text-slate-700"
-                    required
-                  />
-                </div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Quantidade *</label>
+                <input
+                  type="number"
+                  name="estoque"
+                  value={formData.estoque}
+                  onChange={handleChange}
+                  className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 transition-all font-bold text-slate-700"
+                  required
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Coluna Direita: Imagem e Status */}
+        {/* Coluna Direita */}
         <div className="space-y-6">
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-xl font-black text-[#020854] mb-6 flex items-center gap-2">
-              <Upload className="w-5 h-5 text-purple-600" /> Imagem do Produto
+              <BarChart2 className="w-5 h-5 text-orange-500" /> Status
             </h2>
-            
-            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-[#F8FAFC] hover:bg-slate-50 transition-colors cursor-pointer group">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Upload className="w-8 h-8 text-blue-600" />
-              </div>
-              <p className="font-bold text-slate-700 mb-1">Clique para enviar ou arraste a imagem</p>
-              <p className="text-xs text-slate-500 font-medium">SVG, PNG, JPG ou GIF (max. 800x400px)</p>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-            <h2 className="text-xl font-black text-[#020854] mb-6 flex items-center gap-2">
-              <BarChart2 className="w-5 h-5 text-orange-500" /> Status do Produto
-            </h2>
-            
             <div className="space-y-3">
-              <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors">
-                <input 
-                  type="radio" 
-                  name="status" 
-                  value="Ativo" 
-                  checked={formData.status === 'Ativo'}
-                  onChange={handleChange}
-                  className="w-5 h-5 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <p className="font-bold text-slate-700">Ativo</p>
-                  <p className="text-xs text-slate-500 font-medium">O produto será exibido na loja.</p>
-                </div>
-              </label>
-              
-              <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors">
-                <input 
-                  type="radio" 
-                  name="status" 
-                  value="Inativo"
-                  checked={formData.status === 'Inativo'}
-                  onChange={handleChange}
-                  className="w-5 h-5 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <p className="font-bold text-slate-700">Inativo</p>
-                  <p className="text-xs text-slate-500 font-medium">Oculto do catálogo e da loja.</p>
-                </div>
-              </label>
+              {['Ativo', 'Inativo'].map((status) => (
+                <label key={status} className="flex items-center gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="radio"
+                    name="status"
+                    value={status}
+                    checked={formData.status === status}
+                    onChange={handleChange}
+                    className="w-5 h-5 text-blue-600"
+                  />
+                  <span className="font-bold text-slate-700">{status}</span>
+                </label>
+              ))}
             </div>
           </div>
         </div>

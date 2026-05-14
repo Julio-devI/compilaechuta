@@ -41,7 +41,7 @@ export function getClienteStatusStyle(segmento: string | null | undefined): stri
   return 'bg-slate-100 text-slate-600 border border-slate-200'; // Default
 }
 
-const API_URL = 'http://localhost:8000/clientes'
+const API_URL = 'http://localhost:8000/api/v1/clients'
 
 export async function getClientes(
   skip: number = 0,

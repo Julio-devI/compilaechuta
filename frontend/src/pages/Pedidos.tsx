@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search, Maximize2, Minimize2, ChevronDown, ChevronUp, History,
-  AlertCircle, CheckCircle2, Database, Box, Calendar,
+  AlertCircle, CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp, 
   Filter, Ticket, Table, Grid
 } from 'lucide-react'
 import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
@@ -29,6 +29,11 @@ interface Pedido {
   valorUnitario: string
   skuProduto: string
 }
+
+type SortConfig = {
+  key: string | null;
+  direction: "ascending" | "descending";
+};
 
 // --- Mock de Dados ---
 const pedidosMock: Pedido[] = Array(5).fill({
@@ -95,6 +100,7 @@ export function Pedidos() {
   const [isFiltrosOpen, setIsFiltrosOpen] = useState(true)
   const [viewMode, setViewMode] = useState<'tabela' | 'grade'>('tabela')
   const [isLoading, setIsLoading] = useState(false)
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'ascending' });
 
   // --- API State ---
   const [pedidos, setPedidos] = useState<Pedido[]>([])
@@ -108,6 +114,24 @@ export function Pedidos() {
   const [tipoClienteFilter] = useState<string>('')
   const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
   const [ticketFilter, setTicketFilter] = useState<string>('')
+
+  const handleSort = (key: string) => {
+    let direction: 'ascending' | 'descending' = 'ascending'
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending'
+    }
+    setSortConfig({ key, direction })
+  }
+
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig.key !== columnKey)
+      return <ArrowUp className="w-6 h-6 text-white ml-auto opacity-50" />;
+    return sortConfig.direction === "ascending" ? (
+      <ArrowUp className="w-6 h-6 text-white ml-auto" />
+    ) : (
+      <ArrowDown className="w-6 h-6 text-white ml-auto" />
+    );
+  };
 
   const fetchPedidosData = useCallback(async () => {
     setIsLoading(true)
@@ -172,7 +196,26 @@ export function Pedidos() {
   const toggleStatus = (label: string) => setStatusFilter(prev => prev === label ? '' : label)
   const toggleTicket = (label: string) => setTicketFilter(prev => prev === label ? '' : label)
 
-  const dataSource = pedidos.length > 0 ? pedidos : pedidosMock;
+  const rawDataSource = pedidos.length > 0 ? pedidos : pedidosMock;
+
+  const dataSource = useMemo(() => {
+    if (!sortConfig) return rawDataSource;
+
+    return [...rawDataSource].sort((a: any, b: any) => {
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+
+      // Ajuste simples para ordenar valores monetários corretamente (ex: "R$ 4.289,90" -> 4289.90)
+      if (sortConfig.key === 'valor' && typeof aValue === 'string') {
+        aValue = parseFloat(aValue.replace(/[R$\s.]/g, '').replace(',', '.'));
+        bValue = parseFloat(bValue.replace(/[R$\s.]/g, '').replace(',', '.'));
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+  }, [rawDataSource, sortConfig]);
 
   const PedidoCardSkeleton = () => (
     <div className="bg-card p-6 rounded-3xl border border-border animate-pulse flex flex-col justify-between h-full">
@@ -354,12 +397,42 @@ export function Pedidos() {
             <table className="w-full border-separate border-spacing-y-2">
               <thead>
                 <tr className="bg-[#020854] text-white">
-                  <th className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none">SKU Pedido</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Cliente</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Data</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Qtd.</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Valor</th>
-                  <th className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none">Status</th>
+                  <th 
+                    className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
+                    onClick={() => handleSort('id')}
+                  >
+                    <div className="flex items-center gap-2">SKU Pedido <SortIcon columnKey="id" sortConfig={sortConfig} /></div>
+                  </th>
+                  <th 
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
+                    onClick={() => handleSort('cliente')}
+                  >
+                    <div className="flex items-center gap-2">Cliente <SortIcon columnKey="cliente" sortConfig={sortConfig} /></div>
+                  </th>
+                  <th 
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
+                    onClick={() => handleSort('data')}
+                  >
+                    <div className="flex items-center gap-2">Data <SortIcon columnKey="data" sortConfig={sortConfig} /></div>
+                  </th>
+                  <th 
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
+                    onClick={() => handleSort('produtos')}
+                  >
+                    <div className="flex items-center gap-2">Qtd. <SortIcon columnKey="produtos" sortConfig={sortConfig} /></div>
+                  </th>
+                  <th 
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
+                    onClick={() => handleSort('valor')}
+                  >
+                    <div className="flex items-center gap-2">Valor <SortIcon columnKey="valor" sortConfig={sortConfig} /></div>
+                  </th>
+                  <th 
+                    className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center gap-2">Status <SortIcon columnKey="status" sortConfig={sortConfig} /></div>
+                  </th>
                 </tr>
               </thead>
               <tbody>

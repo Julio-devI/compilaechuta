@@ -24,7 +24,7 @@ async def get_orders(
     limit: int = 100,
 ) -> tuple[int, list[Pedido]]:
     query = select(Pedido)
-    
+
     need_distinct = False
 
     if status:
@@ -43,34 +43,27 @@ async def get_orders(
     if tipo_cliente:
         tipo_str = tipo_cliente.value if hasattr(
             tipo_cliente, "value") else tipo_cliente
-        query = query.join(Pedido.cliente).where(Cliente.segmento_rfm == tipo_str)
+        query = query.join(Pedido.cliente).where(
+            Cliente.segmento_rfm == tipo_str)
 
     if status_ticket:
-        status_str = status_ticket.value if hasattr(status_ticket, "value") else status_ticket
+        status_str = status_ticket.value if hasattr(
+            status_ticket, "value") else status_ticket
         query = query.join(Pedido.tickets).where(Ticket.status == status_str)
         need_distinct = True
 
     if nome_produto:
-        query = query.join(Pedido.produto).where(Produto.nome_produto.ilike(f"%{nome_produto}%"))
+        query = query.join(Pedido.produto).where(
+            Produto.nome_produto.ilike(f"%{nome_produto}%"))
 
+    # Sempre usa subquery para garantir contagem correta, especialmente com joins 1:N
     if need_distinct:
-        # Se juntamos 1:N (Tickets), precisamos de count distinct do ID do Pedido
-        count_stmt = query.with_only_columns(
-            func.count(func.distinct(Pedido.id_pedido))
-        ).order_by(None)
+        count_subq = query.order_by(None).distinct(Pedido.id_pedido)
     else:
-        # Se não juntamos 1:N, um simples count() é o mais rápido
-        count_stmt = query.with_only_columns(func.count()).order_by(None)
-
-    try:
-        total = (await db.execute(count_stmt)).scalar_one()
-    except Exception:
-        # Fallback caso a dialect do DB não consiga processar o with_only_columns() em queries complexas
-        if need_distinct:
-            fallback_count = select(func.count(func.distinct(Pedido.id_pedido))).select_from(query.subquery())
-        else:
-            fallback_count = select(func.count()).select_from(query.subquery())
-        total = (await db.execute(fallback_count)).scalar_one()
+        count_subq = query.order_by(None)
+    total = (await db.execute(
+        select(func.count()).select_from(count_subq.subquery())
+    )).scalar_one()
 
     # Só aplicamos DISTINCT nos dados a serem exibidos se fizermos joins de "1 para N"
     if need_distinct:
@@ -79,6 +72,7 @@ async def get_orders(
     result = await db.execute(query.offset(skip).limit(limit))
     data = result.scalars().all()
 
+    print("Total", total)
     return total, data
 
 

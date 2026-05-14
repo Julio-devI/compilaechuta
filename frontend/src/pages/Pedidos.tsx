@@ -119,6 +119,14 @@ export function Pedidos() {
   const [dataInicioFilter, setDataInicioFilter] = useState<string>("");
   const [dataFimFilter, setDataFimFilter] = useState<string>("");
 
+  const statusStyles: Record<string, string> = {
+    Aprovado: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    Processando: "bg-orange-50 text-orange-600 border-orange-100",
+    Recusado: "bg-red-50 text-red-600 border-red-100",
+    Reembolsado: "bg-blue-50 text-blue-600 border-blue-100",
+    default: "bg-slate-50 text-slate-600 border-slate-100",
+  };
+
   const handleSort = (key: string) => {
     let direction: 'ascending' | 'descending' = 'ascending'
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -195,6 +203,8 @@ export function Pedidos() {
     tipoClienteFilter,
     ticketFilter,
     periodoFilter,
+    dataInicioFilter,
+    dataFimFilter,
     productNameFilter,
   ]);
 
@@ -438,26 +448,6 @@ export function Pedidos() {
                 <Calendar className="w-4 h-4" /> Período de Abertura
               </label>
               <div className="flex flex-col gap-4">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handlePeriodoPreset("Todos")}
-                    className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === "Todos" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
-                  >
-                    Todos
-                  </button>
-                  <button
-                    onClick={() => handlePeriodoPreset("Hoje")}
-                    className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === "Hoje" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
-                  >
-                    Hoje
-                  </button>
-                  <button
-                    onClick={() => handlePeriodoPreset("Últimos 7 dias")}
-                    className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === "Últimos 7 dias" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
-                  >
-                    Últimos 7 dias
-                  </button>
-                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
@@ -552,8 +542,12 @@ export function Pedidos() {
           </div>
         ) : dataSource.length === 0 ? (
           <div className="w-full flex flex-col items-center justify-center py-16">
-            <span className="text-2xl text-muted-foreground font-bold mb-2">Nenhum pedido encontrado</span>
-            <span className="text-muted-foreground">Tente ajustar os filtros ou a busca.</span>
+            <span className="text-2xl text-muted-foreground font-bold mb-2">
+              Nenhum pedido encontrado
+            </span>
+            <span className="text-muted-foreground">
+              Tente ajustar os filtros ou a busca.
+            </span>
           </div>
         ) : viewMode === "tabela" ? (
           <div className="w-full overflow-x-auto">
@@ -686,6 +680,7 @@ export function Pedidos() {
 
                     <td className="py-4 px-6 rounded-r-2xl border-0">
                       <div className="flex items-center gap-4">
+                        {/* Badge de Status à Esquerda */}
                         <span
                           className={`${getStatusStyle(pedido.status).bg} px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1`}
                         >
@@ -695,32 +690,57 @@ export function Pedidos() {
                           {pedido.status.toUpperCase()}
                         </span>
 
+                        {/* Pipeline de 4 Passos */}
                         <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((step) => (
-                            <div key={step} className="flex items-center">
-                              <div
-                                className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 
-                                ${
-                                  step < pedido.progresso
-                                    ? "bg-blue-900 border-blue-900 text-white"
-                                    : step === pedido.progresso
-                                      ? "bg-red-400 border-red-400 text-white"
-                                      : "bg-background border-border text-muted-foreground"
-                                }`}
-                              >
-                                {step < pedido.progresso ? (
-                                  <CheckCircle2 className="w-4 h-4" />
-                                ) : (
-                                  step
-                                )}
-                              </div>
-                              {step < 5 && (
+                          {(() => {
+                            const pipelineSteps = [
+                              "Processando",
+                              "Reembolsado",
+                              "Aprovado",
+                              "Recusado",
+                            ];
+                            const currentStepIndex = pipelineSteps.indexOf(
+                              pedido.status,
+                            );
+
+                            return pipelineSteps.map((statusName, index) => {
+                              const stepNumber = index + 1;
+                              const isActive = statusName === pedido.status;
+                              const isCompleted = index < currentStepIndex;
+
+                              // Cores dinâmicas baseadas no seu dicionário ou estado concluído
+                              const stepStyle = isActive
+                                ? statusStyles[statusName]
+                                : isCompleted
+                                  ? "bg-slate-700 border-slate-700 text-white"
+                                  : "bg-background border-border text-muted-foreground";
+
+                              return (
                                 <div
-                                  className={`w-3 h-0.5 ${step < pedido.progresso ? "bg-blue-900" : "bg-border"}`}
-                                />
-                              )}
-                            </div>
-                          ))}
+                                  key={statusName}
+                                  className="flex items-center"
+                                >
+                                  {/* Bolinha com Número Fixo */}
+                                  <div
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 transition-all duration-300 ${stepStyle}`}
+                                  >
+                                    {stepNumber}
+                                  </div>
+
+                                  {/* Linha Conectora */}
+                                  {index < pipelineSteps.length - 1 && (
+                                    <div
+                                      className={`w-3 h-0.5 transition-colors duration-300 ${
+                                        index < currentStepIndex
+                                          ? "bg-slate-700"
+                                          : "bg-border"
+                                      }`}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            });
+                          })()}
                         </div>
                       </div>
                     </td>

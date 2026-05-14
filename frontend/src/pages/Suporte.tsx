@@ -12,47 +12,7 @@ import {
   type SupportTicketSummary,
 } from '../services/supportService'
 
-type DatePreset = 'all' | 'today' | 'last7Days'
 const TICKETS_PER_PAGE = 20
-const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo'
-
-function getSaoPauloDateParts(date: Date) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: SAO_PAULO_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date)
-
-  const year = parts.find(part => part.type === 'year')?.value
-  const month = parts.find(part => part.type === 'month')?.value
-  const day = parts.find(part => part.type === 'day')?.value
-
-  return { year, month, day }
-}
-
-function formatSaoPauloDateParam(date: Date) {
-  const { year, month, day } = getSaoPauloDateParts(date)
-  return `${year}-${month}-${day}`
-}
-
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date)
-  nextDate.setUTCDate(nextDate.getUTCDate() + days)
-  return nextDate
-}
-
-function getDateRange(preset: DatePreset) {
-  if (preset === 'all') return {}
-
-  const end = new Date()
-  const start = preset === 'last7Days' ? addDays(end, -6) : end
-
-  return {
-    startDate: formatSaoPauloDateParam(start),
-    endDate: formatSaoPauloDateParam(end),
-  }
-}
 
 export function Suporte() {
   const [areFiltersOpen, setAreFiltersOpen] = useState(true)
@@ -60,7 +20,9 @@ export function Suporte() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [agentFilter, setAgentFilter] = useState('')
   const [problemTypeFilter, setProblemTypeFilter] = useState('')
-  const [datePreset, setDatePreset] = useState<DatePreset>('all')
+  const [isCustomDateFilterOpen, setIsCustomDateFilterOpen] = useState(false)
+  const [startDateFilter, setStartDateFilter] = useState('')
+  const [endDateFilter, setEndDateFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [matchingTicketsCount, setMatchingTicketsCount] = useState(0)
@@ -84,7 +46,7 @@ export function Suporte() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, statusFilter, agentFilter, problemTypeFilter, datePreset])
+  }, [searchTerm, statusFilter, agentFilter, problemTypeFilter, startDateFilter, endDateFilter])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -129,7 +91,8 @@ export function Suporte() {
           problemType: problemTypeFilter,
           skip: (currentPage - 1) * TICKETS_PER_PAGE,
           limit: TICKETS_PER_PAGE,
-          ...getDateRange(datePreset),
+          startDate: startDateFilter,
+          endDate: endDateFilter,
         }
         const [data, total] = await Promise.all([
           getSupportTickets(filters),
@@ -157,7 +120,7 @@ export function Suporte() {
     loadTickets()
 
     return () => controller.abort()
-  }, [searchTerm, statusFilter, agentFilter, problemTypeFilter, datePreset, currentPage])
+  }, [searchTerm, statusFilter, agentFilter, problemTypeFilter, startDateFilter, endDateFilter, currentPage])
 
   const totalTickets = summary?.total ?? 0
   const openTicketsCount = summary?.open ?? 0
@@ -312,11 +275,52 @@ export function Suporte() {
                 <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Calendar className="w-4 h-4" /> Data de Abertura
                 </label>
-                <div className="flex gap-2">
-                  <button onClick={() => setDatePreset('all')} className={`${datePreset === 'all' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'} px-5 py-2.5 rounded-full text-xs font-bold`}>Todos</button>
-                  <button onClick={() => setDatePreset('today')} className={`${datePreset === 'today' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'} px-5 py-2.5 rounded-full text-xs font-bold`}>Hoje</button>
-                  <button onClick={() => setDatePreset('last7Days')} className={`${datePreset === 'last7Days' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'} px-5 py-2.5 rounded-full text-xs font-bold`}>Últimos 7 dias</button>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    onClick={() => {
+                      setIsCustomDateFilterOpen(false)
+                      setStartDateFilter('')
+                      setEndDateFilter('')
+                    }}
+                    className={`${!isCustomDateFilterOpen && !startDateFilter && !endDateFilter ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'} px-5 py-2.5 rounded-full text-xs font-bold`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => setIsCustomDateFilterOpen(true)}
+                    className={`${isCustomDateFilterOpen || startDateFilter || endDateFilter ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'} px-5 py-2.5 rounded-full text-xs font-bold`}
+                  >
+                    Personalizado
+                  </button>
                 </div>
+                {isCustomDateFilterOpen && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+                        Data inicial
+                      </label>
+                      <input
+                        type="date"
+                        value={startDateFilter}
+                        max={endDateFilter || undefined}
+                        onChange={(e) => setStartDateFilter(e.target.value)}
+                        className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+                        Data final
+                      </label>
+                      <input
+                        type="date"
+                        value={endDateFilter}
+                        min={startDateFilter || undefined}
+                        onChange={(e) => setEndDateFilter(e.target.value)}
+                        className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div>

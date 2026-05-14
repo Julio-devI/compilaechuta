@@ -43,6 +43,10 @@ from vcommerce_ai_agent.security.sensitive_data_masking import (
 from vcommerce_ai_agent.llm.insight_generator import generate_insight
 from vcommerce_ai_agent.database.schema import build_allowlist, format_schema, load_descriptions
 from vcommerce_ai_agent.llm.sql_generator import generate_sql, generate_sql_correction
+from vcommerce_ai_agent.llm.suggestions_generator import (
+    generate_suggestions,
+    select_fallback_suggestions,
+)
 
 
 @dataclass
@@ -1107,32 +1111,39 @@ class VCommerceAgent:
 
         return response
 
-    def initial_suggestions(self) -> list[str]:
+    async def initial_suggestions(
+        self, previous_suggestions: list[str] | None = None
+    ) -> list[str]:
         """
-        Retorna uma lista fixa de sugestões iniciais de perguntas baseadas no schema real do banco.
-        
-        O backend pode selecionar um subconjunto aleatório destas 20 perguntas para exibir no frontend.
-        Abrange domínios de Vendas, Produtos, Clientes, Suporte, Avaliações e Navegação.
+        Gera dinamicamente 5 perguntas de exemplo para o início da conversa.
+
+        As perguntas são geradas pelo LLM com base no schema real do banco.
+        Quando uma lista de perguntas anteriores é informada, o prompt pede
+        novas sugestões e o fallback também evita repetir as perguntas da lista.
+        Em caso de falha esperada, retorna uma lista fixa de 5 perguntas de fallback.
+
+        O backend pode chamar este método no carregamento do chat ou ao clicar
+        no botão de perguntas de exemplo.
+
+        Args:
+            previous_suggestions: Perguntas já exibidas ao usuário nesta sessão.
+
+        Returns:
+            Lista com exatamente 5 perguntas em português brasileiro.
         """
-        return [
-            "Quais foram os 10 produtos com maior receita total gerada?",
-            "Qual é a receita total agrupada por região do país?",
-            "Qual foi o método de pagamento mais utilizado nas vendas?",
-            "Qual é o ticket médio das vendas separadas por categoria de produto?",
-            "Quantos pedidos foram cancelados ou estão pendentes?",
-            "Quais produtos estão com estoque zerado e precisam de revisão?",
-            "Quais são os 5 fornecedores com a maior quantidade de unidades vendidas?",
-            "Quais são os 10 produtos com a melhor média de avaliação (nota do produto)?",
-            "Quais são os principais clientes do segmento 'Campeões' que mais gastaram na loja?",
-            "Quantos pedidos em média um cliente da região Nordeste realiza?",
-            "Qual a distribuição percentual de clientes por segmento RFM?",
-            "Qual é o tempo médio de resolução de tickets por tipo de problema?",
-            "Quais agentes de suporte possuem a melhor nota média de satisfação?",
-            "Quais clientes possuem o maior número de tickets de suporte?",
-            "Qual é a proporção de avaliações NPS classificadas como 'Promotores'?",
-            "Quais os comentários das avaliações de pedidos com nota baixa (1 ou 2)?",
-            "Quais canais de aquisição geram o maior número de compras e adições ao carrinho?",
-            "Qual é o dispositivo de navegação mais utilizado pelos clientes (mobile, desktop)?",
-            "Qual é a taxa de abandono de carrinho média por canal de aquisição?",
-            "Como as notas de avaliação do suporte variam de acordo com o tempo de resolução do ticket?"
-        ]
+        try:
+            schema, _ = await self._load_schema()
+            suggestions, _ = await generate_suggestions(
+                schema,
+                previous_suggestions=previous_suggestions,
+                model=self._llm_model,
+            )
+            return suggestions
+        except (
+            FileNotFoundError,
+            RuntimeError,
+            ValueError,
+            EnvironmentError,
+            LLMError,
+        ):
+            return select_fallback_suggestions(previous_suggestions)

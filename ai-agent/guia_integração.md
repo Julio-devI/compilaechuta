@@ -193,12 +193,45 @@ logger.warning(
 return response.user_response
 ```
 
-### `initial_suggestions() -> list[str]`
+### `async initial_suggestions(previous_suggestions: list[str] | None = None) -> list[str]`
 
-Retorna uma lista fixa de 20 perguntas sugeridas, cobrindo vendas, produtos, clientes, suporte, avaliações e navegação. O backend pode devolver todas ou selecionar um subconjunto para o frontend.
+Gera dinamicamente 5 perguntas de exemplo para o início da conversa, com base no schema real do banco. Em caso de falha esperada (LLM indisponível, schema inválido, resposta malformada), retorna uma lista de 5 perguntas de fallback.
 
 ```python
-suggestions = agent.initial_suggestions()
+suggestions = await agent.initial_suggestions()
+
+next_suggestions = await agent.initial_suggestions(
+    previous_suggestions=suggestions
+)
+```
+
+Comportamento:
+
+- O método é assíncrono e pode consumir 1 chamada ao LLM.
+- Não depende de histórico de conversa; não lê nem altera `self._history`.
+- Não executa queries no banco.
+- Retorna exatamente 5 perguntas em português brasileiro.
+- Aceita `previous_suggestions` para evitar repetir perguntas já exibidas quando o usuário clicar várias vezes no botão.
+- Falhas esperadas retornam fallback local sem quebrar o backend.
+
+Exemplo de uso em um endpoint FastAPI para o botão de perguntas de exemplo:
+
+```python
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class SuggestionsRequest(BaseModel):
+    previous_suggestions: list[str] = Field(default_factory=list)
+
+
+@router.post("/ai-agent/suggestions")
+async def get_suggestions(payload: SuggestionsRequest) -> dict[str, Any]:
+    suggestions = await agent.initial_suggestions(
+        previous_suggestions=payload.previous_suggestions
+    )
+    return {"suggestions": suggestions}
 ```
 
 ### `invalidate_schema() -> None`

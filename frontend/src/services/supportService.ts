@@ -11,6 +11,8 @@ export interface Ticket {
   avatar: string
   mensagens: number
   id_pedido?: string
+  dataAberturaRaw?: string
+  dataResolucaoRaw?: string
 }
 
 export type TicketStatus = Ticket['status']
@@ -63,7 +65,9 @@ export async function getTicketPorPedido(id_pedido: string): Promise<Ticket | nu
       ultimaAtualizacao: data.data_resolucao ? new Date(data.data_resolucao).toLocaleDateString('pt-BR') : 'N/A',
       avatar: 'N/A',
       mensagens: 1,
-      id_pedido: data.id_pedido
+      id_pedido: data.id_pedido,
+      dataAberturaRaw: data.data_abertura,
+      dataResolucaoRaw: data.data_resolucao
     };
   } catch (error) {
     console.error("Erro ao buscar ticket do pedido:", error);

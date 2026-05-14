@@ -31,6 +31,7 @@ export interface Pedido {
   nomeProduto: string
   valorUnitario: string
   skuProduto: string
+  metodo_pagamento: string
 }
 
 export interface FiltrosPedidos {
@@ -117,7 +118,8 @@ export async function getPedidos(
           totalPedidosCliente: clientData?.qtd_pedidos_realizados || 1,
           nomeProduto: p.nome_produto || 'Produto Principal',
           valorUnitario: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_unitario || 0),
-          skuProduto: p.id_produto || 'SKU-001'
+          skuProduto: p.id_produto || 'SKU-001',
+          metodo_pagamento: p.metodo_pagamento || 'N/A'
         }
       })
     );

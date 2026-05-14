@@ -4,16 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="58482bf3-993b-4a64-93f4-dd797d2d882b" name="Changes" comment="fix: Query latency correction">
+    <list default="true" id="58482bf3-993b-4a64-93f4-dd797d2d882b" name="Changes" comment="fix: Fixing delay latency in tickets queries">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/tickets.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/tickets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/crud/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/crud/orders.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/crud/tickets.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/crud/tickets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/tickets.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/tickets.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/ModalDetalhesPedido.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ModalDetalhesPedido.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/pages/Pedidos.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Pedidos.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/orderService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/orderService.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/supportService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/supportService.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,7 +129,7 @@
       <workItem from="1778683833745" duration="44000" />
       <workItem from="1778683926497" duration="18905000" />
       <workItem from="1778758546049" duration="5406000" />
-      <workItem from="1778774298490" duration="3133000" />
+      <workItem from="1778774298490" duration="11150000" />
     </task>
     <task id="LOCAL-00001" summary="feat: update dependencies">
       <option name="closed" value="true" />
@@ -185,7 +179,15 @@
       <option name="project" value="LOCAL" />
       <updated>1778714637288</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="fix: Fixing delay latency in tickets queries">
+      <option name="closed" value="true" />
+      <created>1778778630453</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1778778630453</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -204,7 +206,8 @@
     <MESSAGE value="fix: adjustments in clients table" />
     <MESSAGE value="fix: Fix the latency queries" />
     <MESSAGE value="fix: Query latency correction" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: Query latency correction" />
+    <MESSAGE value="fix: Fixing delay latency in tickets queries" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: Fixing delay latency in tickets queries" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/compilaechuta$main.coverage" NAME="main Coverage Results" MODIFIED="1778701304950" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />

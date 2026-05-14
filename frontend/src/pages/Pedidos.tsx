@@ -251,7 +251,7 @@ export function Pedidos() {
   const toggleStatus = (label: string) => setStatusFilter(prev => prev === label ? '' : label)
   const toggleTicket = (label: string) => setTicketFilter(prev => prev === label ? '' : label)
 
-  const rawDataSource = pedidos.length > 0 ? pedidos : pedidosMock;
+  const rawDataSource = pedidos.length > 0 ? pedidos : [];
 
   const dataSource = useMemo(() => {
     if (!sortConfig.key) return rawDataSource;
@@ -331,7 +331,7 @@ export function Pedidos() {
           <div className="text-sm font-semibold text-muted-foreground">
             Total{" "}
             <span className="text-blue-700 ml-2 font-black">
-              {totalItems > 0 ? totalItems : "300.000"}
+              {totalItems > 0 ? totalItems.toLocaleString("pt-BR") : 0}
             </span>
           </div>
         </div>
@@ -549,6 +549,11 @@ export function Pedidos() {
             {Array.from({ length: 6 }).map((_, index) => (
               <PedidoCardSkeleton key={index} />
             ))}
+          </div>
+        ) : dataSource.length === 0 ? (
+          <div className="w-full flex flex-col items-center justify-center py-16">
+            <span className="text-2xl text-muted-foreground font-bold mb-2">Nenhum pedido encontrado</span>
+            <span className="text-muted-foreground">Tente ajustar os filtros ou a busca.</span>
           </div>
         ) : viewMode === "tabela" ? (
           <div className="w-full overflow-x-auto">

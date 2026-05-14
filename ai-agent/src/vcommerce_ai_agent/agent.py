@@ -36,6 +36,10 @@ from vcommerce_ai_agent.security.guardrails import (
     validate_input_length,
     validate_prompt_injection,
 )
+from vcommerce_ai_agent.security.sensitive_data_masking import (
+    mask_sensitive_data,
+    restore_sensitive_values,
+)
 from vcommerce_ai_agent.llm.insight_generator import generate_insight
 from vcommerce_ai_agent.database.schema import build_allowlist, format_schema, load_descriptions
 from vcommerce_ai_agent.llm.sql_generator import generate_sql, generate_sql_correction
@@ -976,11 +980,36 @@ class VCommerceAgent:
             )
         query_execution_time_ms = _elapsed_ms(query_start)
 
-        # Etapa 5: gerar insight
+        # Etapa 4.5: mascarar dados sensíveis antes da Chamada 2
+        try:
+            masking_result = mask_sensitive_data(
+                rows,
+                sql=sql,
+                descriptions=self._descriptions or {},
+                technical_schema=self._technical_schema,
+            )
+        except GuardrailError as exc:
+            return self._make_error_response(
+                code=exc.error_code,
+                stage="sql_validation",
+                sql=sql,
+                message=str(exc),
+                retryable=False,
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                query_execution_time_ms=query_execution_time_ms,
+                tokens_used=tokens_used,
+            )
+
+        # Etapa 5: gerar insight (com dados mascarados)
         insight_start = time.perf_counter()
         try:
             insight, insight_tokens = await generate_insight(
-                question, rows, sql, history=self._history, model=self._llm_model
+                question,
+                masking_result.llm_data,
+                sql,
+                history=self._history,
+                model=self._llm_model,
             )
             if insight_tokens is not None:
                 tokens_used = (tokens_used or 0) + insight_tokens
@@ -1013,15 +1042,47 @@ class VCommerceAgent:
             )
         insight_generation_time_ms = _elapsed_ms(insight_start)
 
-        # Etapa 6: montar resposta
+        # Etapa 6: montar resposta (restaurando tokens nos textos exibíveis)
         presentation = self._build_presentation(insight, sql, data=rows)
+
+        # Restaura tokens nos campos textuais produzidos pelo LLM
+        token_map = masking_result.token_to_value
+        if token_map:
+            presentation.activity = restore_sensitive_values(
+                presentation.activity, token_map
+            )
+            presentation.answer_sections = [
+                _ResponseSection(
+                    title=restore_sensitive_values(section.title, token_map),
+                    content=restore_sensitive_values(section.content, token_map),
+                )
+                for section in presentation.answer_sections
+            ]
+            if presentation.sources_summary is not None:
+                presentation.sources_summary = _SourcesSummary(
+                    text=restore_sensitive_values(
+                        presentation.sources_summary.text, token_map
+                    ),
+                    tables=presentation.sources_summary.tables,
+                )
+
         answer_text = _build_answer_text_from_presentation(presentation)
         sources_text = (
             presentation.sources_summary.text
             if presentation.sources_summary is not None
             else None
         )
-        chart = self._build_chart(insight.get("chart"), rows)
+
+        # Monta chart validando contra chaves reais de rows
+        chart_data = insight.get("chart")
+        chart = self._build_chart(chart_data, rows)
+        if chart is not None and token_map:
+            chart = ChartSuggestion(
+                type=chart.type,
+                x_axis=chart.x_axis,
+                y_axis=chart.y_axis,
+                title=restore_sensitive_values(chart.title, token_map),
+            )
 
         response = AgentResponse(
             status="success",

@@ -862,3 +862,300 @@ def test_insight_generator_validator_retries_until_valid(monkeypatch):
     assert len(calls) == 2
     assert "data" not in result
     assert result["activity"] == "Analisei os dados."
+
+
+# ---------------------------------------------------------------------------
+# Testes de segurança e não-vazamento do mascaramento reversível
+# ---------------------------------------------------------------------------
+
+
+def _set_fake_descriptions_with_sensitive(agent: VCommerceAgent) -> None:
+    agent._descriptions = {
+        "tables": {
+            "dim_cliente": {
+                "display_name": "clientes",
+                "description": "Dados cadastrais e métricas de clientes.",
+                "columns": {
+                    "nome_cliente": {
+                        "description": "Nome completo do cliente.",
+                        "sensitive": True,
+                        "mask_label": "Cliente",
+                    },
+                    "regiao": {"description": "Região do cliente."},
+                },
+            }
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_pipeline_sends_tokens_not_real_values_to_llm(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    db_rows = [{"nome_cliente": "João Silva", "regiao": "Sudeste"}]
+    captured_data = None
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente, regiao FROM dim_cliente", 11
+
+    async def fake_execute_query(sql):
+        return db_rows, False
+
+    async def fake_generate_insight(question, data, sql, history=None, model=None):
+        nonlocal captured_data
+        captured_data = data
+        return _fake_insight(), 13
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Quais clientes existem?")
+
+    assert response.status == "success"
+    assert captured_data is not None
+    assert captured_data[0]["nome_cliente"] == "Cliente_1"
+    assert captured_data[0]["regiao"] == "Sudeste"
+    assert "João Silva" not in str(captured_data)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_restores_tokens_in_answer_text(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    db_rows = [{"nome_cliente": "Maria Souza", "regiao": "Nordeste"}]
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente, regiao FROM dim_cliente", None
+
+    async def fake_execute_query(sql):
+        return db_rows, False
+
+    async def fake_generate_insight(question, data, sql, history=None, model=None):
+        return _fake_insight(
+            extra={
+                "activity": "Analisei os dados de Cliente_1.",
+                "answer_sections": [
+                    {
+                        "title": "Cliente Cliente_1",
+                        "content": "Cliente_1 está na região Nordeste.",
+                    }
+                ],
+            }
+        ), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Quais clientes existem?")
+
+    assert response.status == "success"
+    assert "Maria Souza" in response.user_response.answer_text
+    assert "Cliente_1" not in response.user_response.answer_text
+    assert response.user_response.data == db_rows
+
+
+@pytest.mark.asyncio
+async def test_pipeline_preserves_real_data_in_user_response(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    db_rows = [{"nome_cliente": "Carlos Lima", "regiao": "Sul"}]
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente, regiao FROM dim_cliente", None
+
+    async def fake_execute_query(sql):
+        return db_rows, False
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Quais clientes existem?")
+
+    assert response.user_response.data == db_rows
+    assert response.user_response.data[0]["nome_cliente"] == "Carlos Lima"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_no_token_map_in_developer_debug(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    db_rows = [{"nome_cliente": "Ana Paula", "regiao": "Sudeste"}]
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente, regiao FROM dim_cliente", None
+
+    async def fake_execute_query(sql):
+        return db_rows, False
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Quais clientes existem?")
+
+    assert not hasattr(response.developer_debug, "token_to_value")
+    assert not hasattr(response.developer_debug, "masked_columns")
+    assert response.developer_debug.sql == "SELECT nome_cliente, regiao FROM dim_cliente"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_no_tokens_in_export_history(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    db_rows = [{"nome_cliente": "Pedro Henrique", "regiao": "Norte"}]
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente, regiao FROM dim_cliente", None
+
+    async def fake_execute_query(sql):
+        return db_rows, False
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(
+            extra={
+                "answer_sections": [
+                    {
+                        "title": "Cliente",
+                        "content": "O cliente Pedro Henrique está na região Norte.",
+                    }
+                ]
+            }
+        ), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Quais clientes existem?")
+
+    history = agent.export_history()
+    assert len(history) == 2
+    assert "Cliente_" not in history[1]["content"]
+    assert "Pedro Henrique" in history[1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_aggregate_without_sensitive_sends_unmasked_data(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    db_rows = [{"total_clientes": 150}]
+    captured_data = None
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT COUNT(*) AS total_clientes FROM dim_cliente", None
+
+    async def fake_execute_query(sql):
+        return db_rows, False
+
+    async def fake_generate_insight(question, data, sql, history=None, model=None):
+        nonlocal captured_data
+        captured_data = data
+        return _fake_insight(), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Quantos clientes existem?")
+
+    assert response.status == "success"
+    assert captured_data == db_rows
+    assert captured_data[0]["total_clientes"] == 150
+
+
+@pytest.mark.asyncio
+async def test_pipeline_truncated_data_is_masked_before_insight(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    db_rows = [
+        {"nome_cliente": "Ana", "regiao": "Sul"},
+        {"nome_cliente": "Bruno", "regiao": "Norte"},
+    ]
+    captured_data = None
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente, regiao FROM dim_cliente", None
+
+    async def fake_execute_query(sql):
+        return db_rows, True
+
+    async def fake_generate_insight(question, data, sql, history=None, model=None):
+        nonlocal captured_data
+        captured_data = data
+        return _fake_insight(), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Liste os clientes")
+
+    assert response.status == "success"
+    assert response.user_response.truncated is True
+    assert captured_data is not None
+    assert captured_data[0]["nome_cliente"] == "Cliente_1"
+    assert captured_data[1]["nome_cliente"] == "Cliente_2"
+    assert "Ana" not in str(captured_data)
+    assert "Bruno" not in str(captured_data)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_chart_title_restored_but_axes_unchanged(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    # Dados reais do banco (valor real, não token)
+    db_rows = [{"cliente": "João Silva", "total": 10}]
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente AS cliente, COUNT(*) AS total FROM dim_cliente GROUP BY nome_cliente", None
+
+    async def fake_execute_query(sql):
+        return db_rows, False
+
+    async def fake_generate_insight(*args, **kwargs):
+        # O LLM recebe dados mascarados e retorna title com token
+        return _fake_insight(
+            chart={
+                "type": "bar",
+                "x_axis": "cliente",
+                "y_axis": "total",
+                "title": "Vendas por Cliente_1",
+            }
+        ), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    _set_fake_descriptions_with_sensitive(agent)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask("Vendas por cliente?")
+
+    assert response.status == "success"
+    assert response.user_response.chart is not None
+    assert response.user_response.chart.title == "Vendas por João Silva"
+    assert response.user_response.chart.x_axis == "cliente"
+    assert response.user_response.chart.y_axis == "total"

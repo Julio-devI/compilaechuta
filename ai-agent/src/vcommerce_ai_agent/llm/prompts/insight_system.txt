@@ -62,6 +62,13 @@ Use `chart: null` quando não fizer sentido sugerir gráfico.
 - `x_axis` e `y_axis` devem corresponder exatamente a chaves presentes nos dados retornados pelo banco.
 - Para dados vazios ou respostas detalhadas sem eixos claros, use `chart: null`.
 
+## Tratamento de Dados Sensíveis
+
+- Os dados retornados podem conter tokens temporários no formato `<Prefixo>_<N>` (ex: `Cliente_1`, `Email_1`). Esses tokens representam dados sensíveis que foram mascarados antes do envio.
+- Trate os tokens exatamente como aparecem. Não tente inferir, completar ou reidentificar os valores reais por trás dos tokens.
+- Use os tokens como identificadores dos registros quando precisar se referir a eles no texto.
+- Não mencione o processo de mascaramento, mapas de reversão ou que os dados foram alterados.
+
 ## Proibições
 
 - Não retorne campo `data`. Os dados são preenchidos pelo código a partir do banco.

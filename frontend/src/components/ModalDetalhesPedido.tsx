@@ -18,11 +18,8 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
 
   useEffect(() => {
     async function fetchTicket() {
-      console.log("PEDIDO NO MODAL:", pedido); // Debug log
-      
-      // Tenta puxar o idReal que nós mapeamos no orderService
-      // Se por algum motivo o frontend est.iver com cache e mandando o ID antigo (ex: "PED-000"), vamos tentar usá-lo como fallback
-      const idParaBusca = pedido?.idReal || pedido?.id;
+      // Usa idReal (ID interno do banco) estritamente para não falhar com o ID de exibição
+      const idParaBusca = pedido?.idReal;
       
       if (idParaBusca) {
         setLoadingTicket(true);
@@ -47,6 +44,30 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
       onClose();
     }
   };
+
+  const getTempoAberto = () => {
+    if (!ticket || !ticket.dataAberturaRaw) {
+      return pedido?.tempoAberto !== 'N/A' ? `${pedido.tempoAberto.split(' ')[0]} dias` : 'N/A';
+    }
+
+    const dataAbertura = new Date(ticket.dataAberturaRaw);
+    const dataFim = ticket.dataResolucaoRaw ? new Date(ticket.dataResolucaoRaw) : new Date();
+
+    const diffMs = Math.abs(dataFim.getTime() - dataAbertura.getTime());
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Hoje';
+    if (diffDays === 1) return '1 dia';
+    if (diffDays < 30) return `${diffDays} dias`;
+    
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths === 1) return '1 mês';
+    if (diffMonths < 12) return `${diffMonths} meses`;
+
+    const diffYears = Math.floor(diffDays / 365);
+    if (diffYears === 1) return '1 ano';
+    return `${diffYears} anos`;
+  }
 
   if (!pedido) return null;
 
@@ -99,11 +120,32 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                   <p className="text-muted-foreground text-sm font-medium">Comprado em {pedido.data}</p>
 
                   <div className="grid grid-cols-3 gap-4 mt-6">
-                    <div className="bg-background p-4 rounded-2xl border border-border">
+                    <div className={`p-4 rounded-2xl border ${
+                      ticket?.status === 'resolvido' 
+                        ? "bg-emerald-50 text-emerald-500 border-emerald-100" 
+                        : ticket?.status === 'aberto'
+                        ? "bg-amber-50 text-amber-600 border-amber-100" // Estilo para o estado Aberto
+                        : "bg-background text-foreground border-border"  // Estilo padrão
+                    }`}>
                       <span className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground mb-1">
                         <Clock className="w-3 h-3" /> Tempo aberto
                       </span>
-                      <span className="text-lg font-bold text-foreground">{pedido.tempoAberto !== 'N/A' ? pedido.tempoAberto.split(' ')[0] : 'N/A'} dias</span>
+
+                      <span className="text-lg font-bold">{getTempoAberto()}</span>
+
+                      {/* Tag para Resolvido */}
+                      {ticket?.status === 'resolvido' && (
+                        <span className="text-[10px] font-bold text-emerald-600 block mt-1 uppercase">
+                          Resolvido
+                        </span>
+                      )}
+
+                      {/* Tag para Aberto */}
+                      {ticket?.status === 'aberto' && (
+                        <span className="text-[10px] font-bold text-amber-600 block mt-1 uppercase">
+                          Aberto
+                        </span>
+                      )}
                     </div>
                     <div className={pedido.status === 'Atrasado' ? "bg-red-50 text-red-500 p-4 rounded-2xl border border-red-100" : "bg-emerald-50 text-emerald-500 p-4 rounded-2xl border border-emerald-100"}>
                       <span className="flex items-center gap-1.5 text-[10px] font-bold mb-1">
@@ -150,11 +192,23 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                 </div>
 
                 {/* Suporte e Resolução */}
-                <div className={`rounded-3xl p-6 border ${ticket ? 'bg-amber-50 border-amber-100' : 'bg-background border-border'}`}>
-                  <div className={`flex items-center gap-2 font-black text-xs uppercase tracking-wider mb-4 ${ticket ? 'text-blue-900' : 'text-muted-foreground'}`}>
+                <div className={`rounded-3xl p-6 border transition-colors ${
+                  ticket?.status === 'resolvido' ? 'bg-emerald-50 border-emerald-100' 
+                  : ticket ? 'bg-amber-50 border-amber-100' 
+                  : 'bg-background border-border'
+                }`}>
+                  <div className={`flex items-center gap-2 font-black text-xs uppercase tracking-wider mb-4 ${
+                    ticket?.status === 'resolvido' ? 'text-emerald-700' 
+                    : ticket ? 'text-blue-900' 
+                    : 'text-muted-foreground'
+                  }`}>
                     <Headphones className="w-4 h-4" /> Suporte e Resolução
                   </div>
-                  <h4 className={`text-lg font-black mb-4 ${ticket ? 'text-[#020854]' : 'text-foreground'}`}>Ticket vinculado</h4>
+                  <h4 className={`text-lg font-black mb-4 ${
+                    ticket?.status === 'resolvido' ? 'text-emerald-900' 
+                    : ticket ? 'text-[#020854]' 
+                    : 'text-foreground'
+                  }`}>Ticket vinculado</h4>
                   
                   {loadingTicket ? (
                     <div className="flex justify-center items-center py-4">
@@ -162,13 +216,15 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                     </div>
                   ) : ticket ? (
                     <>
-                      <div className="bg-amber-400 text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mb-4">
-                        Pedido com Ticket {ticket.status} — Ação recomendada
+                      <div className={`text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mb-4 transition-colors ${
+                        ticket.status === 'resolvido' ? 'bg-emerald-500' : 'bg-amber-400'
+                      }`}>
+                        {ticket.status === 'resolvido' ? 'Problema resolvido com sucesso — Nenhuma ação necessária' : `Pedido com Ticket ${ticket.status} — Ação recomendada`}
                       </div>
                       <div className="bg-background rounded-2xl p-4 flex items-center justify-between shadow-sm">
                         <div>
                           <div className="flex gap-2 mb-1">
-                            <span className="font-black text-foreground">{ticket.id}</span>
+                            <span className="font-black text-foreground">TK - {ticket.id}</span>
                             <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
                               ticket.prioridade === 'alta' || ticket.prioridade === 'urgente' 
                                 ? 'bg-amber-100 text-amber-600' 

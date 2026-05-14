@@ -44,6 +44,44 @@ const pedidosMock: Pedido[] = Array(5).fill({
   totalPedidosCliente: 38
 }).map((pedido, index) => ({ ...pedido, id: `VC-30842${index}` }));
 
+const getStatusStyle = (status: string) => {
+  const normalizedStatus = status.toLowerCase();
+
+  switch (normalizedStatus) {
+    case "aprovado":
+      return {
+        bg: "bg-background dark:bg-card text-purple-600",
+        dot: "bg-purple-500",
+      };
+    case "processando":
+      return {
+        bg: "bg-background dark:bg-card text-orange-600",
+        dot: "bg-orange-500",
+      };
+    case "recusado":
+    case "atrasado": // Cor mapeada para o seu mock
+      return {
+        bg: "bg-background dark:bg-card text-red-600",
+        dot: "bg-red-500",
+      };
+    case "reembolsado":
+      return {
+        bg: "bg-background dark:bg-card text-blue-600",
+        dot: "bg-blue-500",
+      };
+    case "no prazo": // Cor mapeada para o seu mock
+      return {
+        bg: "bg-background dark:bg-card text-emerald-600",
+        dot: "bg-emerald-500",
+      };
+    default:
+      return {
+        bg: "bg-background dark:bg-card text-slate-600",
+        dot: "bg-slate-500",
+      };
+  }
+};
+
 export function Pedidos() {
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null)
   const [isFiltrosOpen, setIsFiltrosOpen] = useState(true)
@@ -365,7 +403,9 @@ export function Pedidos() {
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                      <span className="text-muted-foreground font-bold text-sm">{pedido.produtos} itens</span>
+                      <span className="text-muted-foreground font-bold text-sm">
+                        {pedido.produtos == -1 ? "Sem dados" : `${pedido.produtos} itens`}
+                      </span>
                     </td>
 
                     <td className="py-4 px-6 border-0">
@@ -374,8 +414,8 @@ export function Pedidos() {
 
                     <td className="py-4 px-6 rounded-r-2xl border-0">
                       <div className="flex items-center gap-4">
-                        <span className="bg-red-500 text-white px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+                        <span className={`${getStatusStyle(pedido.status).bg} px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${getStatusStyle(pedido.status).dot}`}></span>
                           {pedido.status.toUpperCase()}
                         </span>
 
@@ -415,7 +455,8 @@ export function Pedidos() {
                       <span className="font-black text-blue-900 dark:text-blue-300 text-xl">{pedido.id}</span>
                       <span className="text-muted-foreground text-xs font-bold">{pedido.data}</span>
                     </div>
-                    <span className="bg-red-500 text-white px-3 py-1 rounded-full text-[10px] font-black">
+                    <span className={`${getStatusStyle(pedido.status).bg} px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${getStatusStyle(pedido.status).dot}`}></span>
                       {pedido.status.toUpperCase()}
                     </span>
                   </div>

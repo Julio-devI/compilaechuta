@@ -100,7 +100,7 @@ export async function getPedidos(
           cliente: clientData?.nome_cliente || p.id_cliente, // Agora usa o nome do cliente se existir
           cidade: clientData?.cidade || 'N/A',
           estado: clientData?.estado || 'N/A',
-          produtos: p.quantidade_vendas || 1,
+          produtos: p.quantidade_vendas || -1,
           valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_total_venda || 0),
           data: p.id_data ? new Date(p.id_data).toLocaleDateString('pt-BR') : 'N/A',
           status: p.status || 'No prazo',

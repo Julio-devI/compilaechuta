@@ -87,8 +87,12 @@ function mapSupportTicket(ticket: SupportTicketApiResponse, customerNames: Map<s
 }
 
 function formatTicketDisplayId(ticketId: string) {
-  const firstFiveDigits = ticketId.replace(/\D/g, '').slice(0, 5)
-  return `TK-${firstFiveDigits || ticketId.slice(0, 5)}`
+  return `TK-${ticketId.slice(0, 8)}`
+}
+
+function normalizeTicketSearch(search: string) {
+  const trimmedSearch = search.trim()
+  return trimmedSearch.toLowerCase().startsWith('tk-') ? trimmedSearch.slice(3) : trimmedSearch
 }
 
 export async function getSupportTickets(filters: SupportTicketFilters = {}): Promise<SupportTicket[]> {
@@ -145,7 +149,7 @@ function buildTicketParams(filters: SupportTicketFilters, includePagination = tr
     params.delete('limit')
   }
 
-  if (filters.search) params.append('search', filters.search)
+  if (filters.search) params.append('search', normalizeTicketSearch(filters.search))
   if (filters.status && filters.status !== 'all') params.append('status', filters.status)
   if (filters.agent) params.append('agente', filters.agent)
   if (filters.problemType) params.append('tipo', filters.problemType)

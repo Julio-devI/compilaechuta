@@ -13,25 +13,44 @@ import {
 } from '../services/supportService'
 
 type DatePreset = 'all' | 'today' | 'last7Days'
-const TICKETS_PER_PAGE = 15
+const TICKETS_PER_PAGE = 20
+const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo'
 
-function formatDateParam(date: Date) {
-  return date.toISOString().slice(0, 10)
+function getSaoPauloDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SAO_PAULO_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+
+  const year = parts.find(part => part.type === 'year')?.value
+  const month = parts.find(part => part.type === 'month')?.value
+  const day = parts.find(part => part.type === 'day')?.value
+
+  return { year, month, day }
+}
+
+function formatSaoPauloDateParam(date: Date) {
+  const { year, month, day } = getSaoPauloDateParts(date)
+  return `${year}-${month}-${day}`
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date)
+  nextDate.setUTCDate(nextDate.getUTCDate() + days)
+  return nextDate
 }
 
 function getDateRange(preset: DatePreset) {
   if (preset === 'all') return {}
 
   const end = new Date()
-  const start = new Date()
-
-  if (preset === 'last7Days') {
-    start.setDate(end.getDate() - 7)
-  }
+  const start = preset === 'last7Days' ? addDays(end, -6) : end
 
   return {
-    startDate: formatDateParam(start),
-    endDate: formatDateParam(end),
+    startDate: formatSaoPauloDateParam(start),
+    endDate: formatSaoPauloDateParam(end),
   }
 }
 

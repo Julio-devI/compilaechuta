@@ -32,14 +32,14 @@ async def get_ticket_by_id(ticket_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=TicketOut, status_code=201)
 async def create_ticket(ticket: TicketCreate, db: AsyncSession = Depends(get_db)):
-    return await service.criar_ticket(db, ticket)
+    return await service.create_ticket(db, ticket)
 
 
 @router.patch("/{ticket_id}", response_model=TicketOut)
 async def update_ticket(ticket_id: str, ticket: TicketUpdate, db: AsyncSession = Depends(get_db)):
-    return await service.atualizar_ticket(db, ticket_id, ticket)
+    return await service.update_ticket(db, ticket_id, ticket)
 
 
 @router.delete("/{ticket_id}")
 async def delete_ticket(ticket_id: str, db: AsyncSession = Depends(get_db)):
-    return await service.deletar_ticket(db, ticket_id)
+    return await service.delete_ticket(db, ticket_id)

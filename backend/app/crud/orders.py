@@ -32,7 +32,7 @@ async def get_orders(
         query = query.where(Pedido.status == status_str)
 
     if id_produto:
-        query = query.where(Pedido.id_pedido_display == id_produto)
+        query = query.where(Pedido.id_pedido_display.ilike(f"%{id_produto}%"))
 
     if data_inicio:
         query = query.where(Pedido.id_data >= data_inicio)

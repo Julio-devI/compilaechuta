@@ -10,6 +10,7 @@ export interface Ticket {
   ultimaAtualizacao: string
   avatar: string
   mensagens: number
+  id_pedido?: string
 }
 
 export type TicketStatus = Ticket['status']
@@ -35,6 +36,39 @@ export const ticketCategoriaConfig: Record<TicketCategoria, { icon: string; labe
   problema:   { icon: '⚠️', label: 'Problema' },
   solicitacao: { icon: '📝', label: 'Solicitação' },
   reclamacao: { icon: '😤', label: 'Reclamação' },
+}
+
+const API_URL = 'http://localhost:8000/api/v1/tickets'
+
+export async function getTicketPorPedido(id_pedido: string): Promise<Ticket | null> {
+  try {
+    const response = await fetch(`${API_URL}/pedido/${encodeURIComponent(id_pedido)}`);
+    if (!response.ok) {
+      if (response.status === 404) return null; // Nenhum ticket para este pedido
+      throw new Error(`Erro na API: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Mapeia do backend TicketOut para a interface do frontend
+    return {
+      id: data.id_ticket?.substring(0, 8).toUpperCase() || '#TKT-N/A', // O backend retorna um UUID, vamos pegar um pedaço
+      assunto: data.tipo_problema || 'Dúvida/Suporte',
+      cliente: data.id_cliente,
+      email: 'N/A',
+      categoria: 'problema',
+      prioridade: data.status === 'aberto' ? 'alta' : 'baixa',
+      status: data.status === 'aberto' ? 'aberto' : 'resolvido',
+      dataCriacao: data.data_abertura ? new Date(data.data_abertura).toLocaleDateString('pt-BR') : 'N/A',
+      ultimaAtualizacao: data.data_resolucao ? new Date(data.data_resolucao).toLocaleDateString('pt-BR') : 'N/A',
+      avatar: 'N/A',
+      mensagens: 1,
+      id_pedido: data.id_pedido
+    };
+  } catch (error) {
+    console.error("Erro ao buscar ticket do pedido:", error);
+    return null;
+  }
 }
 
 const mockTickets: Ticket[] = [

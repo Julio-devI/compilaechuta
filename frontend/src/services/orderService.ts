@@ -14,6 +14,7 @@ export interface PedidoBackend {
 
 export interface Pedido {
   id: string
+  idReal: string
   cliente: string
   cidade: string
   estado: string
@@ -27,6 +28,9 @@ export interface Pedido {
   progresso: number
   mediaEstrelas: number
   totalPedidosCliente: number
+  nomeProduto: string
+  valorUnitario: string
+  skuProduto: string
 }
 
 export interface FiltrosPedidos {
@@ -97,10 +101,11 @@ export async function getPedidos(
         
         return {
           id: p.id_pedido_display,
+          idReal: p.id_pedido, // ID real do banco (necessário para buscar o ticket)
           cliente: clientData?.nome_cliente || p.id_cliente, // Agora usa o nome do cliente se existir
           cidade: clientData?.cidade || 'N/A',
           estado: clientData?.estado || 'N/A',
-          produtos: p.quantidade_vendas || -1,
+          produtos: p.quantidade_vendas || 1,
           valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_total_venda || 0),
           data: p.id_data ? new Date(p.id_data).toLocaleDateString('pt-BR') : 'N/A',
           status: p.status || 'No prazo',
@@ -110,6 +115,9 @@ export async function getPedidos(
           progresso: p.status === 'Aprovado' ? 2 : p.status === 'Processando' ? 3 : p.status === 'Reembolsado' ? 1 : 5,
           mediaEstrelas: clientData?.media_estrelas_dadas || 0,
           totalPedidosCliente: clientData?.qtd_pedidos_realizados || 1,
+          nomeProduto: p.nome_produto || 'Produto Principal',
+          valorUnitario: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_unitario || 0),
+          skuProduto: p.id_produto || 'SKU-001'
         }
       })
     );

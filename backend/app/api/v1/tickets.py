@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from datetime import date
@@ -19,6 +19,14 @@ async def listar(
     db: AsyncSession = Depends(get_db),
 ):
     return await service.listar_tickets(db, skip, limit, start_date, end_date)
+
+
+@router.get("/pedido/{id_pedido}", response_model=TicketOut)
+async def buscar_por_pedido(id_pedido: str, db: AsyncSession = Depends(get_db)):
+    ticket = await service.buscar_ticket_por_pedido(db, id_pedido)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Nenhum ticket encontrado para este pedido")
+    return ticket
 
 
 @router.get("/{ticket_id}", response_model=TicketOut)

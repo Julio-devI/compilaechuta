@@ -11,6 +11,7 @@ import { getPedidos, FiltrosPedidos } from '../services/orderService'
 // Mantemos a interface do layout original para não quebrar os cards
 interface Pedido {
   id: string
+  idReal: string
   cliente: string
   cidade: string
   estado: string
@@ -24,11 +25,15 @@ interface Pedido {
   progresso: number
   mediaEstrelas: number
   totalPedidosCliente: number
+  nomeProduto: string
+  valorUnitario: string
+  skuProduto: string
 }
 
 // --- Mock de Dados ---
 const pedidosMock: Pedido[] = Array(5).fill({
   id: 'VC-308422',
+  idReal: 'mock-uuid',
   cliente: 'Marina Albuquerque',
   cidade: 'São Paulo',
   estado: 'SP',
@@ -41,7 +46,10 @@ const pedidosMock: Pedido[] = Array(5).fill({
   tempoAberto: '3d aberto',
   progresso: 4,
   mediaEstrelas: 5.0,
-  totalPedidosCliente: 38
+  totalPedidosCliente: 38,
+  nomeProduto: 'Smart TV 55" QLED 4K Vivara',
+  valorUnitario: 'R$ 2.144,95',
+  skuProduto: 'ELE-9921'
 }).map((pedido, index) => ({ ...pedido, id: `VC-30842${index}` }));
 
 const getStatusStyle = (status: string) => {
@@ -97,7 +105,7 @@ export function Pedidos() {
   // --- Filter State ---
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
-  const [tipoClienteFilter, setTipoClienteFilter] = useState<string>('')
+  const [tipoClienteFilter] = useState<string>('')
   const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
   const [ticketFilter, setTicketFilter] = useState<string>('')
 
@@ -115,6 +123,7 @@ export function Pedidos() {
       
       const pedidosMapeados: Pedido[] = res.data.map((p) => ({
         id: p.id,
+        idReal: p.idReal, // RECUPERADO AQUI PARA REPASSAR AO MODAL
         cliente: p.cliente,
         cidade: p.cidade,
         estado: p.estado,
@@ -127,7 +136,10 @@ export function Pedidos() {
         tempoAberto: p.tempoAberto,
         progresso: p.progresso,
         mediaEstrelas: p.mediaEstrelas,
-        totalPedidosCliente: p.totalPedidosCliente
+        totalPedidosCliente: p.totalPedidosCliente,
+        nomeProduto: p.nomeProduto,
+        valorUnitario: p.valorUnitario,
+        skuProduto: p.skuProduto
       }));
 
       setPedidos(pedidosMapeados)
@@ -497,6 +509,28 @@ export function Pedidos() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-6 bg-card p-4 rounded-2xl shadow-sm">
+        <p className="text-sm text-muted-foreground font-medium">Mostrando página {page} de {Math.ceil(totalItems / pageSize) || 1}</p>
+        <div className="flex items-center gap-2">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm text-muted-foreground hover:bg-slate-50 disabled:opacity-50 font-bold transition-all"
+          >
+            Anterior
+          </button>
+          <span className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm">{page}</span>
+          <button
+            disabled={page >= Math.ceil(totalItems / pageSize)}
+            onClick={() => setPage(prev => Math.min(Math.ceil(totalItems / pageSize), prev + 1))}
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm text-muted-foreground hover:bg-slate-50 disabled:opacity-50 font-bold transition-all"
+          >
+            Próximo
+          </button>
+        </div>
       </div>
 
       {/* 5. Floating Action Button */}

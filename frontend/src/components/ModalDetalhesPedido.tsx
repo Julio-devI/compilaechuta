@@ -1,9 +1,10 @@
 import {
   X, Clock, Truck, Package,
-  Check, MapPin, ArrowUpRight, Headphones, Star, Ticket
+  Check, MapPin, ArrowUpRight, Headphones, Star, Ticket as TicketIcon, Loader2
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MouseEvent } from 'react'
+import { MouseEvent, useEffect, useState } from 'react'
+import { getTicketPorPedido, Ticket } from '../services/supportService'
 
 interface ModalProps {
   isOpen: boolean
@@ -12,6 +13,35 @@ interface ModalProps {
 }
 
 export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [loadingTicket, setLoadingTicket] = useState(false);
+
+  useEffect(() => {
+    async function fetchTicket() {
+      console.log("PEDIDO NO MODAL:", pedido); // Debug log
+      
+      // Tenta puxar o idReal que nós mapeamos no orderService
+      // Se por algum motivo o frontend est.iver com cache e mandando o ID antigo (ex: "PED-000"), vamos tentar usá-lo como fallback
+      const idParaBusca = pedido?.idReal || pedido?.id;
+      
+      if (idParaBusca) {
+        setLoadingTicket(true);
+        const data = await getTicketPorPedido(idParaBusca);
+        setTicket(data);
+        setLoadingTicket(false);
+      } else {
+        console.warn("Nenhum ID encontrado no pedido. Não é possível buscar o ticket.", pedido);
+        setTicket(null);
+      }
+    }
+    
+    if (isOpen && pedido) {
+      fetchTicket();
+    } else {
+      setTicket(null);
+    }
+  }, [pedido, isOpen]);
+
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -120,27 +150,55 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                 </div>
 
                 {/* Suporte e Resolução */}
-                <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100">
-                  <div className="flex items-center gap-2 text-blue-900 font-black text-xs uppercase tracking-wider mb-4">
+                <div className={`rounded-3xl p-6 border ${ticket ? 'bg-amber-50 border-amber-100' : 'bg-background border-border'}`}>
+                  <div className={`flex items-center gap-2 font-black text-xs uppercase tracking-wider mb-4 ${ticket ? 'text-blue-900' : 'text-muted-foreground'}`}>
                     <Headphones className="w-4 h-4" /> Suporte e Resolução
                   </div>
-                  <h4 className="text-lg font-black text-[#020854] mb-4">Ticket vinculado</h4>
-                  <div className="bg-amber-400 text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mb-4">
-                    Pedido atrasado com Ticket aberto — Ação recomendada
-                  </div>
-                  <div className="bg-background rounded-2xl p-4 flex items-center justify-between shadow-sm">
-                    <div>
-                      <div className="flex gap-2 mb-1">
-                        <span className="font-black text-foreground">TK-{Math.floor(Math.random() * 100000)}</span>
-                        <span className="text-[9px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded font-bold">ALTA</span>
-                        <span className="text-[9px] bg-amber-400 text-white px-2 py-0.5 rounded font-bold">ABERTA</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground font-medium">Cliente solicita previsão atualizada da entrega</p>
+                  <h4 className={`text-lg font-black mb-4 ${ticket ? 'text-[#020854]' : 'text-foreground'}`}>Ticket vinculado</h4>
+                  
+                  {loadingTicket ? (
+                    <div className="flex justify-center items-center py-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                     </div>
-                    <button className="bg-[#020854] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
-                      Abrir ticket <ArrowUpRight className="w-3 h-3" />
-                    </button>
-                  </div>
+                  ) : ticket ? (
+                    <>
+                      <div className="bg-amber-400 text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mb-4">
+                        Pedido com Ticket {ticket.status} — Ação recomendada
+                      </div>
+                      <div className="bg-background rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                        <div>
+                          <div className="flex gap-2 mb-1">
+                            <span className="font-black text-foreground">{ticket.id}</span>
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
+                              ticket.prioridade === 'alta' || ticket.prioridade === 'urgente' 
+                                ? 'bg-amber-100 text-amber-600' 
+                                : 'bg-blue-100 text-blue-600'
+                            }`}>
+                              {ticket.prioridade}
+                            </span>
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
+                              ticket.status === 'aberto' || ticket.status === 'em_andamento'
+                                ? 'bg-amber-400 text-white'
+                                : 'bg-emerald-400 text-white'
+                            }`}>
+                              {ticket.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground font-medium">{ticket.assunto}</p>
+                        </div>
+                        <button className="bg-[#020854] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-900 transition-colors">
+                          Ver ticket <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-background rounded-2xl p-6 text-center border border-dashed border-border">
+                      <p className="text-sm text-muted-foreground font-medium mb-2">Nenhum ticket de suporte aberto para este pedido.</p>
+                      <button className="text-[#020854] font-bold text-xs hover:underline">
+                        Abrir novo ticket
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -173,7 +231,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                           </span>
 
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
-                            <Ticket className="w-4 h-4 text-blue-500" /> Tickets de suporte: {pedido.ticket || '0'}
+                            <TicketIcon className="w-4 h-4 text-blue-500" /> Tickets de suporte: {pedido.ticket || '0'}
                           </span>
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
                             <MapPin className="w-3 h-3 flex-shrink-0" />
@@ -203,32 +261,27 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                   <h4 className="text-lg font-black text-[#020854] dark:text-foreground mb-6">Produtos & Performance</h4>
 
                   <div className="space-y-4">
-                    {[
-                      { name: 'Produto Principal', sku: 'SKU-001', price: pedido.valor, tags: ['Mais vendido'] },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-4 group">
-                        <div className="w-12 h-12 bg-background border border-border rounded-xl flex items-center justify-center">
-                          <Package className="w-6 h-6 text-muted-foreground" />
+                    <div className="flex items-center gap-4 group">
+                      <div className="w-12 h-12 bg-background border border-border rounded-xl flex items-center justify-center">
+                        <Package className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between">
+                          <span className="font-bold text-[#020854] dark:text-foreground text-sm">{pedido.nomeProduto || 'Produto Principal'}</span>
+                          <span className="font-black text-[#020854] dark:text-foreground text-sm">{pedido.valor}</span>
                         </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between">
-                            <span className="font-bold text-[#020854] dark:text-foreground text-sm">{item.name}</span>
-                            <span className="font-black text-[#020854] dark:text-foreground text-sm">{item.price}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase">SKU {item.sku} - Qtd {pedido.produtos}</span>
-                            <span className="text-[9px] text-slate-400 font-medium italic text-right">{item.price} un</span>
-                          </div>
-                          <div className="flex gap-2 mt-1">
-                            {item.tags.map(tag => (
-                              <span key={tag} className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${tag.includes('Alta') ? 'bg-red-50 text-red-500 border-red-100' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">SKU {pedido.skuProduto || 'SKU-001'} - Qtd {pedido.produtos}</span>
+                          <span className="text-[9px] text-slate-400 font-medium italic text-right">{pedido.valorUnitario} un</span>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                          {/* Tags visuais - Se quiser torná-las dinâmicas depois, basta puxar da API também */}
+                          <span className="text-[8px] font-black px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-500 border-emerald-100">
+                            Mais vendido
+                          </span>
                         </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
 
                   <div className="mt-8 pt-6 border-t border-dashed border-border flex justify-between items-end">
@@ -237,7 +290,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                   </div>
                 </div>
               </div>
-
 
             </div>
           </motion.div>

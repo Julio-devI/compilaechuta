@@ -72,7 +72,6 @@ async def get_orders(
     result = await db.execute(query.offset(skip).limit(limit))
     data = result.scalars().all()
 
-    print("Total", total)
     return total, data
 
 

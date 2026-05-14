@@ -34,3 +34,7 @@ vcommerce_ai_agent = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+markers = [
+    "integration: testes de integracao offline com banco SQLite e LLM mockado",
+    "live_llm: testes que consomem API Gemini real (opt-in)",
+]

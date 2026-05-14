@@ -41,6 +41,7 @@ Variáveis reconhecidas:
 | `GEMINI_API_KEY` | Chave obrigatória para chamadas ao Gemini. A falha aparece como erro estruturado `LLM_AUTHENTICATION_ERROR`. |
 | `DB_PATH` | Caminho padrão do SQLite, caso o backend opte por ler do ambiente e repassar ao agente. |
 | `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2. Padrão atual: `0.3`. |
+| `LLM_TEMPERATURE_SUGGESTIONS` | Temperatura da geração de sugestões iniciais (`initial_suggestions`). Padrão atual: `0.5`. |
 
 ## Instalação e Importação no Backend
 
@@ -521,6 +522,7 @@ class ResponseError:
 | `llm` | `LLM_INVALID_REQUEST_ERROR` | Não | Requisição inválida ou modelo indisponível. |
 | `llm` | `LLM_INTERNAL_ERROR` | Sim | Erro interno do provedor. |
 | `llm` | `LLM_UNKNOWN_ERROR` | Não | Falha não categorizada. |
+| (interno) | `UNKNOWN_GUARDRAIL` | Não | Fallback defensivo interno. Nunca emitido pelos guardrails atuais; existe como valor padrão do `GuardrailError` para extensões futuras. |
 
 ## Tratamento Recomendado no Backend
 
@@ -644,7 +646,7 @@ O agente aplica validações em camadas:
 
 - Input vazio, longo demais ou tipo inválido.
 - Detecção de prompt injection e pedido de exfiltração de instruções.
-- Bloqueio de operações destrutivas como `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA` e `VACUUM`.
+- Apenas queries `SELECT` são permitidas. Qualquer operação não-SELECT (incluindo `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA`, `VACUUM` e outras) é bloqueada automaticamente via análise AST.
 - Bloqueio de múltiplos statements.
 - Bloqueio de tabelas/colunas fora do allowlist extraído do schema real.
 - Validação semântica de colunas por tabela/alias.

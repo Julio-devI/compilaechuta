@@ -1,51 +1,177 @@
-export interface Ticket {
-  id: string
-  assunto: string
-  cliente: string
-  email: string
-  categoria: 'duvida' | 'problema' | 'solicitacao' | 'reclamacao'
-  prioridade: 'baixa' | 'media' | 'alta' | 'urgente'
-  status: 'aberto' | 'em_andamento' | 'aguardando' | 'resolvido'
-  dataCriacao: string
-  ultimaAtualizacao: string
-  avatar: string
-  mensagens: number
+export interface SupportTicket {
+  ticketId: string
+  ticketDisplayId: string
+  customerId: string
+  customerName: string
+  orderId: string | null
+  productId: string | null
+  openedAt: string
+  resolvedAt: string | null
+  resolutionTimeHours: number | null
+  status: 'aberto' | 'resolvido'
+  problemType: string
+  supportAgent: string | null
+  rating: number | null
 }
 
-export type TicketStatus = Ticket['status']
-export type TicketPrioridade = Ticket['prioridade']
-export type TicketCategoria = Ticket['categoria']
-
-export const ticketStatusConfig: Record<TicketStatus, { color: string; label: string }> = {
-  aberto:       { color: 'bg-[#1E5EFF]/10 text-[#1E5EFF]',  label: 'Aberto' },
-  em_andamento: { color: 'bg-[#FFD60A]/10 text-[#B8860B]',  label: 'Em Andamento' },
-  aguardando:   { color: 'bg-[#8B5CF6]/10 text-[#8B5CF6]',  label: 'Aguardando' },
-  resolvido:    { color: 'bg-[#00C48C]/10 text-[#00C48C]',  label: 'Resolvido' },
+export interface SupportTicketFilters {
+  search?: string
+  status?: string
+  agent?: string
+  problemType?: string
+  startDate?: string
+  endDate?: string
+  skip?: number
+  limit?: number
 }
 
-export const ticketPrioridadeConfig: Record<TicketPrioridade, { color: string; label: string }> = {
-  baixa:   { color: 'bg-[#64748B]/10 text-muted',           label: 'Baixa' },
-  media:   { color: 'bg-[#1E5EFF]/10 text-[#1E5EFF]',       label: 'Média' },
-  alta:    { color: 'bg-[#FFD60A]/10 text-[#B8860B]',        label: 'Alta' },
-  urgente: { color: 'bg-[#FF4757]/10 text-[#FF4757]',        label: 'Urgente' },
+export interface SupportTicketSummary {
+  total: number
+  open: number
+  resolved: number
+  averageResolutionTimeHours: number
+  agents: string[]
+  problemTypes: string[]
 }
 
-export const ticketCategoriaConfig: Record<TicketCategoria, { icon: string; label: string }> = {
-  duvida:     { icon: '❓', label: 'Dúvida' },
-  problema:   { icon: '⚠️', label: 'Problema' },
-  solicitacao: { icon: '📝', label: 'Solicitação' },
-  reclamacao: { icon: '😤', label: 'Reclamação' },
+interface SupportTicketApiResponse {
+  id_ticket: string
+  id_cliente: string
+  nome_cliente?: string | null
+  id_pedido?: string | null
+  id_produto?: string | null
+  data_abertura?: string | null
+  data_resolucao?: string | null
+  tempo_resolucao_horas?: number | null
+  status?: 'aberto' | 'resolvido' | null
+  tipo_problema?: string | null
+  agente_suporte?: string | null
+  nota_avaliacao?: number | null
 }
 
-const mockTickets: Ticket[] = [
-  { id: '#TKT-001234', assunto: 'Problema com entrega do pedido', cliente: 'Maria Silva',    email: 'maria.silva@email.com',    categoria: 'problema',   prioridade: 'alta',    status: 'em_andamento', dataCriacao: '18/01/2024 14:32', ultimaAtualizacao: '2 horas atrás', avatar: 'MS', mensagens: 5 },
-  { id: '#TKT-001235', assunto: 'Dúvida sobre política de troca', cliente: 'João Santos',    email: 'joao.santos@email.com',    categoria: 'duvida',     prioridade: 'baixa',   status: 'aberto',       dataCriacao: '18/01/2024 13:15', ultimaAtualizacao: '3 horas atrás', avatar: 'JS', mensagens: 2 },
-  { id: '#TKT-001236', assunto: 'Solicitação de reembolso',       cliente: 'Ana Oliveira',   email: 'ana.oliveira@email.com',   categoria: 'solicitacao', prioridade: 'media',  status: 'aguardando',   dataCriacao: '18/01/2024 11:45', ultimaAtualizacao: '5 horas atrás', avatar: 'AO', mensagens: 8 },
-  { id: '#TKT-001237', assunto: 'Produto com defeito',            cliente: 'Carlos Ferreira', email: 'carlos.ferreira@email.com', categoria: 'reclamacao', prioridade: 'urgente', status: 'em_andamento', dataCriacao: '18/01/2024 10:20', ultimaAtualizacao: '1 hora atrás',  avatar: 'CF', mensagens: 12 },
-  { id: '#TKT-001238', assunto: 'Atualização de cadastro',        cliente: 'Beatriz Lima',   email: 'beatriz.lima@email.com',   categoria: 'solicitacao', prioridade: 'baixa',  status: 'resolvido',    dataCriacao: '17/01/2024 18:50', ultimaAtualizacao: '1 dia atrás',   avatar: 'BL', mensagens: 3 },
-  { id: '#TKT-001239', assunto: 'Dificuldade no pagamento',       cliente: 'Roberto Costa',  email: 'roberto.costa@email.com',  categoria: 'problema',   prioridade: 'alta',    status: 'aberto',       dataCriacao: '17/01/2024 16:30', ultimaAtualizacao: '4 horas atrás', avatar: 'RC', mensagens: 1 },
-]
+interface SupportTicketSummaryApiResponse {
+  total: number
+  open: number
+  resolved: number
+  average_resolution_time_hours: number
+  agents: string[]
+  problem_types: string[]
+}
 
-export async function getTickets(): Promise<Ticket[]> {
-  return mockTickets
+interface CustomerApiResponse {
+  id_cliente: string
+  nome_cliente: string
+}
+
+const API_URL = 'http://localhost:8000/tickets'
+const CUSTOMERS_API_URL = 'http://localhost:8000/clientes'
+
+function mapSupportTicket(ticket: SupportTicketApiResponse, customerNames: Map<string, string>): SupportTicket {
+  const customerName = ticket.nome_cliente || customerNames.get(ticket.id_cliente) || ticket.id_cliente
+
+  return {
+    ticketId: ticket.id_ticket,
+    ticketDisplayId: formatTicketDisplayId(ticket.id_ticket),
+    customerId: ticket.id_cliente,
+    customerName,
+    orderId: ticket.id_pedido ?? null,
+    productId: ticket.id_produto ?? null,
+    openedAt: ticket.data_abertura || '',
+    resolvedAt: ticket.data_resolucao ?? null,
+    resolutionTimeHours: ticket.tempo_resolucao_horas ?? null,
+    status: ticket.status || 'aberto',
+    problemType: ticket.tipo_problema || 'Não informado',
+    supportAgent: ticket.agente_suporte ?? null,
+    rating: ticket.nota_avaliacao ?? null,
+  }
+}
+
+function formatTicketDisplayId(ticketId: string) {
+  const firstFiveDigits = ticketId.replace(/\D/g, '').slice(0, 5)
+  return `TK-${firstFiveDigits || ticketId.slice(0, 5)}`
+}
+
+export async function getSupportTickets(filters: SupportTicketFilters = {}): Promise<SupportTicket[]> {
+  const response = await fetch(`${API_URL}?${buildTicketParams(filters).toString()}`)
+
+  if (!response.ok) {
+    throw new Error(`Erro ao buscar tickets: ${response.status}`)
+  }
+
+  const result: SupportTicketApiResponse[] = await response.json()
+  const customerNames = await getCustomerNamesById(result.map(ticket => ticket.id_cliente))
+  return result.map(ticket => mapSupportTicket(ticket, customerNames))
+}
+
+export async function getSupportTicketsCount(filters: SupportTicketFilters = {}): Promise<number> {
+  const params = buildTicketParams(filters, false)
+  const response = await fetch(`${API_URL}/count?${params.toString()}`)
+
+  if (!response.ok) {
+    throw new Error(`Erro ao contar tickets: ${response.status}`)
+  }
+
+  const result: { total: number } = await response.json()
+  return result.total
+}
+
+export async function getSupportTicketSummary(): Promise<SupportTicketSummary> {
+  const response = await fetch(`${API_URL}/summary`)
+
+  if (!response.ok) {
+    throw new Error(`Erro ao buscar resumo de tickets: ${response.status}`)
+  }
+
+  const result: SupportTicketSummaryApiResponse = await response.json()
+
+  return {
+    total: result.total,
+    open: result.open,
+    resolved: result.resolved,
+    averageResolutionTimeHours: result.average_resolution_time_hours,
+    agents: result.agents,
+    problemTypes: result.problem_types,
+  }
+}
+
+function buildTicketParams(filters: SupportTicketFilters, includePagination = true) {
+  const params = new URLSearchParams({
+    skip: (filters.skip ?? 0).toString(),
+    limit: (filters.limit ?? 100).toString(),
+  })
+
+  if (!includePagination) {
+    params.delete('skip')
+    params.delete('limit')
+  }
+
+  if (filters.search) params.append('search', filters.search)
+  if (filters.status && filters.status !== 'all') params.append('status', filters.status)
+  if (filters.agent) params.append('agente', filters.agent)
+  if (filters.problemType) params.append('tipo', filters.problemType)
+  if (filters.startDate) params.append('start_date', filters.startDate)
+  if (filters.endDate) params.append('end_date', filters.endDate)
+
+  return params
+}
+
+async function getCustomerNamesById(customerIds: string[]) {
+  const uniqueCustomerIds = Array.from(new Set(customerIds.filter(Boolean)))
+  const customers = await Promise.all(
+    uniqueCustomerIds.map(async (customerId) => {
+      try {
+        const response = await fetch(`${CUSTOMERS_API_URL}/${encodeURIComponent(customerId)}`)
+
+        if (!response.ok) return null
+
+        const customer: CustomerApiResponse = await response.json()
+        return [customer.id_cliente, customer.nome_cliente] as const
+      } catch (error) {
+        console.error(`Erro ao buscar cliente ${customerId}:`, error)
+        return null
+      }
+    })
+  )
+
+  return new Map(customers.filter((customer): customer is readonly [string, string] => customer !== null))
 }

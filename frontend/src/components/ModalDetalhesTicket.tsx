@@ -3,26 +3,12 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MouseEvent } from 'react'
-
-interface SuporteTicket {
-  id_ticket: string
-  id_cliente: string
-  nome_cliente: string
-  id_pedido: string | null
-  id_produto: string | null
-  data_abertura: string
-  data_resolucao: string | null
-  tempo_resolucao_horas: number | null
-  status: 'aberto' | 'resolvido'
-  tipo_problema: string
-  agente_suporte: string | null
-  nota_avaliacao: number | null
-}
+import type { SupportTicket } from '../services/supportService'
 
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
-  ticket: SuporteTicket | null
+  ticket: SupportTicket | null
 }
 
 export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
@@ -76,7 +62,7 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                 </div>
                 <div>
                   <h2 className="text-3xl font-black text-[#020854] dark:text-foreground">Detalhes do Ticket</h2>
-                  <p className="text-muted-foreground font-medium">{ticket.id_ticket}</p>
+                  <p className="text-muted-foreground font-medium">{ticket.ticketDisplayId}</p>
                 </div>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-background rounded-full transition-colors">
@@ -107,11 +93,11 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">Cliente</span>
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-14 h-14 bg-sky-200 rounded-2xl flex items-center justify-center text-sky-700 font-black text-xl">
-                        {getInitials(ticket.nome_cliente)}
+                        {getInitials(ticket.customerName)}
                       </div>
                       <div>
-                        <h4 className="font-black text-[#020854] dark:text-foreground text-lg leading-tight">{ticket.nome_cliente}</h4>
-                        <p className="text-muted-foreground text-xs font-bold">{ticket.id_cliente}</p>
+                        <h4 className="font-black text-[#020854] dark:text-foreground text-lg leading-tight">{ticket.customerName}</h4>
+                        <p className="text-muted-foreground text-xs font-bold">{ticket.customerId}</p>
                       </div>
                     </div>
                     <button className="w-full bg-card text-foreground border border-border py-3 rounded-xl font-bold hover:bg-background transition-colors text-sm">
@@ -122,12 +108,12 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                   {/* Agente de Suporte */}
                   <div className="bg-card border border-border rounded-3xl p-6">
                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">Agente Responsável</span>
-                     {ticket.agente_suporte ? (
+                     {ticket.supportAgent ? (
                        <div className="flex items-center gap-3">
                          <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-black">
                            <Headphones className="w-5 h-5" />
                          </div>
-                         <span className="font-bold text-foreground">{ticket.agente_suporte}</span>
+                         <span className="font-bold text-foreground">{ticket.supportAgent}</span>
                        </div>
                      ) : (
                        <div className="flex items-center gap-3 text-amber-500">
@@ -145,7 +131,7 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                   {/* Problema */}
                   <div className="bg-card border border-[#ADE9FF] rounded-3xl p-6">
                      <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-2 block">Tipo de Problema</span>
-                     <h3 className="text-2xl font-black text-[#020854] dark:text-foreground mb-6">{ticket.tipo_problema}</h3>
+                     <h3 className="text-2xl font-black text-[#020854] dark:text-foreground mb-6">{ticket.problemType}</h3>
 
                      <div className="grid grid-cols-2 gap-4">
                        <div className="bg-background p-4 rounded-2xl border border-border flex items-center gap-3">
@@ -154,7 +140,7 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                           </div>
                           <div>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">Pedido Vinculado</p>
-                            <p className="font-black text-foreground">{ticket.id_pedido || 'Nenhum'}</p>
+                            <p className="font-black text-foreground">{ticket.orderId || 'Nenhum'}</p>
                           </div>
                        </div>
                        <div className="bg-background p-4 rounded-2xl border border-border flex items-center gap-3">
@@ -163,7 +149,7 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                           </div>
                           <div>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">Produto Vinculado</p>
-                            <p className="font-black text-foreground">{ticket.id_produto || 'Nenhum'}</p>
+                            <p className="font-black text-foreground">{ticket.productId || 'Nenhum'}</p>
                           </div>
                        </div>
                      </div>
@@ -181,23 +167,23 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                         <div className="relative pl-6">
                           <div className="absolute w-4 h-4 bg-border rounded-full -left-[9px] top-1 border-4 border-card"></div>
                           <p className="text-[10px] font-bold text-muted-foreground uppercase">Abertura</p>
-                          <p className="font-bold text-foreground text-sm">{new Date(ticket.data_abertura).toLocaleString('pt-BR')}</p>
+                          <p className="font-bold text-foreground text-sm">{new Date(ticket.openedAt).toLocaleString('pt-BR')}</p>
                         </div>
 
                         <div className="relative pl-6">
-                          <div className={`absolute w-4 h-4 rounded-full -left-[9px] top-1 border-4 border-card ${ticket.data_resolucao ? 'bg-emerald-500' : 'bg-border'}`}></div>
+                          <div className={`absolute w-4 h-4 rounded-full -left-[9px] top-1 border-4 border-card ${ticket.resolvedAt ? 'bg-emerald-500' : 'bg-border'}`}></div>
                           <p className="text-[10px] font-bold text-muted-foreground uppercase">Resolução</p>
-                          <p className={`font-bold text-sm ${ticket.data_resolucao ? 'text-foreground' : 'text-muted-foreground italic'}`}>
-                            {ticket.data_resolucao ? new Date(ticket.data_resolucao).toLocaleString('pt-BR') : 'Aguardando...'}
+                          <p className={`font-bold text-sm ${ticket.resolvedAt ? 'text-foreground' : 'text-muted-foreground italic'}`}>
+                            {ticket.resolvedAt ? new Date(ticket.resolvedAt).toLocaleString('pt-BR') : 'Aguardando...'}
                           </p>
                         </div>
 
                       </div>
 
-                      {ticket.tempo_resolucao_horas !== null && (
+                      {ticket.resolutionTimeHours !== null && (
                         <div className="mt-6 pt-4 border-t border-border flex items-center gap-2">
                           <Clock className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm font-bold text-foreground">Resolvido em <span className="text-[#020854] dark:text-foreground font-black">{ticket.tempo_resolucao_horas} horas</span></span>
+                          <span className="text-sm font-bold text-foreground">Resolvido em <span className="text-[#020854] dark:text-foreground font-black">{ticket.resolutionTimeHours} horas</span></span>
                         </div>
                       )}
                     </div>
@@ -207,12 +193,12 @@ export function ModalDetalhesTicket({ isOpen, onClose, ticket }: ModalProps) {
                       <div>
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">Avaliação do Cliente</span>
 
-                        {ticket.nota_avaliacao ? (
+                        {ticket.rating ? (
                           <div className="flex flex-col items-center justify-center py-4">
-                            <span className="text-5xl font-black text-[#020854] dark:text-foreground mb-2">{ticket.nota_avaliacao.toFixed(1)}</span>
+                            <span className="text-5xl font-black text-[#020854] dark:text-foreground mb-2">{ticket.rating.toFixed(1)}</span>
                             <div className="flex text-[#FFD700] text-2xl">
-                              {'★'.repeat(Math.floor(ticket.nota_avaliacao))}
-                              {'☆'.repeat(5 - Math.floor(ticket.nota_avaliacao))}
+                              {'★'.repeat(Math.floor(ticket.rating))}
+                              {'☆'.repeat(5 - Math.floor(ticket.rating))}
                             </div>
                           </div>
                         ) : (

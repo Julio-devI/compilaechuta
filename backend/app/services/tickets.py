@@ -66,6 +66,49 @@ async def get_all_tickets(
     )
 
 
+async def get_ticket_count(
+    db: AsyncSession,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    status: Optional[str] = None,
+    agente: Optional[str] = None,
+    tipo: Optional[str] = None,
+    search: Optional[str] = None,
+) -> int:
+    if agente is not None:
+        agente = agente.lower()
+    if tipo is not None:
+        tipo = tipo.lower()
+    if search is not None:
+        search = search.lower()
+
+    if status is not None and status not in VALID_TICKET_STATUS:
+        raise HTTPException(
+            status_code=400,
+            detail='status deve ser "aberto" ou "resolvido"',
+        )
+
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date deve ser anterior ou igual a end_date",
+        )
+
+    return await crud.get_ticket_count(
+        db,
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+        agente=agente,
+        tipo=tipo,
+        search=search,
+    )
+
+
+async def get_ticket_summary(db: AsyncSession) -> dict:
+    return await crud.get_ticket_summary(db)
+
+
 async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> TicketOut:
     ticket = await crud.get_ticket_by_id(db, ticket_id)
     if not ticket:

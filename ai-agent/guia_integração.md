@@ -41,6 +41,7 @@ Variáveis reconhecidas:
 | `GEMINI_API_KEY` | Chave obrigatória para chamadas ao Gemini. A falha aparece como erro estruturado `LLM_AUTHENTICATION_ERROR`. |
 | `DB_PATH` | Caminho padrão do SQLite, caso o backend opte por ler do ambiente e repassar ao agente. |
 | `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2. Padrão atual: `0.3`. |
+| `LLM_TEMPERATURE_SUGGESTIONS` | Temperatura da geração de sugestões iniciais (`initial_suggestions`). Padrão atual: `0.5`. |
 
 ## Instalação e Importação no Backend
 
@@ -193,12 +194,45 @@ logger.warning(
 return response.user_response
 ```
 
-### `initial_suggestions() -> list[str]`
+### `async initial_suggestions(previous_suggestions: list[str] | None = None) -> list[str]`
 
-Retorna uma lista fixa de 20 perguntas sugeridas, cobrindo vendas, produtos, clientes, suporte, avaliações e navegação. O backend pode devolver todas ou selecionar um subconjunto para o frontend.
+Gera dinamicamente 5 perguntas de exemplo para o início da conversa, com base no schema real do banco. Em caso de falha esperada (LLM indisponível, schema inválido, resposta malformada), retorna uma lista de 5 perguntas de fallback.
 
 ```python
-suggestions = agent.initial_suggestions()
+suggestions = await agent.initial_suggestions()
+
+next_suggestions = await agent.initial_suggestions(
+    previous_suggestions=suggestions
+)
+```
+
+Comportamento:
+
+- O método é assíncrono e pode consumir 1 chamada ao LLM.
+- Não depende de histórico de conversa; não lê nem altera `self._history`.
+- Não executa queries no banco.
+- Retorna exatamente 5 perguntas em português brasileiro.
+- Aceita `previous_suggestions` para evitar repetir perguntas já exibidas quando o usuário clicar várias vezes no botão.
+- Falhas esperadas retornam fallback local sem quebrar o backend.
+
+Exemplo de uso em um endpoint FastAPI para o botão de perguntas de exemplo:
+
+```python
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class SuggestionsRequest(BaseModel):
+    previous_suggestions: list[str] = Field(default_factory=list)
+
+
+@router.post("/ai-agent/suggestions")
+async def get_suggestions(payload: SuggestionsRequest) -> dict[str, Any]:
+    suggestions = await agent.initial_suggestions(
+        previous_suggestions=payload.previous_suggestions
+    )
+    return {"suggestions": suggestions}
 ```
 
 ### `invalidate_schema() -> None`
@@ -488,6 +522,7 @@ class ResponseError:
 | `llm` | `LLM_INVALID_REQUEST_ERROR` | Não | Requisição inválida ou modelo indisponível. |
 | `llm` | `LLM_INTERNAL_ERROR` | Sim | Erro interno do provedor. |
 | `llm` | `LLM_UNKNOWN_ERROR` | Não | Falha não categorizada. |
+| (interno) | `UNKNOWN_GUARDRAIL` | Não | Fallback defensivo interno. Nunca emitido pelos guardrails atuais; existe como valor padrão do `GuardrailError` para extensões futuras. |
 
 ## Tratamento Recomendado no Backend
 
@@ -611,7 +646,7 @@ O agente aplica validações em camadas:
 
 - Input vazio, longo demais ou tipo inválido.
 - Detecção de prompt injection e pedido de exfiltração de instruções.
-- Bloqueio de operações destrutivas como `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA` e `VACUUM`.
+- Apenas queries `SELECT` são permitidas. Qualquer operação não-SELECT (incluindo `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA`, `VACUUM` e outras) é bloqueada automaticamente via análise AST.
 - Bloqueio de múltiplos statements.
 - Bloqueio de tabelas/colunas fora do allowlist extraído do schema real.
 - Validação semântica de colunas por tabela/alias.

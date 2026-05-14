@@ -47,6 +47,17 @@ agent.import_history(history)
 
 # Inicia nova conversa
 agent.clear_history()
+
+# Sugestões dinâmicas de perguntas para o botão inicial do chat
+suggestions = await agent.initial_suggestions()
+print(suggestions)
+# Exemplo: ['Qual é a receita total agrupada por região do país?', 'Quais são os principais clientes do segmento "Campeões" que mais gastaram na loja?', ...]
+
+# Ao clicar novamente no botão, envie as perguntas já exibidas para evitar repetição
+next_suggestions = await agent.initial_suggestions(
+    previous_suggestions=suggestions
+)
+print(next_suggestions)
 ```
 
 ## Contrato de Resposta
@@ -160,6 +171,7 @@ python tests/integration/smoke_test_guardrails.py
 python tests/integration/smoke_test_memory.py
 python tests/integration/smoke_test_anonymization.py
 python tests/integration/smoke_test_sensitive_data_masking.py
+python tests/integration/smoke_test_suggestions.py
 ```
 
 ### O que o script faz

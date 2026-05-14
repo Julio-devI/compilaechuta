@@ -28,6 +28,9 @@ LLM_MODEL: str = "gemini-2.5-flash"
 LLM_TEMPERATURE_INSIGHT: float = float(os.getenv("LLM_TEMPERATURE_INSIGHT", "0.3"))
 """Temperatura moderada (0.3) para geração de insights na Chamada 2."""
 
+LLM_TEMPERATURE_SUGGESTIONS: float = float(os.getenv("LLM_TEMPERATURE_SUGGESTIONS", "0.5"))
+"""Temperatura moderada (0.5) para geração de sugestões iniciais."""
+
 QUERY_TIMEOUT_SECONDS: int = 10
 """Timeout padrão em segundos para execução de queries no banco de dados."""
 
@@ -36,6 +39,9 @@ MAX_TOKENS_SQL: int = 1024
 
 MAX_TOKENS_INSIGHT: int = 4096
 """Limite de tokens para a Chamada 2 (geração de insight)."""
+
+MAX_TOKENS_SUGGESTIONS: int = 2048
+"""Limite de tokens para a geração de sugestões iniciais."""
 
 MAX_ROWS: int = 1000
 """Número máximo de linhas retornadas por query para evitar sobrecarga."""

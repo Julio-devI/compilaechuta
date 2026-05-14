@@ -429,17 +429,17 @@ def add_limit_if_missing(
     sql: str, max_rows: int, parsed: exp.Expression | None = None
 ) -> str:
     """
-    Adiciona LIMIT max_rows ao final do SQL caso não exista.
+    Garante LIMIT máximo no statement principal.
 
     Preserva o ponto-e-vírgula final, se presente.
 
     Args:
         sql: Query SQL válido.
-        max_rows: Número máximo de linhas a serem retornadas.
+        max_rows: Número máximo de linhas permitido pela aplicação.
         parsed: AST pré-parseada do SQL. Se None, parseia internamente.
 
     Returns:
-        SQL com LIMIT injetado no final, quando necessário.
+        SQL com LIMIT injetado ou reduzido para respeitar `max_rows`.
 
     Raises:
         GuardrailError: Se o SQL não puder ser parseado.
@@ -453,10 +453,28 @@ def add_limit_if_missing(
                 error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
-    if parsed.args.get("limit"):
-        return sql
+    trailing_semicolon = sql.strip().endswith(";")
+    limit = parsed.args.get("limit")
+    if limit:
+        expression = limit.args.get("expression")
+        llm_limit: int | None = None
+        if isinstance(expression, exp.Literal) and not expression.is_string:
+            try:
+                llm_limit = int(str(expression.this))
+            except ValueError:
+                llm_limit = None
+
+        if llm_limit is not None and 0 <= llm_limit <= max_rows:
+            return sql
+
+        parsed.set(
+            "limit",
+            exp.Limit(expression=exp.Literal.number(max_rows)),
+        )
+        limited_sql = parsed.sql(dialect="sqlite")
+        return limited_sql + ";" if trailing_semicolon else limited_sql
 
     stripped = sql.strip()
-    if stripped.endswith(";"):
+    if trailing_semicolon:
         return stripped[:-1].rstrip() + f" LIMIT {max_rows};"
     return stripped + f" LIMIT {max_rows}"

@@ -342,6 +342,24 @@ def test_add_limit_skips_when_present_with_semicolon():
     assert result == sql
 
 
+def test_add_limit_caps_when_llm_limit_exceeds_max_rows():
+    sql = "SELECT * FROM dim_cliente LIMIT 100000"
+    result = add_limit_if_missing(sql, 100)
+    assert result == "SELECT * FROM dim_cliente LIMIT 100"
+
+
+def test_add_limit_caps_when_llm_limit_exceeds_max_rows_with_semicolon():
+    sql = "SELECT * FROM dim_cliente LIMIT 100000;"
+    result = add_limit_if_missing(sql, 100)
+    assert result == "SELECT * FROM dim_cliente LIMIT 100;"
+
+
+def test_add_limit_caps_negative_limit():
+    sql = "SELECT * FROM dim_cliente LIMIT -1"
+    result = add_limit_if_missing(sql, 100)
+    assert result == "SELECT * FROM dim_cliente LIMIT 100"
+
+
 def test_add_limit_injects_on_cte_with_internal_limit():
     """CTE com LIMIT interno deve receber LIMIT no statement principal (T-02)."""
     sql = "WITH cte AS (SELECT * FROM t LIMIT 5) SELECT * FROM cte"
@@ -549,6 +567,12 @@ def test_apply_layer_2_valid_query():
     sql = "SELECT nome_cliente, regiao FROM dim_cliente"
     result = apply_layer_2(sql, _ALLOWLIST, max_rows=100)
     assert "LIMIT 100" in result
+
+
+def test_apply_layer_2_caps_abusive_limit():
+    sql = "SELECT nome_cliente, regiao FROM dim_cliente LIMIT 100000"
+    result = apply_layer_2(sql, _ALLOWLIST, max_rows=100)
+    assert result == "SELECT nome_cliente, regiao FROM dim_cliente LIMIT 100"
 
 
 def test_apply_layer_2_rejects_destructive():

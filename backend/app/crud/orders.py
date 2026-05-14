@@ -74,9 +74,8 @@ async def get_orders(
     return total, data
 
 
-async def get_orders_stream(db: AsyncSession, skip: int = 0, limit: int = 1000):
-    query = select(Pedido).offset(skip).limit(
-        limit).execution_options(yield_per=1000)
+async def get_orders_stream(db: AsyncSession):
+    query = select(Pedido).execution_options(yield_per=1000)
     result = await db.stream(query)
 
     async for row in result.scalars():

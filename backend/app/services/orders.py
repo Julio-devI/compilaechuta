@@ -26,7 +26,7 @@ async def listar_pedidos(
     return PedidoListOut(total=total, skip=skip, limit=limit, data=data)
 
 
-async def exportar_pedidos_csv(db: AsyncSession, skip: int = 0, limit: int = 1000):
+async def exportar_pedidos_csv(db: AsyncSession):
     output = io.StringIO()
     writer = csv.writer(output)
 
@@ -42,7 +42,7 @@ async def exportar_pedidos_csv(db: AsyncSession, skip: int = 0, limit: int = 100
 
     contador_linhas = 0
 
-    async for p in crud.get_orders_stream(db, skip=skip, limit=limit):
+    async for p in crud.get_orders_stream(db):
         writer.writerow([
             p.id_pedido, p.id_cliente, p.id_produto, getattr(
                 p, "nome_produto", ""), p.id_data,

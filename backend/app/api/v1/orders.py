@@ -62,13 +62,9 @@ async def listar(
 
 @router.get("/exportar")
 async def exportar(
-    db: AsyncSession = Depends(get_db),
-    skip: int = Query(0, ge=0, description="Pular N registros"),
-    limit: int = Query(1000, ge=1, le=10000,
-                       description="Limite de registros exportados")
-):
+    db: AsyncSession = Depends(get_db)):
     return StreamingResponse(
-        service.exportar_pedidos_csv(db, skip=skip, limit=limit),
+        service.exportar_pedidos_csv(db),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=pedidos.csv"},
     )

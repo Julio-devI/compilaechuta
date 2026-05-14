@@ -1,62 +1,71 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search, Maximize2, Minimize2, ChevronDown, ChevronUp, Box, Calendar,
   Filter, Table, Grid, Plus, Download
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
-  
-// --- Interfaces ---
-interface Produto {
-  id: string
-  nome: string
-  sku: string
-  categoria: string
-  preco: string
-  estoque: number
-  vendidos: number
-  avaliacao: number
-  status: 'Ativo' | 'Inativo' | 'Baixo Estoque'
-  imagem: string
-  tendencia: 'up' | 'down' | 'stable'
-}
 
-// --- Mock de Dados ---
-const produtosMock: Produto[] = [
-  { id: '1', nome: 'Smartphone Galaxy S24', sku: 'SKU-001234', categoria: 'Eletrônicos', preco: 'R$ 4.299,00', estoque: 145, vendidos: 892, avaliacao: 4.8, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=150&q=80', tendencia: 'up' },
-  { id: '2', nome: 'Notebook Dell Inspiron', sku: 'SKU-001235', categoria: 'Informática', preco: 'R$ 3.599,00', estoque: 67, vendidos: 456, avaliacao: 4.6, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=150&q=80', tendencia: 'up' },
-  { id: '3', nome: 'Fone Bluetooth JBL', sku: 'SKU-001236', categoria: 'Áudio', preco: 'R$ 299,00', estoque: 12, vendidos: 1234, avaliacao: 4.7, status: 'Baixo Estoque', imagem: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=150&q=80', tendencia: 'up' },
-  { id: '4', nome: 'Smart TV 55" LG', sku: 'SKU-001237', categoria: 'Eletrônicos', preco: 'R$ 2.799,00', estoque: 89, vendidos: 234, avaliacao: 4.5, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=150&q=80', tendencia: 'stable' },
-  { id: '5', nome: 'Câmera Canon EOS', sku: 'SKU-001238', categoria: 'Fotografia', preco: 'R$ 5.999,00', estoque: 23, vendidos: 78, avaliacao: 4.9, status: 'Ativo', imagem: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=150&q=80', tendencia: 'down' },
-  { id: '6', nome: 'Tablet iPad Pro', sku: 'SKU-001239', categoria: 'Informática', preco: 'R$ 7.499,00', estoque: 0, vendidos: 345, avaliacao: 4.8, status: 'Inativo', imagem: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=150&q=80', tendencia: 'down' },
-]
+// 1. IMPORTANDO O SEU NOVO SERVIÇO (Ajuste o caminho conforme o seu projeto)
+import { getProdutos, Produto } from '../services/productService' 
 
 export function Produtos() {
   const navigate = useNavigate()
   const [isFiltrosOpen, setIsFiltrosOpen] = useState(true)
   const [viewMode, setViewMode] = useState<'tabela' | 'grade'>('tabela')
-  const [isLoading, setIsLoading] = useState(false)
+  
+  // 2. ESTADOS NOVOS PARA A API
+  const [produtos, setProdutos] = useState<Produto[]>([]) // Substitui o mock!
+  const [isLoading, setIsLoading] = useState(true) // Já começa carregando
+  
   const [searchTerm, setSearchTerm] = useState('')
   const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
 
+  // 3. CHAMADA PARA A API (Sempre que a tela abrir)
+  useEffect(() => {
+    async function carregarDados() {
+      setIsLoading(true)
+      try {
+        // Trazendo os primeiros 100 produtos do seu banco!
+        const dadosReais = await getProdutos(0, 100)
+        setProdutos(dadosReais)
+      } catch (error) {
+        console.error("Falha ao carregar produtos", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    carregarDados()
+  }, []) // O array vazio significa que roda 1x ao montar a tela
+
+  // 4. FUNÇÃO DE BUSCA LOCAL (Filtra a lista que veio da API pelo texto digitado)
+  const produtosFiltrados = produtos.filter(produto => 
+    produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    produto.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   const handleViewChange = (mode: 'tabela' | 'grade') => {
     if (viewMode === mode) return;
-
     setIsLoading(true);
     setViewMode(mode);
-
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
+    setTimeout(() => setIsLoading(false), 500);
   };
 
+  // 5. AJUSTE DAS CORES DO STATUS PARA BATER COM O SEU SERVICE
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Ativo': return 'bg-[#DCFCE7] text-[#15803D]'
-      case 'Baixo Estoque': return 'bg-[#FEF9C3] text-[#A16207]'
-      case 'Inativo': return 'bg-[#FEE2E2] text-[#B91C1C]'
+      case 'ativo': return 'bg-[#DCFCE7] text-[#15803D]'
+      case 'baixo_estoque': return 'bg-[#FEF9C3] text-[#A16207]'
+      case 'inativo': return 'bg-[#FEE2E2] text-[#B91C1C]'
       default: return 'bg-slate-100 text-slate-600'
     }
+  }
+
+  // Formata o label do status para ficar bonito na tela (ex: baixo_estoque -> Baixo Estoque)
+  const formatStatusLabel = (status: string) => {
+    if (status === 'baixo_estoque') return 'BAIXO ESTOQUE'
+    return status.toUpperCase()
   }
 
   const ProdutoCardSkeleton = () => (
@@ -67,7 +76,6 @@ export function Produtos() {
           <div className="h-6 bg-slate-200 rounded w-full"></div>
           <div className="h-3 bg-slate-200 rounded w-2/3"></div>
         </div>
-        
         <div className="mt-4 space-y-3">
           <div className="flex justify-between items-center">
             <div className="h-4 w-16 bg-slate-200 rounded"></div>
@@ -88,7 +96,6 @@ export function Produtos() {
         <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground">Produtos</h1>
       </div>
 
-      {/* 1. Database Search Card */}
       <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
          <div className="relative w-full max-w-2xl">
           <Search className="w-5 h-5 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
@@ -114,7 +121,7 @@ export function Produtos() {
         </div>
       </div>
 
-      {/* 2. Seção de Filtros (Conforme Imagem) */}
+      {/* ... [Seção de Filtros mantida exatamente igual] ... */}
       <div className="bg-card rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
         <div className="p-6 flex justify-between items-center">
           <button
@@ -129,8 +136,8 @@ export function Produtos() {
 
         {isFiltrosOpen && (
           <div className="px-8 pb-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
-            {/* Coluna Esquerda */}
-            <div className="space-y-6">
+            {/* ... Todo o conteúdo interno dos filtros fica igual ... */}
+             <div className="space-y-6">
               <div>
                 <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Box className="w-4 h-4" /> Categoria
@@ -142,7 +149,6 @@ export function Produtos() {
                   <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
-
               <div>
                 <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Filter className="w-4 h-4" /> Status
@@ -154,8 +160,6 @@ export function Produtos() {
                 </div>
               </div>
             </div>
-
-            {/* Coluna Direita */}
             <div className="space-y-6">
               <div>
                 <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
@@ -173,9 +177,11 @@ export function Produtos() {
         )}
       </div>
 
-      {/* 3. Tabela Header */}
       <div className="flex justify-between items-end mb-6">
-        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">{produtosMock.length} Produtos Encontrados</h2>
+        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">
+          {/* Mostra a quantidade real baseada na busca! */}
+          {produtosFiltrados.length} Produtos Encontrados
+        </h2>
         <div className="flex items-center gap-2 bg-slate-200 dark:bg-border p-1 rounded-xl">
           <button
             onClick={() => handleViewChange('tabela')}
@@ -194,7 +200,6 @@ export function Produtos() {
         </div>
       </div>
 
-      {/* 4. Tabela de Conteúdo / Grid / Skeleton */}
       <div className="w-full overflow-hidden">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -219,9 +224,10 @@ export function Produtos() {
                 </tr>
               </thead>
               <tbody>
-                {produtosMock.map((produto, idx) => (
+                {/* 6. SUBSTITUIÇÃO: produtosMock virou produtosFiltrados */}
+                {produtosFiltrados.map((produto) => (
                   <tr
-                    key={idx}
+                    key={produto.id}
                     className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
                     onClick={() => setProdutoSelecionado(produto)}
                   >
@@ -230,7 +236,9 @@ export function Produtos() {
                     </td>
                     <td className="py-4 px-6 border-0">
                       <div className="flex items-center gap-4">
-                         <img src={produto.imagem} alt={produto.nome} className="w-12 h-12 rounded-xl object-cover border border-border" />
+                         <div className="w-12 h-12 rounded-xl border border-border flex items-center justify-center text-2xl bg-slate-50">
+                            {produto.imagem} 
+                         </div>
                         <div className="flex flex-col gap-1">
                           <span className="font-black text-[#020854] dark:text-foreground text-base">{produto.nome}</span>
                           <span className="text-muted-foreground text-[10px] font-bold uppercase">{produto.sku}</span>
@@ -258,7 +266,7 @@ export function Produtos() {
 
                     <td className="py-4 px-6 rounded-r-2xl border-0">
                        <span className={`px-3 py-1 rounded-full text-[10px] font-black whitespace-nowrap ${getStatusColor(produto.status)}`}>
-                        {produto.status.toUpperCase()}
+                        {formatStatusLabel(produto.status)}
                       </span>
                     </td>
                   </tr>
@@ -268,17 +276,17 @@ export function Produtos() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {produtosMock.map((produto) => (
+            {produtosFiltrados.map((produto) => (
               <div 
                 key={produto.id} 
                 className="bg-card p-6 rounded-3xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow cursor-pointer h-full"
                 onClick={() => setProdutoSelecionado(produto)}
               >
                 <div>
-                  <div className="w-full h-48 rounded-2xl overflow-hidden mb-4 border border-border relative">
-                     <img src={produto.imagem} alt={produto.nome} className="w-full h-full object-cover" />
+                  <div className="w-full h-48 rounded-2xl overflow-hidden mb-4 border border-border relative bg-slate-50 flex items-center justify-center text-6xl">
+                     {produto.imagem}
                      <span className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-black shadow-sm ${getStatusColor(produto.status)}`}>
-                        {produto.status.toUpperCase()}
+                        {formatStatusLabel(produto.status)}
                       </span>
                   </div>
                   

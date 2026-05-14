@@ -11,7 +11,7 @@ class Produto(Base):
     __tablename__ = "dim_produto"
 
     id_produto = Column(String, primary_key=True, index=True)
-    sku = Column(String, nullable=True)
+    sku = Column(String, index=True, nullable=True)
     nome_produto = Column(String, nullable=False)
     categoria = Column(String, ForeignKey("gold_categoria.nome_categoria"), nullable=True)
     fornecedor = Column(String, nullable=True)

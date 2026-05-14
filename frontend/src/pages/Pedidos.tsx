@@ -114,6 +114,8 @@ export function Pedidos() {
   const [tipoClienteFilter] = useState<string>('')
   const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
   const [ticketFilter, setTicketFilter] = useState<string>('')
+  const [dataInicioFilter, setDataInicioFilter] = useState<string>("");
+  const [dataFimFilter, setDataFimFilter] = useState<string>("");
 
   const handleSort = (key: string) => {
     let direction: 'ascending' | 'descending' = 'ascending'
@@ -123,13 +125,14 @@ export function Pedidos() {
     setSortConfig({ key, direction })
   }
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+  const SortIcon = ({ columnKey, sortConfig }: { columnKey: string, sortConfig: SortConfig }) => {
     if (sortConfig.key !== columnKey)
-      return <ArrowUp className="w-6 h-6 text-white ml-auto opacity-50" />;
+      return <ArrowUp className="w-4 h-4 text-white ml-auto opacity-30" />;
+      
     return sortConfig.direction === "ascending" ? (
-      <ArrowUp className="w-6 h-6 text-white ml-auto" />
+      <ArrowUp className="w-4 h-4 text-white ml-auto" />
     ) : (
-      <ArrowDown className="w-6 h-6 text-white ml-auto" />
+      <ArrowDown className="w-4 h-4 text-white ml-auto" />
     );
   };
 
@@ -140,14 +143,21 @@ export function Pedidos() {
         id_produto: searchTerm || undefined,
         status: statusFilter || undefined,
         tipo_cliente: tipoClienteFilter || undefined,
-        status_ticket: ticketFilter === 'Aberto' ? 'aberto' : ticketFilter === 'Finalizado' ? 'resolvido' : undefined,
-      }
+        data_inicio: dataInicioFilter || undefined,
+        data_fim: dataFimFilter || undefined,
+        status_ticket:
+          ticketFilter === "Aberto"
+            ? "aberto"
+            : ticketFilter === "Finalizado"
+              ? "resolvido"
+              : undefined,
+      };
 
       const res = await getPedidos((page - 1) * pageSize, pageSize, filtros)
       
       const pedidosMapeados: Pedido[] = res.data.map((p) => ({
         id: p.id,
-        idReal: p.idReal, // RECUPERADO AQUI PARA REPASSAR AO MODAL
+        idReal: p.idReal,
         cliente: p.cliente,
         cidade: p.cidade,
         estado: p.estado,
@@ -167,6 +177,7 @@ export function Pedidos() {
       }));
 
       setPedidos(pedidosMapeados)
+      console.log(res.total);
       setTotalItems(res.total)
     } catch (error) {
       console.error(error)
@@ -174,6 +185,38 @@ export function Pedidos() {
       setIsLoading(false)
     }
   }, [page, searchTerm, statusFilter, tipoClienteFilter, ticketFilter, periodoFilter])
+
+  const getFormattedDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const handlePeriodoPreset = (periodo: string) => {
+    setPeriodoFilter(periodo);
+    const hoje = new Date();
+
+    switch (periodo) {
+      case "Hoje":
+        const hojeStr = getFormattedDate(hoje);
+        setDataInicioFilter(hojeStr);
+        setDataFimFilter(hojeStr);
+        break;
+      case "Últimos 7 dias":
+        const seteDiasAtras = new Date();
+        seteDiasAtras.setDate(hoje.getDate() - 7);
+        setDataInicioFilter(getFormattedDate(seteDiasAtras));
+        setDataFimFilter(getFormattedDate(hoje));
+        break;
+      case "Todos":
+        setDataInicioFilter("");
+        setDataFimFilter("");
+        break;
+      default:
+        break;
+    }
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -199,20 +242,20 @@ export function Pedidos() {
   const rawDataSource = pedidos.length > 0 ? pedidos : pedidosMock;
 
   const dataSource = useMemo(() => {
-    if (!sortConfig) return rawDataSource;
+    if (!sortConfig.key) return rawDataSource;
 
     return [...rawDataSource].sort((a: any, b: any) => {
-      let aValue = a[sortConfig.key];
-      let bValue = b[sortConfig.key];
+      let aValue = a[sortConfig.key as string];
+      let bValue = b[sortConfig.key as string];
 
-      // Ajuste simples para ordenar valores monetários corretamente (ex: "R$ 4.289,90" -> 4289.90)
-      if (sortConfig.key === 'valor' && typeof aValue === 'string') {
-        aValue = parseFloat(aValue.replace(/[R$\s.]/g, '').replace(',', '.'));
-        bValue = parseFloat(bValue.replace(/[R$\s.]/g, '').replace(',', '.'));
+      // Ajuste para valores monetários
+      if (sortConfig.key === "valor" && typeof aValue === "string") {
+        aValue = parseFloat(aValue.replace(/[R$\s.]/g, "").replace(",", "."));
+        bValue = parseFloat(bValue.replace(/[R$\s.]/g, "").replace(",", "."));
       }
 
-      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      if (aValue < bValue) return sortConfig.direction === "ascending" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "ascending" ? 1 : -1;
       return 0;
     });
   }, [rawDataSource, sortConfig]);
@@ -260,7 +303,9 @@ export function Pedidos() {
 
   return (
     <div className="min-h-screen bg-background p-8 font-sans text-foreground">
-      <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground mb-8">Pedidos</h1>
+      <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground mb-8">
+        Pedidos
+      </h1>
 
       {/* 1. Database Search Card */}
       <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6">
@@ -272,7 +317,10 @@ export function Pedidos() {
             Consultar Database
           </div>
           <div className="text-sm font-semibold text-muted-foreground">
-            Total <span className="text-blue-700 ml-2 font-black">{totalItems > 0 ? totalItems : "300.000"}</span>
+            Total{" "}
+            <span className="text-blue-700 ml-2 font-black">
+              {totalItems > 0 ? totalItems : "300.000"}
+            </span>
           </div>
         </div>
 
@@ -287,7 +335,9 @@ export function Pedidos() {
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
             <span className="text-muted-foreground text-sm">Exibindo</span>
-            <span className="bg-sky-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">{dataSource.length}</span>
+            <span className="bg-sky-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">
+              {dataSource.length}
+            </span>
           </div>
         </div>
       </div>
@@ -299,10 +349,18 @@ export function Pedidos() {
             onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
             className="flex items-center gap-2 font-bold text-foreground border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
           >
-            {isFiltrosOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            {isFiltrosOpen ? 'Esconder Filtros' : 'Mostrar Filtros'}
+            {isFiltrosOpen ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+            {isFiltrosOpen ? "Esconder Filtros" : "Mostrar Filtros"}
           </button>
-          {isFiltrosOpen ? <Minimize2 className="w-5 h-5 text-muted-foreground" /> : <Maximize2 className="w-5 h-5 text-muted-foreground" />}
+          {/* {isFiltrosOpen ? (
+            <Minimize2 className="w-5 h-5 text-muted-foreground" />
+          ) : (
+            <Maximize2 className="w-5 h-5 text-muted-foreground" />
+          )} */}
         </div>
 
         {isFiltrosOpen && (
@@ -326,36 +384,103 @@ export function Pedidos() {
                   <Filter className="w-4 h-4" /> Status
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <StatusChip label="Aprovado" color="bg-background dark:bg-card text-purple-600" dot="bg-purple-500" isActive={statusFilter === 'Aprovado'} onClick={() => toggleStatus('Aprovado')} />
-                  <StatusChip label="Processando" color="bg-background dark:bg-card text-orange-600" dot="bg-orange-500" isActive={statusFilter === 'Processando'} onClick={() => toggleStatus('Processando')} />
-                  <StatusChip label="Recusado" color="bg-background dark:bg-card text-red-600" dot="bg-red-500" isActive={statusFilter === 'Recusado'} onClick={() => toggleStatus('Recusado')} />
-                  <StatusChip label="Reembolsado" color="bg-background dark:bg-card text-blue-600" dot="bg-blue-500" isActive={statusFilter === 'Reembolsado'} onClick={() => toggleStatus('Reembolsado')} />
+                  <StatusChip
+                    label="Aprovado"
+                    color="bg-background dark:bg-card text-purple-600"
+                    dot="bg-purple-500"
+                    isActive={statusFilter === "Aprovado"}
+                    onClick={() => toggleStatus("Aprovado")}
+                  />
+                  <StatusChip
+                    label="Processando"
+                    color="bg-background dark:bg-card text-orange-600"
+                    dot="bg-orange-500"
+                    isActive={statusFilter === "Processando"}
+                    onClick={() => toggleStatus("Processando")}
+                  />
+                  <StatusChip
+                    label="Recusado"
+                    color="bg-background dark:bg-card text-red-600"
+                    dot="bg-red-500"
+                    isActive={statusFilter === "Recusado"}
+                    onClick={() => toggleStatus("Recusado")}
+                  />
+                  <StatusChip
+                    label="Reembolsado"
+                    color="bg-background dark:bg-card text-blue-600"
+                    dot="bg-blue-500"
+                    isActive={statusFilter === "Reembolsado"}
+                    onClick={() => toggleStatus("Reembolsado")}
+                  />
                 </div>
               </div>
             </div>
 
             {/* Coluna Direita */}
-            <div className="space-y-6">
-              <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
-                  <Calendar className="w-4 h-4" /> Período de Abertura
-                </label>
+            <div>
+              <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
+                <Calendar className="w-4 h-4" /> Período de Abertura
+              </label>
+              <div className="flex flex-col gap-4">
                 <div className="flex gap-2">
-                  <button onClick={() => setPeriodoFilter('Todos')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Todos' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Todos</button>
-                  <button onClick={() => setPeriodoFilter('Hoje')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Hoje' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Hoje</button>
-                  <button onClick={() => setPeriodoFilter('Últimos 7 dias')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Últimos 7 dias' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Últimos 7 dias</button>
-                  <button onClick={() => setPeriodoFilter('Personalizado')} className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === 'Personalizado' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Personalizado</button>
+                  <button
+                    onClick={() => handlePeriodoPreset("Todos")}
+                    className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === "Todos" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => handlePeriodoPreset("Hoje")}
+                    className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === "Hoje" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    onClick={() => handlePeriodoPreset("Últimos 7 dias")}
+                    className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${periodoFilter === "Últimos 7 dias" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
+                  >
+                    Últimos 7 dias
+                  </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
-                  <Ticket className="w-4 h-4" /> Ticket
-                </label>
-                <div className="flex gap-2">
-                  <button onClick={() => toggleTicket('Não tem')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Não tem' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Não tem</button>
-                  <button onClick={() => toggleTicket('Aberto')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Aberto' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Aberto</button>
-                  <button onClick={() => toggleTicket('Finalizado')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Finalizado' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Finalizado</button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
+                      Início
+                    </span>
+                    <input
+                      type="date"
+                      value={dataInicioFilter}
+                      onChange={(e) => {
+                        setDataInicioFilter(e.target.value);
+                        setPeriodoFilter("Personalizado");
+                      }}
+                      className="w-full p-3 bg-background rounded-xl border-none text-muted-foreground outline-none text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
+                      Fim
+                    </span>
+                    <input
+                      type="date"
+                      value={dataFimFilter}
+                      onChange={(e) => {
+                        setDataFimFilter(e.target.value);
+                        setPeriodoFilter("Personalizado");
+                      }}
+                      className="w-full p-3 bg-background rounded-xl border-none text-muted-foreground outline-none text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
+                    <Ticket className="w-4 h-4" /> Ticket
+                  </label>
+                  <div className="flex gap-2">
+                    <button onClick={() => toggleTicket('Não tem')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Não tem' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Não tem</button>
+                    <button onClick={() => toggleTicket('Aberto')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Aberto' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Aberto</button>
+                    <button onClick={() => toggleTicket('Finalizado')} className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === 'Finalizado' ? 'bg-blue-600 text-white' : 'bg-background text-muted-foreground'}`}>Finalizado</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -365,18 +490,20 @@ export function Pedidos() {
 
       {/* 3. Tabela Header */}
       <div className="flex justify-between items-end mb-6">
-        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">{dataSource.length} Pedidos Encontrados</h2>
+        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">
+          {dataSource.length} Pedidos Encontrados
+        </h2>
         <div className="flex items-center gap-2 bg-slate-200 dark:bg-border p-1 rounded-xl">
           <button
-            onClick={() => handleViewChange('tabela')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'tabela' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-slate-300 dark:hover:bg-background'}`}
+            onClick={() => handleViewChange("tabela")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === "tabela" ? "bg-blue-600 text-white" : "text-muted-foreground hover:bg-slate-300 dark:hover:bg-background"}`}
           >
             <Table className="w-4 h-4" />
             Tabela
           </button>
           <button
-            onClick={() => handleViewChange('grade')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === 'grade' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-slate-300 dark:hover:bg-background'}`}
+            onClick={() => handleViewChange("grade")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border-none outline-none transition-colors cursor-pointer ${viewMode === "grade" ? "bg-blue-600 text-white" : "text-muted-foreground hover:bg-slate-300 dark:hover:bg-background"}`}
           >
             <Grid className="w-4 h-4" />
             Grade
@@ -392,46 +519,63 @@ export function Pedidos() {
               <PedidoCardSkeleton key={index} />
             ))}
           </div>
-        ) : viewMode === 'tabela' ? (
+        ) : viewMode === "tabela" ? (
           <div className="w-full overflow-x-auto">
             <table className="w-full border-separate border-spacing-y-2">
               <thead>
                 <tr className="bg-[#020854] text-white">
-                  <th 
-                    className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
-                    onClick={() => handleSort('id')}
+                  <th
+                    className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    onClick={() => handleSort("id")}
                   >
-                    <div className="flex items-center gap-2">SKU Pedido <SortIcon columnKey="id" sortConfig={sortConfig} /></div>
+                    <div className="flex items-center gap-2">
+                      SKU Pedido{" "}
+                      <SortIcon columnKey="id" sortConfig={sortConfig} />
+                    </div>
                   </th>
-                  <th 
-                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
-                    onClick={() => handleSort('cliente')}
+                  <th
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    onClick={() => handleSort("cliente")}
                   >
-                    <div className="flex items-center gap-2">Cliente <SortIcon columnKey="cliente" sortConfig={sortConfig} /></div>
+                    <div className="flex items-center gap-2">
+                      Cliente{" "}
+                      <SortIcon columnKey="cliente" sortConfig={sortConfig} />
+                    </div>
                   </th>
-                  <th 
-                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
-                    onClick={() => handleSort('data')}
+                  <th
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    onClick={() => handleSort("data")}
                   >
-                    <div className="flex items-center gap-2">Data <SortIcon columnKey="data" sortConfig={sortConfig} /></div>
+                    <div className="flex items-center gap-2">
+                      Data <SortIcon columnKey="data" sortConfig={sortConfig} />
+                    </div>
                   </th>
-                  <th 
-                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
-                    onClick={() => handleSort('produtos')}
+                  <th
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    onClick={() => handleSort("produtos")}
                   >
-                    <div className="flex items-center gap-2">Qtd. <SortIcon columnKey="produtos" sortConfig={sortConfig} /></div>
+                    <div className="flex items-center gap-2">
+                      Qtd.{" "}
+                      <SortIcon columnKey="produtos" sortConfig={sortConfig} />
+                    </div>
                   </th>
-                  <th 
-                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
-                    onClick={() => handleSort('valor')}
+                  <th
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    onClick={() => handleSort("valor")}
                   >
-                    <div className="flex items-center gap-2">Valor <SortIcon columnKey="valor" sortConfig={sortConfig} /></div>
+                    <div className="flex items-center gap-2">
+                      Valor{" "}
+                      <SortIcon columnKey="valor" sortConfig={sortConfig} />
+                    </div>
                   </th>
-                  <th 
-                    className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors" 
-                    onClick={() => handleSort('status')}
+                  <th
+                    className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    onClick={() => handleSort("status")}
                   >
-                    <div className="flex items-center gap-2">Status <SortIcon columnKey="status" sortConfig={sortConfig} /></div>
+                    <div className="flex items-center gap-2">
+                      Status{" "}
+                      <SortIcon columnKey="status" sortConfig={sortConfig} />
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -445,7 +589,9 @@ export function Pedidos() {
                     <td className="py-4 px-6 rounded-l-2xl border-0">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-blue-900 dark:text-blue-300 text-lg">{pedido.id}</span>
+                          <span className="font-black text-blue-900 dark:text-blue-300 text-lg">
+                            {pedido.id}
+                          </span>
                           <span className="text-[#FFD700] text-[10px] font-black flex items-center gap-1">
                             # {pedido.ticket} TICKET
                           </span>
@@ -482,39 +628,62 @@ export function Pedidos() {
 
                     <td className="py-4 px-6 border-0 text-[11px]">
                       <div className="text-muted-foreground leading-tight font-medium">
-                        Comprado em:<br />
-                        <span className="text-foreground font-bold">{pedido.data}</span>
+                        Comprado em:
+                        <br />
+                        <span className="text-foreground font-bold">
+                          {pedido.data}
+                        </span>
                       </div>
                     </td>
 
                     <td className="py-4 px-6 border-0">
                       <span className="text-muted-foreground font-bold text-sm">
-                        {pedido.produtos == -1 ? "Sem dados" : `${pedido.produtos} itens`}
+                        {pedido.produtos == -1
+                          ? "Sem dados"
+                          : `${pedido.produtos} itens`}
                       </span>
                     </td>
 
                     <td className="py-4 px-6 border-0">
-                      <span className="text-blue-900 dark:text-blue-300 font-black text-lg">{pedido.valor}</span>
+                      <span className="text-blue-900 dark:text-blue-300 font-black text-lg">
+                        {pedido.valor}
+                      </span>
                     </td>
 
                     <td className="py-4 px-6 rounded-r-2xl border-0">
                       <div className="flex items-center gap-4">
-                        <span className={`${getStatusStyle(pedido.status).bg} px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${getStatusStyle(pedido.status).dot}`}></span>
+                        <span
+                          className={`${getStatusStyle(pedido.status).bg} px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${getStatusStyle(pedido.status).dot}`}
+                          ></span>
                           {pedido.status.toUpperCase()}
                         </span>
 
                         <div className="flex items-center gap-1">
                           {[1, 2, 3, 4, 5].map((step) => (
                             <div key={step} className="flex items-center">
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 
-                                ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' : 
-                                  step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' : 
-                                  'bg-background border-border text-muted-foreground'}`}>
-                                {step < pedido.progresso ? <CheckCircle2 className="w-4 h-4" /> : step}
+                              <div
+                                className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 
+                                ${
+                                  step < pedido.progresso
+                                    ? "bg-blue-900 border-blue-900 text-white"
+                                    : step === pedido.progresso
+                                      ? "bg-red-400 border-red-400 text-white"
+                                      : "bg-background border-border text-muted-foreground"
+                                }`}
+                              >
+                                {step < pedido.progresso ? (
+                                  <CheckCircle2 className="w-4 h-4" />
+                                ) : (
+                                  step
+                                )}
                               </div>
                               {step < 5 && (
-                                <div className={`w-3 h-0.5 ${step < pedido.progresso ? 'bg-blue-900' : 'bg-border'}`} />
+                                <div
+                                  className={`w-3 h-0.5 ${step < pedido.progresso ? "bg-blue-900" : "bg-border"}`}
+                                />
                               )}
                             </div>
                           ))}
@@ -529,51 +698,85 @@ export function Pedidos() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dataSource.map((pedido) => (
-              <div 
-                key={pedido.id} 
+              <div
+                key={pedido.id}
                 className="bg-card p-6 rounded-3xl border border-border flex flex-col justify-between hover:shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] transition-shadow cursor-pointer h-full"
                 onClick={() => setPedidoSelecionado(pedido)}
               >
                 <div>
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex flex-col gap-1">
-                      <span className="font-black text-blue-900 dark:text-blue-300 text-xl">{pedido.id}</span>
-                      <span className="text-muted-foreground text-xs font-bold">{pedido.data}</span>
+                      <span className="font-black text-blue-900 dark:text-blue-300 text-xl">
+                        {pedido.id}
+                      </span>
+                      <span className="text-muted-foreground text-xs font-bold">
+                        {pedido.data}
+                      </span>
                     </div>
-                    <span className={`${getStatusStyle(pedido.status).bg} px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${getStatusStyle(pedido.status).dot}`}></span>
+                    <span
+                      className={`${getStatusStyle(pedido.status).bg} px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${getStatusStyle(pedido.status).dot}`}
+                      ></span>
                       {pedido.status.toUpperCase()}
                     </span>
                   </div>
-                  
+
                   <div className="bg-background rounded-2xl p-4 mb-4">
-                    <h3 className="font-black text-[#020854] dark:text-foreground text-lg">{pedido.cliente}</h3>
-                    <p className="text-muted-foreground text-sm font-medium">{pedido.cidade}, {pedido.estado}</p>
+                    <h3 className="font-black text-[#020854] dark:text-foreground text-lg">
+                      {pedido.cliente}
+                    </h3>
+                    <p className="text-muted-foreground text-sm font-medium">
+                      {pedido.cidade}, {pedido.estado}
+                    </p>
                   </div>
 
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground font-bold">Produtos</span>
-                      <span className="font-medium text-foreground">{pedido.produtos} itens</span>
+                      <span className="text-muted-foreground font-bold">
+                        Produtos
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {pedido.produtos} itens
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground font-bold">Valor Total</span>
-                      <span className="font-black text-blue-900 dark:text-blue-300 text-lg">{pedido.valor}</span>
+                      <span className="text-muted-foreground font-bold">
+                        Valor Total
+                      </span>
+                      <span className="font-black text-blue-900 dark:text-blue-300 text-lg">
+                        {pedido.valor}
+                      </span>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mt-6 pt-4 border-t border-border">
                   <div className="flex items-center gap-1 justify-center">
                     {[1, 2, 3, 4, 5].map((step) => (
                       <div key={step} className="flex items-center">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 
-                          ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' : 
-                            step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' : 
-                            'bg-background border-border text-muted-foreground'}`}>
-                          {step < pedido.progresso ? <CheckCircle2 className="w-3 h-3" /> : step}
+                        <div
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 
+                          ${
+                            step < pedido.progresso
+                              ? "bg-blue-900 border-blue-900 text-white"
+                              : step === pedido.progresso
+                                ? "bg-red-400 border-red-400 text-white"
+                                : "bg-background border-border text-muted-foreground"
+                          }`}
+                        >
+                          {step < pedido.progresso ? (
+                            <CheckCircle2 className="w-3 h-3" />
+                          ) : (
+                            step
+                          )}
                         </div>
-                        {step < 5 && <div className={`w-3 h-0.5 ${step < pedido.progresso ? 'bg-blue-900' : 'bg-border'}`} />}
+                        {step < 5 && (
+                          <div
+                            className={`w-3 h-0.5 ${step < pedido.progresso ? "bg-blue-900" : "bg-border"}`}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -586,19 +789,27 @@ export function Pedidos() {
 
       {/* Pagination */}
       <div className="flex items-center justify-between mt-6 bg-card p-4 rounded-2xl shadow-sm">
-        <p className="text-sm text-muted-foreground font-medium">Mostrando página {page} de {Math.ceil(totalItems / pageSize) || 1}</p>
+        <p className="text-sm text-muted-foreground font-medium">
+          Mostrando página {page} de {Math.ceil(totalItems / pageSize) || 1}
+        </p>
         <div className="flex items-center gap-2">
           <button
             disabled={page === 1}
-            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
             className="px-4 py-2 bg-background border border-border rounded-xl text-sm text-muted-foreground hover:bg-slate-50 disabled:opacity-50 font-bold transition-all"
           >
             Anterior
           </button>
-          <span className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm">{page}</span>
+          <span className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm">
+            {page}
+          </span>
           <button
             disabled={page >= Math.ceil(totalItems / pageSize)}
-            onClick={() => setPage(prev => Math.min(Math.ceil(totalItems / pageSize), prev + 1))}
+            onClick={() =>
+              setPage((prev) =>
+                Math.min(Math.ceil(totalItems / pageSize), prev + 1),
+              )
+            }
             className="px-4 py-2 bg-background border border-border rounded-xl text-sm text-muted-foreground hover:bg-slate-50 disabled:opacity-50 font-bold transition-all"
           >
             Próximo
@@ -618,7 +829,7 @@ export function Pedidos() {
         pedido={pedidoSelecionado}
       />
     </div>
-  )
+  );
 }
 
 function StatusChip({ label, color, dot, isActive, onClick }: { label: string, color: string, dot: string, isActive?: boolean, onClick?: () => void }) {

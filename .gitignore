@@ -5,4 +5,4 @@ __pycache__/
 seed.py
 alembic/versions/
 vcommerce.db
-.data/
+data/

@@ -49,6 +49,11 @@ async def get_ticket_by_id(ticket_id: str, db: AsyncSession = Depends(get_db)):
     return await service.get_ticket_by_id(db, ticket_id)
 
 
+@router.get("/pedido/{order_id}", response_model=Optional[TicketOut])
+async def get_ticket_by_order(order_id: str, db: AsyncSession = Depends(get_db)):
+    return await service.buscar_ticket_por_pedido(db, order_id)
+
+
 @router.patch("/{ticket_id}", response_model=TicketOut)
 async def update_ticket(ticket_id: str, ticket: TicketUpdate, db: AsyncSession = Depends(get_db)):
     return await service.update_ticket(db, ticket_id, ticket)

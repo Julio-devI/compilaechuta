@@ -59,7 +59,7 @@ interface SupportTicketSummaryApiResponse {
   problem_types: string[];
 }
 
-const API_URL = "http://localhost:8000/tickets";
+const API_URL = "http://localhost:8000/api/v1/tickets";
 
 function mapSupportTicket(ticket: SupportTicketApiResponse): SupportTicket {
   const customerName = ticket.nome_cliente || ticket.id_cliente;
@@ -90,6 +90,42 @@ function normalizeTicketSearch(search: string) {
   return trimmedSearch.toLowerCase().startsWith("tk-")
     ? trimmedSearch.slice(3)
     : trimmedSearch;
+}
+
+export type Ticket = {
+  id: string;
+  status: "aberto" | "resolvido" | "em_andamento" | string;
+  prioridade: string;
+  assunto: string;
+  dataAberturaRaw: string | null;
+  dataResolucaoRaw: string | null;
+};
+
+export async function getTicketPorPedido(
+  idPedido: string,
+): Promise<Ticket | null> {
+  const response = await fetch(
+    `${API_URL}/pedido/${encodeURIComponent(idPedido)}`,
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Erro ao buscar ticket por pedido: ${response.status}`);
+  }
+
+  const result = await response.json();
+
+  return {
+    id: result.id_ticket,
+    status: result.status || "aberto",
+    prioridade: "normal",
+    assunto: result.tipo_problema || "Ticket de suporte",
+    dataAberturaRaw: result.data_abertura ?? null,
+    dataResolucaoRaw: result.data_resolucao ?? null,
+  };
 }
 
 export async function getSupportTickets(

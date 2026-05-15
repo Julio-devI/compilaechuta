@@ -162,45 +162,6 @@ def _build_answer_text_from_presentation(
     return "\n\n".join(part for part in parts if part)
 
 
-def _default_source_label(table_name: str) -> str:
-    """Gera um nome exibível quando o JSON de metadados não define alias."""
-    label = table_name.lower()
-    prefixes = (
-        "dim_",
-        "fato_",
-        "fact_",
-        "gold_",
-        "silver_",
-        "bronze_",
-        "dm_",
-        "mart_",
-        "vw_",
-        "view_",
-        "tbl_",
-    )
-    for prefix in prefixes:
-        if label.startswith(prefix):
-            label = label[len(prefix):]
-            break
-
-    replacements = {
-        "avaliacao": "avaliação",
-        "avaliacoes": "avaliações",
-        "satisfacao": "satisfação",
-        "navegacao": "navegação",
-        "regiao": "região",
-        "ticket": "tickets",
-        "cliente": "clientes",
-        "produto": "produtos",
-        "pedido": "pedidos",
-        "venda": "vendas",
-        "problema": "problemas",
-    }
-    words = [replacements.get(word, word) for word in label.split("_") if word]
-    if not words:
-        return table_name
-    return " ".join(words)
-
 
 def _format_source_label(label: str) -> str:
     """Formata aliases de fontes em Title Case adequado para UI."""
@@ -217,10 +178,6 @@ def _format_source_label(label: str) -> str:
     return " ".join(formatted)
 
 
-_PHYSICAL_TABLE_PREFIX_RE = re.compile(
-    r"\b(?:dim|fato|fact|gold|silver|bronze|dm|mart|vw|view|tbl)_",
-    re.IGNORECASE,
-)
 _MAX_SOURCES_TEXT_CHARS = 280
 
 
@@ -567,7 +524,7 @@ class VCommerceAgent:
         for table_name in table_names:
             meta = tables_meta.get(table_name, {})
             display_name = str(
-                meta.get("display_name") or _default_source_label(table_name)
+                meta.get("display_name") or table_name
             )
             display_name = _format_source_label(display_name)
             sources.append(
@@ -586,11 +543,11 @@ class VCommerceAgent:
             tables_meta.items(), key=lambda item: len(item[0]), reverse=True
         ):
             display_name = str(
-                meta.get("display_name") or _default_source_label(table_name)
+                meta.get("display_name") or table_name
             )
             display_name = _format_source_label(display_name)
             sanitized = sanitized.replace(table_name, display_name)
-        return _PHYSICAL_TABLE_PREFIX_RE.sub("", sanitized)
+        return sanitized
 
     def _extract_filter_summary(self, sql: str) -> list[str]:
         """Extrai filtros simples do SQL para compor o texto de fontes."""

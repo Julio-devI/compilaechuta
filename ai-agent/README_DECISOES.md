@@ -409,3 +409,15 @@
 - **Justificativa:** Tira a responsabilidade do frontend de sempre produzir um gráfico. Remove o clutter visual para o usuário; perguntas simples (valor único, listagem detalhada) não precisam de gráfico como resposta. O agente respeita a intenção explícita do usuário quando solicita visualizações.
 
 - **Implicações:** O frontend deve sempre tratar `chart` como opcional; quando `chart=None` e `data` existe, renderiza como tabela. O orçamento de chamadas LLM não muda (Chamada 2 já existia). O smoke test `smoke_test_chart_decision.py` valida a decisão do agente em cenários variados.
+
+---
+
+### DA-35: Formatação Estrita de Tabelas Baseada no Schema JSON
+
+- **Contexto:** A função de formatação dos nomes das tabelas possuía um fallback hardcoded (`_PHYSICAL_TABLE_PREFIX_RE` e `_default_source_label`) que magicamente removia prefixos de infraestrutura (`fato_`, `dim_`, `gold_`, etc.) caso o alias (`display_name`) não estivesse configurado, criando uma dependência técnica que limitava a flexibilidade de nomenclatura.
+
+- **Decisão:** Remover todas as lógicas de fallback via regex e regras hardcoded. O agente agora confia exclusivamente no metadado `display_name` proveniente do arquivo `schema_descriptions.json` para exibir termos de negócio na interface. Se o metadado for omitido, o nome da tabela física será exposto integralmente.
+
+- **Justificativa:** Delegar a responsabilidade de tradução de nomenclatura inteiramente ao artefato de configuração (schema JSON) e garantir que o código Python se mantenha agnóstico quanto às práticas de nomenclatura do pipeline de engenharia de dados. Essa mudança simplifica o código, tornando a apresentação previsível e garantindo robustez a longo prazo quando novos prefixos não mapeados previamente (ex: `mart_`) forem criados.
+
+- **Implicações:** O preenchimento da propriedade `display_name` em `schema_descriptions.json` torna-se praticamente um requisito de interface visual.

@@ -216,7 +216,7 @@ def test_format_history_for_insight_filled():
     assert "Pergunta: Q1" in formatted
     assert "Resposta: A1" in formatted
     assert "Mantenha coerência com as respostas anteriores" in formatted
-    assert "SQL" not in formatted  # Insight format doesn't need to show SQL directly if not requested
+    assert "SQL" not in formatted  # O formatador de insight não precisa exibir SQL diretamente se não solicitado
 
 
 @pytest.mark.asyncio

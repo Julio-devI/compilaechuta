@@ -24,7 +24,7 @@
 
 - **Decisão:** Utilizar o modelo `gemini-2.5-flash` como padrão, via PydanticAI.
 
-- **Justificativa:** O Gemini 2.5 Flash oferece melhor capacidade de reasoning para joins e agregações SQL, reduzindo a taxa de erros na Chamada 1. Além disso, para o volume de uso esperado neste projeto, o limite de tokens diários (250.000 tokens/minuto) não será alcançado antes do limite de requisições diárias (20 req/dia), permitindo o uso do modelo mais potente sem restrições práticas.
+- **Justificativa:** Das opções avaliadas, o Gemini 2.5 Flash oferece a melhor capacidade de *reasoning* para *joins* e agregações SQL, bem como maior precisão na análise de problemas e dados complexos, reduzindo substancialmente a taxa de erros em ambas as chamadas. Para cenários onde a redução de custos de API fosse a prioridade absoluta, o Gemini 2.5 Flash Lite poderia ser considerado como uma alternativa viável.
 
 - **Implicações:** O módulo depende da disponibilidade e dos termos de uso da API Google Gemini. A troca para outro provedor exigiria adaptação no `llm_client.py`.
 
@@ -230,7 +230,7 @@
 
   - **Chamada 2 (Insight):** recebe perguntas anteriores + insights textuais, mantendo coerência narrativa entre respostas.
 
-- **Justificativa:** Injetar o histórico em ambas as chamadas permite que o agente interprete o contexto conversacional de forma completa, viabilizando follow-ups vagos como "E o ano anterior?" ou "E o vendedor X?". A Chamada 1 precisa das perguntas e SQLs anteriores para resolver referências temporais e filtros implícitos; a Chamada 2 precisa das perguntas e insights anteriores para manter coerência narrativa entre respostas consecutivas. O consumo adicional de tokens não é uma preocupação prática para o modelo atual, já que o limite de requisições diárias é atingido muito antes do limite de tokens, porém esse cenário pode mudar caso o modelo seja substituído.
+- **Justificativa:** Injetar o histórico em ambas as chamadas permite que o agente interprete o contexto conversacional de forma completa, viabilizando follow-ups vagos como "E o ano anterior?" ou "E o vendedor X?". A Chamada 1 precisa das perguntas e SQLs anteriores para resolver referências temporais e filtros implícitos; a Chamada 2 precisa das perguntas e insights anteriores para manter coerência narrativa entre respostas consecutivas. O consumo adicional de tokens gerado pela injeção pode se tornar um problema dependendo da extensão da conversa; contudo, isso é ativamente mitigado pela variável `MAX_HISTORY_TURNS`, que trunca o histórico e limita o contexto, mantendo o consumo de tokens sob controle.
 - **Implicações:** O volume de tokens por chamada aumenta proporcionalmente ao tamanho do histórico. A injeção é feita via blocos de texto nos prompts (não via `message_history` nativo do PydanticAI), pois as duas chamadas usam agentes distintos com system prompts diferentes. Misturar respostas SQL com respostas de insight no histórico nativo quebraria o contexto de cada chamada.
 
 ---
@@ -265,15 +265,15 @@
 
 ---
 
-### DA-20: Reorganização da Estrutura de Diretórios por Domínio
+### DA-20: Estrutura de Diretórios por Domínio e Separação de Testes
 
-- **Contexto:** A estrutura original agrupava todos os arquivos no diretório src/ raiz e tests/ raiz, misturando componentes de diferentes naturezas (LLM, banco de dados, segurança) e tipos de teste (unitários rápidos e smoke tests lentos de integração).
+- **Contexto:** O módulo gerencia componentes de naturezas muito distintas, incluindo comunicação com LLM, validações de banco de dados e políticas de segurança de dados sensíveis. A suíte de testes também possui necessidades diversas, abrangendo desde validações puramente lógicas até validações fim a fim que acionam a API de IA externa.
 
-- **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade sob `src/vcommerce_ai_agent/`: `core/`, `database/`, `llm/` e `security/`. Os testes ficam separados em `tests/unit/` e `tests/integration/`. O `agent.py` atua como facade do pacote.
+- **Decisão:** Estruturar o código-fonte por domínio sob `src/vcommerce_ai_agent/` (`core/`, `database/`, `llm/` e `security/`), expondo apenas o `agent.py` como *facade* público. O conjunto de testes é dividido fisicamente em `tests/unit/`, `tests/integration/` (ambos operando de forma offline com mocks locais da API) e `tests/smoke/` (testes reais que consomem a API de inteligência artificial).
 
-- **Justificativa:** O agrupamento por domínio de responsabilidade facilita tanto a manutenção quanto a revisão do código, tornando explícita a fronteira entre componentes (LLM, banco de dados, segurança, core). Além disso, a separação entre `tests/unit/` e `tests/integration/` permite executar os testes unitários isoladamente via `pytest tests/unit/`, sem consumir chamadas de API do Gemini. Os smoke tests de integração, que dependem da API real, ficam em `tests/integration/` e são executados separadamente conforme a disponibilidade de quota.
+- **Justificativa:** O agrupamento por domínio facilita a leitura e manutenção, além de tornar explícita a fronteira de responsabilidade de cada componente interno. O isolamento físico dos testes garante que todos os testes automatizados sejam sempre executados sem preocupação com limites de API, seja por um dev após uma modificação do código ou uma possível esteira CI/CD de validação. Os testes que dependem de rede e geram custos de API ficam restritos à pasta de *smoke tests*, sendo executados de forma separada sob demanda.
 
-- **Implicações:** Todos os imports internos do projeto foram remapeados. As automações de CI/CD podem agora isolar a execução da pasta tests/unit/ sem consumir a cota de tokens da API do Gemini e separar testes de integração na pipeline de homologação.
+- **Implicações:** A esteira de integração contínua (CI) executa a suíte de testes offline a cada commit sem consumir recursos financeiros da API do provedor LLM e sem risco de falhas por indisponibilidade de rede. A validação do comportamento real do modelo fica isolada em um gatilho separado na esteira de desenvolvimento.
 
 ---
 
@@ -356,7 +356,7 @@
 
 - **Contexto:** O agente precisa rejeitar perguntas que não podem ser respondidas com o schema disponível, mas cada chamada adicional ao LLM aumenta latência e consumo de quota.
 - **Decisão:** Não criar uma chamada LLM separada para classificação de escopo. A Chamada 1 retorna o marcador `FORA_DO_ESCOPO` quando a pergunta é ambígua ou impossível de responder; o pipeline detecta esse marcador antes dos guardrails de SQL e retorna `status="out_of_scope"`. Pedidos explícitos por tabelas ocultas, internas ou fora do schema são bloqueados antes do LLM por padrões locais.
-- **Justificativa:** O principal motivo é dar ao agente de geração de SQL uma saída explícita para perguntas que ele não consegue responder, mitigando fortemente alucinações. Sem essa saída, o modelo seria forçado a inventar SQL para qualquer pergunta recebida. Além disso, eliminar uma chamada LLM dedicada reduz latência, custo operacional e consumo de quota, o que é especialmente relevante no free tier do Gemini.
+- **Justificativa:** O principal motivo é dar ao agente de geração de SQL uma saída explícita para perguntas que ele não consegue responder, mitigando fortemente alucinações. Sem essa saída, o modelo seria forçado a inventar SQL para qualquer pergunta recebida. Além disso, eliminar uma chamada LLM dedicada reduz custo e latência, otimizando o uso da API.
 - **Implicações:** O controle de escopo fica distribuído entre prompt de SQL, detecção local do marcador e guardrails de schema. O agente economiza uma chamada LLM por pergunta, mas a qualidade da classificação de escopo depende da aderência do modelo ao prompt e da cobertura das validações locais.
 
 ---

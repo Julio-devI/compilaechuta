@@ -418,7 +418,6 @@ class VCommerceAgent:
             "content": response.user_response.answer_text,
             "sql": response.developer_debug.sql,
         })
-        # Truncar ao limite
         max_entries = config.MAX_HISTORY_TURNS * 2
         if len(self._history) > max_entries:
             self._history = self._history[-max_entries:]

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.integration.smoke_test_db import create_test_db
+from tests.smoke.smoke_test_db import create_test_db
 from vcommerce_ai_agent.agent import VCommerceAgent
 from vcommerce_ai_agent.core import config
 from vcommerce_ai_agent.core.exceptions import ErrorCode

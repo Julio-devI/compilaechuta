@@ -19,12 +19,12 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
-from tests.integration.smoke_test_db import create_test_db
+from tests.smoke.smoke_test_db import create_test_db
 
 
 async def _run_smoke_test(db_path: str) -> None:
     from vcommerce_ai_agent.agent import VCommerceAgent
-    from tests.integration.smoke_tests_config import (
+    from tests.smoke.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
         configure_llm_retries_for_smoke_tests,
@@ -32,7 +32,7 @@ async def _run_smoke_test(db_path: str) -> None:
         wait_after_llm_interaction,
     )
     from vcommerce_ai_agent.core.exceptions import LLMQuotaError
-    from tests.integration.smoke_error_utils import (
+    from tests.smoke.smoke_error_utils import (
         print_exception,
         print_response_error,
         response_error_fields,
@@ -267,7 +267,7 @@ def _print_summary(
     validations_passed: int = 0,
     validations_failed: int = 0,
 ) -> None:
-    from tests.integration.smoke_tests_config import MAX_API_CALLS_PER_DAY
+    from tests.smoke.smoke_tests_config import MAX_API_CALLS_PER_DAY
 
     print("\n--- RESUMO ---")
     success_count = sum(1 for r in results if r["status"] == "SUCESSO")
@@ -309,7 +309,7 @@ def _print_summary(
 
 
 def main() -> None:
-    from tests.integration.smoke_tests_config import resolve_api_key
+    from tests.smoke.smoke_tests_config import resolve_api_key
 
     api_key = resolve_api_key(sys.argv[1:])
     if not api_key:

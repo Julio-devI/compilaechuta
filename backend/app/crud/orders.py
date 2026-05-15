@@ -14,7 +14,7 @@ from app.schemas.orders import PedidoCreate
 async def get_orders(
     db: AsyncSession,
     status: Optional[str] = None,
-    id_produto: Optional[str] = None,
+    id_pedido_display: Optional[str] = None,
     data_inicio: Optional[str] = None,
     data_fim: Optional[str] = None,
     tipo_cliente: Optional[str] = None,
@@ -31,8 +31,9 @@ async def get_orders(
         status_str = status.value if hasattr(status, "value") else status
         query = query.where(Pedido.status == status_str)
 
-    if id_produto:
-        query = query.where(Pedido.id_pedido_display.ilike(f"%{id_produto}%"))
+    if id_pedido_display:
+        query = query.where(
+            Pedido.id_pedido_display.ilike(f"%{id_pedido_display}%"))
 
     if data_inicio:
         query = query.where(Pedido.id_data >= data_inicio)

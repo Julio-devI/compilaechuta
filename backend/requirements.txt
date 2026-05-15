@@ -18,6 +18,9 @@ python-dotenv==1.0.1
 python-jose[cryptography]==3.3.0
 bcrypt==5.0.0
 
+# Email
+fastapi-mail==1.4.2
+
 # Extras libraries
 pydantic==2.10.3
 pydantic-settings==2.7.0

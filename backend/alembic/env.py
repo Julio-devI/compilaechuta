@@ -14,6 +14,7 @@ from app.models.tickets import Ticket    # noqa: F401
 from app.models.products import Produto  # noqa: F401
 from app.models.category import Categoria  # noqa: F401
 from app.models.orders import Pedido  # noqa: F401
+from app.models.operator import Operador  # noqa: F401
 
 
 # Carrega as variáveis do .env

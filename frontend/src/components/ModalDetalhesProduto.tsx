@@ -1,7 +1,8 @@
 import { X, Package, DollarSign, BarChart2, Hash, ArrowUpRight, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MouseEvent } from 'react'
+import { MouseEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { deleteProduto } from '../services/productService'
 
 interface ModalProps {
   isOpen: boolean
@@ -12,24 +13,41 @@ interface ModalProps {
 export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
   const navigate = useNavigate()
 
+  // 1. Estados da confirmação de exclusão
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   if (!isOpen || !produto) return null
+
+  // 2. Fechar modal e resetar exclusão
+  const handleClose = () => {
+    setIsConfirmingDelete(false)
+    onClose()
+  }
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      handleClose()
     }
-  };
+  }
 
   const handleEditClick = () => {
     navigate(`/produtos/editar/${produto.id}`)
   }
 
-  const handleDeleteClick = () => {
-    // Implementar lógica de exclusão aqui
-    console.log(`Excluir produto com ID: ${produto.id}`);
-    // Após a exclusão, você pode fechar o modal e/ou redirecionar
-    onClose();
-    // navigate('/produtos'); // Opcional: redirecionar para a lista de produtos
+  // 3. Função que deleta de verdade
+  const confirmarExclusaoReal = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteProduto(produto.id)
+      handleClose()
+      window.location.reload() 
+    } catch (error) {
+      console.error("Erro ao excluir:", error)
+      alert("Ocorreu um erro ao excluir o produto.")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -64,19 +82,55 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
           className="bg-card w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl relative max-h-[90vh] overflow-y-auto scrollbar-hide"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
+          {/* MINI POPUP DE CONFIRMAÇÃO INJETADO AQUI (Sem quebrar o layout) */}
+          {isConfirmingDelete && (
+            <div className="absolute inset-0 z-[60] bg-black/20 backdrop-blur-[1px] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-2xl border border-border w-full max-w-[320px] text-center"
+              >
+                <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-[#020854] dark:text-white mb-2">Excluir item?</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Tem certeza que deseja remover este produto permanentemente?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsConfirmingDelete(false)}
+                    disabled={isDeleting}
+                    className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-slate-100 dark:bg-slate-800 text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
+                  >
+                    Não
+                  </button>
+                  <button
+                    onClick={confirmarExclusaoReal}
+                    disabled={isDeleting}
+                    className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {isDeleting ? '...' : 'Sim'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
+          {/* O SEU HEADER ORIGINAL */}
           <div className="flex justify-between items-center p-8 pb-4">
             <h2 className="text-3xl font-black text-[#020854] dark:text-foreground">Detalhes do Produto</h2>
-            <button onClick={onClose} className="p-2 hover:bg-background rounded-full transition-colors">
+            <button onClick={handleClose} className="p-2 hover:bg-background rounded-full transition-colors">
               <X className="w-8 h-8 text-muted-foreground" />
             </button>
           </div>
 
+          {/* O SEU CORPO ORIGINAL */}
           <div className="p-8 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               
-              {/* Coluna Esquerda: Imagem e Ações */}
-              <div className="md:col-span-1 space-y-3"> {/* Ajustado gap para 3 */}
+              {/* Coluna Esquerda Original */}
+              <div className="md:col-span-1 space-y-3">
                 <div className="w-full aspect-square rounded-3xl overflow-hidden border border-border relative group">
                   <img src={produto.imagem} alt={produto.nome} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                   <span className={`absolute top-4 right-4 px-3 py-1.5 rounded-full text-xs font-black shadow-md ${getStatusColor(produto.status)}`}>
@@ -94,8 +148,10 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
                   <button className="w-full bg-card text-foreground border border-border py-3.5 rounded-xl font-bold hover:bg-background transition-colors">
                     Ver na Loja <ArrowUpRight className="w-4 h-4 inline ml-1" />
                   </button>
+                  
+                  {/* BOTÃO DE EXCLUIR ORIGINAL CHAMANDO O ESTADO */}
                   <button 
-                    onClick={handleDeleteClick}
+                    onClick={() => setIsConfirmingDelete(true)}
                     className="w-full bg-red-500 text-white py-3.5 rounded-xl font-bold hover:bg-red-600 transition-colors shadow-sm flex items-center justify-center gap-2"
                   >
                     <Trash2 className="w-5 h-5" /> Excluir Produto
@@ -103,7 +159,7 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
                 </div>
               </div>
 
-              {/* Coluna Direita: Informações */}
+              {/* Coluna Direita Original */}
               <div className="md:col-span-2 space-y-6">
                 
                 {/* Info Principal */}

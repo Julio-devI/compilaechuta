@@ -9,5 +9,5 @@ backend/vcommerce.db
 
 data/
 vcommerce.db
-
+data/
 .idea

@@ -1,22 +1,30 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, event, text, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime, event, text
 from datetime import datetime
 from app.core.database import Base
+from zoneinfo import ZoneInfo
 from sqlalchemy.orm import relationship
+
+def get_sp_time():
+    return datetime.now(ZoneInfo("America/Sao_Paulo"))
 
 class Produto(Base):
     __tablename__ = "dim_produto"
 
     id_produto = Column(String, primary_key=True, index=True)
-    sku = Column(String, nullable=False)
+    sku = Column(String, index=True, nullable=True)
     nome_produto = Column(String, nullable=False)
     id_categoria = Column(String, ForeignKey("gold_categoria.id_categoria"), nullable=True, index=True)
     fornecedor = Column(String, nullable=True)
     preco = Column(Float, nullable=True)
     peso_kg = Column(Float, nullable=True)
     estoque_disponivel = Column(Integer, default=0)
-    ativo = Column(Boolean, default=True)
-    precisa_revisao = Column(Boolean, default=False)
-    data_cadastro_produto = Column(DateTime, default=datetime.utcnow)
+    ativo = Column(String, default="Sim")
+    precisa_revisao = Column(String, default="Não")
+    data_cadastro_produto = Column(
+        DateTime(timezone=True), 
+        default=get_sp_time,
+        nullable=True
+    )
     total_pedidos = Column(Integer, default=0)
     receita_total = Column(Float, default=0.0)
     ticket_medio = Column(Float, default=0.0)

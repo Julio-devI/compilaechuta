@@ -30,6 +30,11 @@ from tests.integration.smoke_test_db import create_test_db
 async def _run_smoke_test(db_path: str) -> None:
     from vcommerce_ai_agent.agent import VCommerceAgent
     from vcommerce_ai_agent.core.exceptions import LLMQuotaError
+    from tests.integration.smoke_error_utils import (
+        print_exception,
+        print_response_error,
+        response_error_fields,
+    )
     from tests.integration.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         configure_llm_retries_for_smoke_tests,
@@ -112,7 +117,8 @@ async def _run_smoke_test(db_path: str) -> None:
             break
         except Exception as exc:
             elapsed = time.perf_counter() - start
-            print(f" [ERRO] ({elapsed:.2f}s): {exc}")
+            print(f" [EXCECAO] ({elapsed:.2f}s)")
+            print_exception(exc)
             api_calls += planned_calls
             results.append({
                 "label": scenario["label"],
@@ -141,6 +147,8 @@ async def _run_smoke_test(db_path: str) -> None:
             print(f" [FALHA] Status: {status}")
             print(f" SQL: {resp.developer_debug.sql}")
             print(f" Resposta: {resp.user_response.answer_text}")
+            if resp.developer_debug.error:
+                print_response_error(resp, indent=" ")
             print("[ABORTANDO] Cadeia de memoria depende do turno anterior.")
 
         results.append({
@@ -149,6 +157,7 @@ async def _run_smoke_test(db_path: str) -> None:
             "passed": passed,
             "elapsed": elapsed,
             "sql": resp.developer_debug.sql,
+            **response_error_fields(resp),
         })
 
         if not passed:
@@ -184,14 +193,28 @@ def _print_summary(results: list[dict], scenarios: list[dict]) -> None:
             f"  {result['label']}. {icon} ({result['elapsed']:.2f}s) "
             f"Status: {result['status']}"
         )
+        if result.get("error_code"):
+            print(
+                f"      Erro: {result['error_code']} | "
+                f"Stage: {result.get('error_stage')} | "
+                f"Retryable: {result.get('error_retryable')}"
+            )
 
 
 def main() -> None:
+    from tests.integration.smoke_tests_config import resolve_api_key
+
+    api_key = resolve_api_key(sys.argv[1:])
+    if not api_key:
+        print(
+            "Erro: GEMINI_API_KEY nao definida.\n"
+            "Use --api-key SUA_CHAVE ou defina a variavel de ambiente."
+        )
+        raise SystemExit(1)
+
     from vcommerce_ai_agent.core import config
 
-    if not config.GEMINI_API_KEY:
-        print("Erro: GEMINI_API_KEY nao esta definida no .env.")
-        raise SystemExit(1)
+    config.GEMINI_API_KEY = api_key
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name

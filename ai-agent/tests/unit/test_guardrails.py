@@ -28,7 +28,7 @@ from vcommerce_ai_agent.core.config import MAX_INPUT_CHARS
 _ALLOWLIST = {
     "dim_cliente": {"id_cliente", "nome_cliente", "regiao", "segmento_rfm", "email"},
     "fato_vendas": {"id_pedido", "id_cliente", "valor_total_venda", "id_data", "status"},
-    "dim_produto": {"id_produto", "nome_produto", "categoria", "preco"},
+    "dim_produto": {"id_produto", "nome_produto", "id_categoria", "preco"},
 }
 
 
@@ -118,6 +118,28 @@ def test_validate_multiple_statements_allows_trailing_semicolon():
 
 def test_validate_multiple_statements_allows_whitespace_after_semicolon():
     sql = "SELECT * FROM t;   "
+    validate_multiple_statements(sql)
+
+
+def test_validate_multiple_statements_allows_semicolon_in_string_literal():
+    sql = "SELECT 'x; y' AS texto"
+    validate_multiple_statements(sql)
+
+
+def test_validate_multiple_statements_allows_string_starting_with_semicolon():
+    sql = "SELECT ';abc' AS texto"
+    validate_multiple_statements(sql)
+
+
+def test_validate_multiple_statements_detects_drop_after_semicolon():
+    sql = "SELECT 1; DROP TABLE dim_cliente"
+    with pytest.raises(GuardrailError) as exc_info:
+        validate_multiple_statements(sql)
+    assert exc_info.value.error_code == "MULTIPLE_STATEMENTS"
+
+
+def test_validate_multiple_statements_allows_select_with_trailing_semicolon():
+    sql = "SELECT 1;"
     validate_multiple_statements(sql)
 
 
@@ -342,6 +364,24 @@ def test_add_limit_skips_when_present_with_semicolon():
     assert result == sql
 
 
+def test_add_limit_caps_when_llm_limit_exceeds_max_rows():
+    sql = "SELECT * FROM dim_cliente LIMIT 100000"
+    result = add_limit_if_missing(sql, 100)
+    assert result == "SELECT * FROM dim_cliente LIMIT 100"
+
+
+def test_add_limit_caps_when_llm_limit_exceeds_max_rows_with_semicolon():
+    sql = "SELECT * FROM dim_cliente LIMIT 100000;"
+    result = add_limit_if_missing(sql, 100)
+    assert result == "SELECT * FROM dim_cliente LIMIT 100;"
+
+
+def test_add_limit_caps_negative_limit():
+    sql = "SELECT * FROM dim_cliente LIMIT -1"
+    result = add_limit_if_missing(sql, 100)
+    assert result == "SELECT * FROM dim_cliente LIMIT 100"
+
+
 def test_add_limit_injects_on_cte_with_internal_limit():
     """CTE com LIMIT interno deve receber LIMIT no statement principal (T-02)."""
     sql = "WITH cte AS (SELECT * FROM t LIMIT 5) SELECT * FROM cte"
@@ -549,6 +589,12 @@ def test_apply_layer_2_valid_query():
     sql = "SELECT nome_cliente, regiao FROM dim_cliente"
     result = apply_layer_2(sql, _ALLOWLIST, max_rows=100)
     assert "LIMIT 100" in result
+
+
+def test_apply_layer_2_caps_abusive_limit():
+    sql = "SELECT nome_cliente, regiao FROM dim_cliente LIMIT 100000"
+    result = apply_layer_2(sql, _ALLOWLIST, max_rows=100)
+    assert result == "SELECT nome_cliente, regiao FROM dim_cliente LIMIT 100"
 
 
 def test_apply_layer_2_rejects_destructive():

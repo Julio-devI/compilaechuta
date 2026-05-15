@@ -69,6 +69,11 @@ async def _run_smoke_test(db_path: str) -> None:
     ]
 
     from vcommerce_ai_agent.core.exceptions import LLMQuotaError
+    from tests.integration.smoke_error_utils import (
+        print_exception,
+        print_response_error,
+        response_error_fields,
+    )
 
     total_start = time.perf_counter()
     max_duration = MAX_DURATION_SECONDS
@@ -115,7 +120,8 @@ async def _run_smoke_test(db_path: str) -> None:
                 print(f"[QUOTA ESGOTADA] ({elapsed:.2f}s): {error_msg}")
                 _print_summary(results, scenarios, api_calls)
                 return
-            print(f"[ERRO] ({elapsed:.2f}s): {exc}")
+            print(f"[EXCECAO] ({elapsed:.2f}s)")
+            print_exception(exc)
             api_calls += planned_calls
             results.append({
                 "question": question,
@@ -143,12 +149,14 @@ async def _run_smoke_test(db_path: str) -> None:
             print(f"   Texto: {response.user_response.answer_text[:200]}")
             sql = response.developer_debug.sql
             print(f"   SQL  : {sql[:100] if sql else ''}")
+            print_response_error(response)
             results.append({
                 "question": question,
                 "status": "ERRO",
                 "elapsed": elapsed,
                 "error": response.user_response.answer_text,
                 "sql": sql,
+                **response_error_fields(response),
             })
         else:
             print(f"[SUCESSO] ({elapsed:.2f}s)")
@@ -217,18 +225,28 @@ def _print_summary(results: list, all_questions: list, api_calls: int = 0) -> No
         status_icon = "[OK]" if r["status"] == "SUCESSO" else f"[{r['status']}]"
         chart_info = f" | grafico={r.get('chart_type', 'n/a')}" if r.get("chart_type") else ""
         print(f"  {i}. {status_icon} ({r['elapsed']:.2f}s){chart_info} - {r['question'][:50]}...")
+        if r["status"] == "ERRO" and r.get("error_code"):
+            print(
+                f"      Erro: {r['error_code']} | "
+                f"Stage: {r.get('error_stage')} | "
+                f"Retryable: {r.get('error_retryable')}"
+            )
 
 
 def main() -> None:
-    # Forca o carregamento do .env (config ja faz isso no import)
-    from vcommerce_ai_agent.core import config
+    from tests.integration.smoke_tests_config import resolve_api_key
 
-    if not config.GEMINI_API_KEY:
+    api_key = resolve_api_key(sys.argv[1:])
+    if not api_key:
         print(
-            "Erro: GEMINI_API_KEY nao esta definida.\n"
-            "Verifique o arquivo .env na raiz do projeto."
+            "Erro: GEMINI_API_KEY nao definida.\n"
+            "Use --api-key SUA_CHAVE ou defina a variavel de ambiente."
         )
         raise SystemExit(1)
+
+    from vcommerce_ai_agent.core import config
+
+    config.GEMINI_API_KEY = api_key
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name

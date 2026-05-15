@@ -15,6 +15,7 @@ from typing import Any, Literal
 from sqlglot import exp, parse_one
 
 from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.logger import logger
 from vcommerce_ai_agent.database.db import Database
 from vcommerce_ai_agent.core.exceptions import (
     ErrorCode,
@@ -36,9 +37,17 @@ from vcommerce_ai_agent.security.guardrails import (
     validate_input_length,
     validate_prompt_injection,
 )
+from vcommerce_ai_agent.security.sensitive_data_masking import (
+    mask_sensitive_data,
+    restore_sensitive_values,
+)
 from vcommerce_ai_agent.llm.insight_generator import generate_insight
 from vcommerce_ai_agent.database.schema import build_allowlist, format_schema, load_descriptions
 from vcommerce_ai_agent.llm.sql_generator import generate_sql, generate_sql_correction
+from vcommerce_ai_agent.llm.suggestions_generator import (
+    generate_suggestions,
+    select_fallback_suggestions,
+)
 
 
 @dataclass
@@ -622,9 +631,11 @@ class VCommerceAgent:
             "trimestre",
         }
         metrics: list[str] = []
-        for key in data[0].keys():
+        for key, value in data[0].items():
             label = str(key).replace("_", " ").strip().lower()
             if not label or label in dimension_names:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
                 continue
             metrics.append(label)
         return metrics
@@ -640,7 +651,7 @@ class VCommerceAgent:
         if fallback_text:
             sanitized = self._sanitize_display_text(fallback_text).strip()
             lower = sanitized.lower()
-            if sanitized and (
+            if sanitized and len(sanitized) <= _MAX_SOURCES_TEXT_CHARS and (
                 "cruzamento" in lower
                 or "consulta da base" in lower
                 or "listagem de" in lower
@@ -669,13 +680,17 @@ class VCommerceAgent:
         filter_text = f" (filtros: {', '.join(filters)})" if filters else ""
         metric_text = ""
         if metrics:
-            metric_term = "calculado" if len(metrics) == 1 else "calculados"
+            metric_term = (
+                "principal métrica"
+                if len(metrics) == 1
+                else "principais métricas"
+            )
             metric_text = (
                 ", usando "
                 + ", ".join(metrics[:-1])
                 + (" e " if len(metrics) > 1 else "")
                 + metrics[-1]
-                + f" {metric_term} a partir dos dados consultados"
+                + f" como {metric_term} da consulta"
             )
 
         return _limit_sources_text(
@@ -803,8 +818,21 @@ class VCommerceAgent:
                 developer_debug=_build_debug(""),
             )
 
+        def _log_ask_finished(status: str, error_code: str | None = None) -> None:
+            logger.info(
+                "ask_finished",
+                extra={
+                    "event": "ask_finished",
+                    "status": status,
+                    "total_time_ms": _elapsed_ms(total_start),
+                    "tokens_used": tokens_used,
+                    "error_code": error_code,
+                },
+            )
+
         # Camada 0: validação do tipo do input (contrato público)
         if not isinstance(question, str):
+            _log_ask_finished("error", _error_code_value(ErrorCode.INVALID_INPUT_TYPE))
             return self._make_error_response(
                 code=ErrorCode.INVALID_INPUT_TYPE,
                 stage="input",
@@ -813,12 +841,24 @@ class VCommerceAgent:
                 total_time_ms=_elapsed_ms(total_start),
             )
 
+        logger.info(
+            "ask_started",
+            extra={"event": "ask_started", "model": self._llm_model},
+        )
+
         # Camada 1: validação do input do usuário (pré-LLM)
         try:
             validate_empty_input(question)
             validate_input_length(question)
             validate_prompt_injection(question)
         except GuardrailError as exc:
+            code = _error_code_value(exc.error_code)
+            if code == ErrorCode.PROMPT_INJECTION:
+                logger.warning(
+                    "prompt_injection_detected",
+                    extra={"event": "prompt_injection_detected", "error_code": code},
+                )
+            _log_ask_finished("error", code)
             return self._make_error_response(
                 code=exc.error_code,
                 stage="input",
@@ -828,6 +868,7 @@ class VCommerceAgent:
             )
 
         if _is_hidden_table_scope_request(question):
+            _log_ask_finished("out_of_scope")
             return _make_out_of_scope_response(
                 f"{config.OUT_OF_SCOPE_MARKER} "
                 "Não posso consultar tabelas ocultas, internas ou não listadas "
@@ -835,10 +876,12 @@ class VCommerceAgent:
             )
 
         # Etapa 1: carregar schema
+        schema_load_start = time.perf_counter()
         try:
             schema, technical_schema = await self._load_schema()
             self._technical_schema = technical_schema
         except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            _log_ask_finished("error", _error_code_value(ErrorCode.SCHEMA_LOAD_ERROR))
             return self._make_error_response(
                 code=ErrorCode.SCHEMA_LOAD_ERROR,
                 stage="schema",
@@ -846,6 +889,14 @@ class VCommerceAgent:
                 retryable=False,
                 total_time_ms=_elapsed_ms(total_start),
             )
+
+        logger.info(
+            "schema_loaded",
+            extra={
+                "event": "schema_loaded",
+                "elapsed_ms": _elapsed_ms(schema_load_start),
+            },
+        )
 
         # Etapa 2: gerar SQL
         sql_start = time.perf_counter()
@@ -857,6 +908,7 @@ class VCommerceAgent:
                 tokens_used = (tokens_used or 0) + sql_tokens
         except (ValueError, LLMParseError) as exc:
             sql_generation_time_ms = _elapsed_ms(sql_start)
+            _log_ask_finished("error", _error_code_value(ErrorCode.SQL_PARSE_ERROR))
             return self._make_error_response(
                 code=ErrorCode.SQL_PARSE_ERROR,
                 stage="sql_generation",
@@ -871,6 +923,7 @@ class VCommerceAgent:
             sql_generation_time_ms = _elapsed_ms(sql_start)
             if isinstance(exc, EnvironmentError):
                 exc = LLMAuthenticationError(str(exc))
+            _log_ask_finished("error", _error_code_value(getattr(exc, 'error_code', ErrorCode.LLM_UNKNOWN_ERROR)))
             return self._make_llm_error_response(
                 exc,
                 sql=sql,
@@ -880,9 +933,20 @@ class VCommerceAgent:
             )
         sql_generation_time_ms = _elapsed_ms(sql_start)
 
+        logger.info(
+            "sql_generated",
+            extra={
+                "event": "sql_generated",
+                "elapsed_ms": sql_generation_time_ms,
+                "tokens_used": tokens_used,
+                "model": self._llm_model,
+            },
+        )
+
         # Etapa 2.5: detectar fora do escopo antes da Camada 2
         # O marcador nao e SQL valido; aplicar guardrails causaria erro de parse
         if sql.strip().upper().startswith(config.OUT_OF_SCOPE_MARKER):
+            _log_ask_finished("out_of_scope")
             return _make_out_of_scope_response(sql)
 
         # Etapa 3: aplicar Camada 2 com loop de autocorreção
@@ -895,6 +959,17 @@ class VCommerceAgent:
                 break
             except GuardrailError as exc:
                 if attempt == self._MAX_LAYER2_RETRIES - 1:
+                    logger.warning(
+                        "layer_2_blocked",
+                        extra={
+                            "event": "layer_2_blocked",
+                            "error_code": _error_code_value(exc.error_code),
+                            "stage": "sql_validation",
+                            "attempt": attempt + 1,
+                            "sql": sql,
+                        },
+                    )
+                    _log_ask_finished("error", _error_code_value(exc.error_code))
                     return self._make_error_response(
                         code=exc.error_code,
                         stage="sql_validation",
@@ -905,6 +980,10 @@ class VCommerceAgent:
                         sql_generation_time_ms=sql_generation_time_ms,
                         tokens_used=tokens_used,
                     )
+                logger.info(
+                    "sql_correction_attempted",
+                    extra={"event": "sql_correction_attempted", "attempt": attempt + 1},
+                )
                 correction_start = time.perf_counter()
                 try:
                     sql, correction_tokens = await generate_sql_correction(
@@ -922,6 +1001,7 @@ class VCommerceAgent:
                         (sql_generation_time_ms or 0.0)
                         + _elapsed_ms(correction_start)
                     )
+                    _log_ask_finished("error", _error_code_value(ErrorCode.SQL_PARSE_ERROR))
                     return self._make_error_response(
                         code=ErrorCode.SQL_PARSE_ERROR,
                         stage="sql_generation",
@@ -937,6 +1017,7 @@ class VCommerceAgent:
                         (sql_generation_time_ms or 0.0)
                         + _elapsed_ms(correction_start)
                     )
+                    _log_ask_finished("error", _error_code_value(getattr(exc, 'error_code', ErrorCode.LLM_UNKNOWN_ERROR)))
                     return self._make_llm_error_response(
                         exc,
                         sql=sql,
@@ -949,6 +1030,7 @@ class VCommerceAgent:
                     + _elapsed_ms(correction_start)
                 )
                 if sql.strip().upper().startswith(config.OUT_OF_SCOPE_MARKER):
+                    _log_ask_finished("out_of_scope")
                     return _make_out_of_scope_response(sql)
                 await asyncio.sleep(1 * (2 ** attempt))
 
@@ -963,6 +1045,7 @@ class VCommerceAgent:
                 if isinstance(exc, TimeoutError)
                 else ErrorCode.DB_EXECUTION_ERROR
             )
+            _log_ask_finished("error", _error_code_value(err_code))
             return self._make_error_response(
                 code=err_code,
                 stage="database",
@@ -975,17 +1058,53 @@ class VCommerceAgent:
                 tokens_used=tokens_used,
             )
         query_execution_time_ms = _elapsed_ms(query_start)
+        logger.info(
+            "query_executed",
+            extra={
+                "event": "query_executed",
+                "elapsed_ms": query_execution_time_ms,
+                "rows_count": len(rows),
+                "truncated": truncated,
+            },
+        )
 
-        # Etapa 5: gerar insight
+        # Etapa 4.5: mascarar dados sensíveis antes da Chamada 2
+        try:
+            masking_result = mask_sensitive_data(
+                rows,
+                sql=sql,
+                descriptions=self._descriptions or {},
+                technical_schema=self._technical_schema,
+            )
+        except GuardrailError as exc:
+            _log_ask_finished("error", _error_code_value(exc.error_code))
+            return self._make_error_response(
+                code=exc.error_code,
+                stage="sql_validation",
+                sql=sql,
+                message=str(exc),
+                retryable=False,
+                total_time_ms=_elapsed_ms(total_start),
+                sql_generation_time_ms=sql_generation_time_ms,
+                query_execution_time_ms=query_execution_time_ms,
+                tokens_used=tokens_used,
+            )
+
+        # Etapa 5: gerar insight (com dados mascarados)
         insight_start = time.perf_counter()
         try:
             insight, insight_tokens = await generate_insight(
-                question, rows, sql, history=self._history, model=self._llm_model
+                question,
+                masking_result.llm_data,
+                sql,
+                history=self._history,
+                model=self._llm_model,
             )
             if insight_tokens is not None:
                 tokens_used = (tokens_used or 0) + insight_tokens
         except LLMParseError as exc:
             insight_generation_time_ms = _elapsed_ms(insight_start)
+            _log_ask_finished("error", _error_code_value(ErrorCode.INSIGHT_PARSE_ERROR))
             return self._make_error_response(
                 code=ErrorCode.INSIGHT_PARSE_ERROR,
                 stage="insight_generation",
@@ -1002,6 +1121,7 @@ class VCommerceAgent:
             insight_generation_time_ms = _elapsed_ms(insight_start)
             if isinstance(exc, EnvironmentError):
                 exc = LLMAuthenticationError(str(exc))
+            _log_ask_finished("error", _error_code_value(getattr(exc, 'error_code', ErrorCode.LLM_UNKNOWN_ERROR)))
             return self._make_llm_error_response(
                 exc,
                 sql=sql,
@@ -1013,15 +1133,57 @@ class VCommerceAgent:
             )
         insight_generation_time_ms = _elapsed_ms(insight_start)
 
-        # Etapa 6: montar resposta
+        logger.info(
+            "insight_generated",
+            extra={
+                "event": "insight_generated",
+                "elapsed_ms": insight_generation_time_ms,
+                "tokens_used": tokens_used,
+                "model": self._llm_model,
+            },
+        )
+
+        # Etapa 6: montar resposta (restaurando tokens nos textos exibíveis)
         presentation = self._build_presentation(insight, sql, data=rows)
+
+        # Restaura tokens nos campos textuais produzidos pelo LLM
+        token_map = masking_result.token_to_value
+        if token_map:
+            presentation.activity = restore_sensitive_values(
+                presentation.activity, token_map
+            )
+            presentation.answer_sections = [
+                _ResponseSection(
+                    title=restore_sensitive_values(section.title, token_map),
+                    content=restore_sensitive_values(section.content, token_map),
+                )
+                for section in presentation.answer_sections
+            ]
+            if presentation.sources_summary is not None:
+                presentation.sources_summary = _SourcesSummary(
+                    text=restore_sensitive_values(
+                        presentation.sources_summary.text, token_map
+                    ),
+                    tables=presentation.sources_summary.tables,
+                )
+
         answer_text = _build_answer_text_from_presentation(presentation)
         sources_text = (
             presentation.sources_summary.text
             if presentation.sources_summary is not None
             else None
         )
-        chart = self._build_chart(insight.get("chart"), rows)
+
+        # Monta chart validando contra chaves reais de rows
+        chart_data = insight.get("chart")
+        chart = self._build_chart(chart_data, rows)
+        if chart is not None and token_map:
+            chart = ChartSuggestion(
+                type=chart.type,
+                x_axis=chart.x_axis,
+                y_axis=chart.y_axis,
+                title=restore_sensitive_values(chart.title, token_map),
+            )
 
         response = AgentResponse(
             status="success",
@@ -1035,37 +1197,70 @@ class VCommerceAgent:
             developer_debug=_build_debug(sql),
         )
 
+        _log_ask_finished("success")
+
         # Armazena no histórico apenas interações bem-sucedidas
         self._append_to_history(question, response)
 
         return response
 
-    def initial_suggestions(self) -> list[str]:
+    async def initial_suggestions(
+        self, previous_suggestions: list[str] | None = None
+    ) -> list[str]:
         """
-        Retorna uma lista fixa de sugestões iniciais de perguntas baseadas no schema real do banco.
-        
-        O backend pode selecionar um subconjunto aleatório destas 20 perguntas para exibir no frontend.
-        Abrange domínios de Vendas, Produtos, Clientes, Suporte, Avaliações e Navegação.
+        Gera dinamicamente 5 perguntas de exemplo para o início da conversa.
+
+        As perguntas são geradas pelo LLM com base no schema real do banco.
+        Quando uma lista de perguntas anteriores é informada, o prompt pede
+        novas sugestões e o fallback também evita repetir as perguntas da lista.
+        Em caso de falha esperada, retorna uma lista fixa de 5 perguntas de fallback.
+
+        O backend pode chamar este método no carregamento do chat ou ao clicar
+        no botão de perguntas de exemplo.
+
+        Args:
+            previous_suggestions: Perguntas já exibidas ao usuário nesta sessão.
+
+        Returns:
+            Lista com exatamente 5 perguntas em português brasileiro.
         """
-        return [
-            "Quais foram os 10 produtos com maior receita total gerada?",
-            "Qual é a receita total agrupada por região do país?",
-            "Qual foi o método de pagamento mais utilizado nas vendas?",
-            "Qual é o ticket médio das vendas separadas por categoria de produto?",
-            "Quantos pedidos foram cancelados ou estão pendentes?",
-            "Quais produtos estão com estoque zerado e precisam de revisão?",
-            "Quais são os 5 fornecedores com a maior quantidade de unidades vendidas?",
-            "Quais são os 10 produtos com a melhor média de avaliação (nota do produto)?",
-            "Quais são os principais clientes do segmento 'Campeões' que mais gastaram na loja?",
-            "Quantos pedidos em média um cliente da região Nordeste realiza?",
-            "Qual a distribuição percentual de clientes por segmento RFM?",
-            "Qual é o tempo médio de resolução de tickets por tipo de problema?",
-            "Quais agentes de suporte possuem a melhor nota média de satisfação?",
-            "Quais clientes possuem o maior número de tickets de suporte?",
-            "Qual é a proporção de avaliações NPS classificadas como 'Promotores'?",
-            "Quais os comentários das avaliações de pedidos com nota baixa (1 ou 2)?",
-            "Quais canais de aquisição geram o maior número de compras e adições ao carrinho?",
-            "Qual é o dispositivo de navegação mais utilizado pelos clientes (mobile, desktop)?",
-            "Qual é a taxa de abandono de carrinho média por canal de aquisição?",
-            "Como as notas de avaliação do suporte variam de acordo com o tempo de resolução do ticket?"
-        ]
+        logger.info(
+            "suggestions_started",
+            extra={"event": "suggestions_started", "model": self._llm_model},
+        )
+        try:
+            schema, _ = await self._load_schema()
+            suggestions, tokens = await generate_suggestions(
+                schema,
+                previous_suggestions=previous_suggestions,
+                model=self._llm_model,
+            )
+            logger.info(
+                "suggestions_generated",
+                extra={
+                    "event": "suggestions_generated",
+                    "tokens_used": tokens,
+                    "model": self._llm_model,
+                },
+            )
+            logger.info(
+                "suggestions_finished",
+                extra={"event": "suggestions_finished", "status": "success"},
+            )
+            return suggestions
+        except (
+            FileNotFoundError,
+            RuntimeError,
+            ValueError,
+            EnvironmentError,
+            LLMError,
+        ):
+            logger.info(
+                "suggestions_fallback",
+                extra={"event": "suggestions_fallback"},
+            )
+            logger.info(
+                "suggestions_finished",
+                extra={"event": "suggestions_finished", "status": "fallback"},
+            )
+            return select_fallback_suggestions(previous_suggestions)

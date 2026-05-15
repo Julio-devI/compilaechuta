@@ -8,6 +8,12 @@
           "description": "Identificador único do pedido ao qual a linha pertence.",
           "examples": ["PED-2024-0001", "10001", "55023"]
         },
+        "id_pedido_display": {
+          "description": "Código de exibição do pedido.",
+          "examples": ["PED-2024-0001", "10001", "55023"],
+          "sensitive": true,
+          "mask_label": "Pedido"
+        },
         "id_cliente": {
           "description": "Chave estrangeira para o cliente que realizou a compra.",
           "examples": ["CLI-4521", "2103", "99887"]
@@ -39,6 +45,10 @@
         "metodo_pagamento": {
           "description": "Método de pagamento utilizado na compra (ex: cartão de crédito, boleto, pix).",
           "examples": ["Cartão de crédito", "Boleto", "Pix"]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -62,9 +72,21 @@
           "description": "Produto relacionado ao ticket.",
           "examples": ["PRD-88", "SKU-1029", "50011"]
         },
-        "id_data_abertura": {
-          "description": "Data de abertura do ticket (chave para dim_tempo).",
-          "examples": ["20240115", "20241201", "20240630"]
+        "data_abertura": {
+          "description": "Data de abertura do ticket.",
+          "examples": ["2024-01-15", "2024-12-01", "2024-06-30"]
+        },
+        "data_resolucao": {
+          "description": "Data de resolução do ticket.",
+          "examples": ["2024-01-16", "2024-12-02", "2024-07-01"]
+        },
+        "tempo_resolucao_horas": {
+          "description": "Tempo decorrido entre abertura e resolução do ticket, em horas.",
+          "examples": [2.5, 48.0, 120.0]
+        },
+        "status": {
+          "description": "Status atual do ticket (ex: aberto, resolvido, em andamento, fechado).",
+          "examples": ["Resolvido", "Em andamento", "Aberto"]
         },
         "tipo_problema": {
           "description": "Categoria do problema relatado (ex: defeito, envio errado, dúvida).",
@@ -78,13 +100,9 @@
           "description": "Nota de satisfação dada pelo cliente após a resolução (escala 1–5 ou 1–10).",
           "examples": [5, 4, 2]
         },
-        "tempo_resolucao_horas": {
-          "description": "Tempo decorrido entre abertura e resolução do ticket, em horas.",
-          "examples": [2.5, 48.0, 120.0]
-        },
-        "status": {
-          "description": "Status atual do ticket (ex: aberto, resolvido, em andamento, fechado).",
-          "examples": ["Resolvido", "Em andamento", "Aberto"]
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -108,6 +126,38 @@
           "description": "Produto avaliado dentro do pedido.",
           "examples": ["PRD-88", "SKU-1029", "50011"]
         },
+        "nome_produto": {
+          "description": "Nome comercial do produto avaliado.",
+          "examples": ["Fone de Ouvido Bluetooth", "Smartphone X Pro"]
+        },
+        "categoria": {
+          "description": "Categoria do produto avaliado.",
+          "examples": ["Eletrônicos", "Móveis", "Vestuário"]
+        },
+        "preco": {
+          "description": "Preço do produto no momento da avaliação (em BRL).",
+          "examples": [129.9, 1999.0, 45.0]
+        },
+        "valor_pedido": {
+          "description": "Valor total do pedido (em BRL).",
+          "examples": [259.8, 45.0, 999.5]
+        },
+        "quantidade": {
+          "description": "Quantidade de unidades do produto no pedido.",
+          "examples": [1, 2, 5]
+        },
+        "metodo_pagamento": {
+          "description": "Método de pagamento utilizado na compra.",
+          "examples": ["Cartão de crédito", "Boleto", "Pix"]
+        },
+        "status": {
+          "description": "Status do pedido avaliado.",
+          "examples": ["Entregue", "Cancelado", "Em separação"]
+        },
+        "data_pedido": {
+          "description": "Data em que o pedido foi realizado.",
+          "examples": ["2024-01-15", "2024-12-01", "2024-06-30"]
+        },
         "nota_produto": {
           "description": "Nota atribuída ao produto (geralmente escala 1–5).",
           "examples": [5, 3, 1]
@@ -116,7 +166,11 @@
           "description": "Nota NPS (Net Promoter Score) de 0 a 10 indicando propensão a recomendar.",
           "examples": [9, 7, 10]
         },
-        "comentario_texto": {
+        "recomenda": {
+          "description": "Indicador se o cliente recomenda o produto (Sim/Não).",
+          "examples": ["Sim", "Não"]
+        },
+        "comentario": {
           "description": "Texto livre do comentário do cliente.",
           "examples": ["Produto excelente!", "Veio com defeito", "Entrega rápida"]
         },
@@ -124,9 +178,17 @@
           "description": "Data em que a avaliação foi registrada.",
           "examples": ["2024-01-20", "2024-12-05", "2024-06-10"]
         },
+        "categoria_nps": {
+          "description": "Classificação NPS do respondente (Promotor, Neutro, Detrator).",
+          "examples": ["Promotor", "Neutro", "Detrator"]
+        },
         "pct_recomendacoes_sim": {
           "description": "Percentual de clientes que recomendariam o produto (0–100).",
           "examples": [92.5, 45.0, 100.0]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -146,13 +208,9 @@
           "description": "Total de eventos (cliques, visualizações, etc.) registrados para o cliente.",
           "examples": [340, 12, 5000]
         },
-        "canal_mais_usado": {
-          "description": "Canal de origem de tráfego mais utilizado pelo cliente (ex: organic, paid, direct, social).",
-          "examples": ["organic", "paid", "direct"]
-        },
-        "dispositivo_mais_usado": {
-          "description": "Tipo de dispositivo mais utilizado pelo cliente (ex: mobile, desktop, tablet).",
-          "examples": ["mobile", "desktop", "tablet"]
+        "data_ultima_sessao": {
+          "description": "Data da última sessão de navegação registrada.",
+          "examples": ["2024-12-01", "2024-11-15", "2023-08-20"]
         },
         "qtd_visualizacao_produto": {
           "description": "Quantidade de visualizações de páginas de produto.",
@@ -166,13 +224,21 @@
           "description": "Quantidade de abandonos de carrinho.",
           "examples": [3, 0, 10]
         },
-        "taxa_conversao": {
-          "description": "Taxa de conversão do cliente (compras / sessões), valor entre 0 e 1.",
-          "examples": [0.15, 0.05, 0.80]
+        "qtd_compras": {
+          "description": "Quantidade de compras realizadas pelo cliente.",
+          "examples": [5, 1, 20]
         },
-        "data_ultima_sessao": {
-          "description": "Data da última sessão de navegação registrada.",
-          "examples": ["2024-12-01", "2024-11-15", "2023-08-20"]
+        "canal_mais_usado": {
+          "description": "Canal de origem de tráfego mais utilizado pelo cliente (ex: organic, paid, direct, social).",
+          "examples": ["organic", "paid", "direct"]
+        },
+        "dispositivo_mais_usado": {
+          "description": "Tipo de dispositivo mais utilizado pelo cliente (ex: mobile, desktop, tablet).",
+          "examples": ["mobile", "desktop", "tablet"]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -186,7 +252,27 @@
         },
         "nome_cliente": {
           "description": "Nome completo ou razão social do cliente.",
-          "examples": ["João da Silva", "Maria Souza", "Empresa XYZ Ltda"]
+          "examples": ["João da Silva", "Maria Souza", "Empresa XYZ Ltda"],
+          "sensitive": true,
+          "mask_label": "Cliente"
+        },
+        "email_cliente": {
+          "description": "Email de contato do cliente.",
+          "examples": ["joao.silva@example.com", "maria.souza@example.com"],
+          "sensitive": true,
+          "mask_label": "Email"
+        },
+        "documento_cliente": {
+          "description": "Documento fiscal do cliente, como CPF ou CNPJ.",
+          "examples": ["123.456.789-01", "12.345.678/0001-90"],
+          "sensitive": true,
+          "mask_label": "Documento"
+        },
+        "telefone_cliente": {
+          "description": "Telefone de contato do cliente.",
+          "examples": ["(11) 90000-0001", "(81) 98888-7777"],
+          "sensitive": true,
+          "mask_label": "Telefone"
         },
         "cidade": {
           "description": "Cidade de cadastro ou entrega principal do cliente.",
@@ -223,6 +309,10 @@
         "segmento_rfm": {
           "description": "Segmento RFM do cliente (ex: Campeões, Leais em Risco, Perdidos, Novos).",
           "examples": ["Campeões", "Leais em Risco", "Perdidos"]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -238,25 +328,17 @@
           "description": "Nome comercial do produto.",
           "examples": ["Fone de Ouvido Bluetooth", "Smartphone X Pro", "Cadeira Ergonômica"]
         },
+        "id_categoria": {
+          "description": "Identificador da categoria do produto.",
+          "examples": ["CAT-01", "ELEC", "MOVE"]
+        },
         "fornecedor": {
           "description": "Nome do fornecedor ou marca do produto.",
           "examples": ["TechBrand", "MoveisBrasil", "Importados LTDA"]
         },
-        "data_cadastro_produto": {
-          "description": "Data em que o produto foi cadastrado no catálogo.",
-          "examples": ["2023-01-10", "2024-05-20", "2022-11-03"]
-        },
         "preco": {
           "description": "Preço de venda atual do produto (em BRL).",
           "examples": [129.9, 1999.0, 45.0]
-        },
-        "categoria": {
-          "description": "Categoria hierárquica do produto (ex: Eletrônicos, Móveis, Vestuário).",
-          "examples": ["Eletrônicos", "Móveis", "Vestuário"]
-        },
-        "ativo": {
-          "description": "Indica se o produto está ativo no catálogo (1 = ativo, 0 = inativo).",
-          "examples": [1, 0]
         },
         "peso_kg": {
           "description": "Peso do produto em quilogramas.",
@@ -266,33 +348,65 @@
           "description": "Quantidade atual em estoque disponível para venda.",
           "examples": [150, 0, 42]
         },
-        "tem_estoque": {
-          "description": "Flag indicando se há unidades disponíveis (1 = sim, 0 = não).",
+        "ativo": {
+          "description": "Indica se o produto está ativo no catálogo (1 = ativo, 0 = inativo).",
           "examples": [1, 0]
         },
         "precisa_revisao": {
           "description": "Flag indicando se o produto precisa de revisão de descrição/preço (1 = sim).",
           "examples": [0, 1]
         },
-        "qtd_total_vendas": {
-          "description": "Quantidade total acumulada de unidades vendidas do produto.",
+        "data_cadastro_produto": {
+          "description": "Data em que o produto foi cadastrado no catálogo.",
+          "examples": ["2023-01-10", "2024-05-20", "2022-11-03"]
+        },
+        "total_pedidos": {
+          "description": "Quantidade total de pedidos que incluíram o produto.",
           "examples": [5000, 12, 890]
         },
         "receita_total": {
           "description": "Receita total acumulada gerada pelo produto (em BRL).",
           "examples": [645000.0, 540.0, 178010.0]
         },
-        "qtd_tickets_gerados": {
-          "description": "Quantidade total de tickets de suporte relacionados ao produto.",
-          "examples": [45, 0, 12]
+        "ticket_medio": {
+          "description": "Ticket médio dos pedidos que incluíram o produto (em BRL).",
+          "examples": [250.0, 45.0, 1200.0]
         },
-        "nota_media_produto": {
+        "total_unidades_vendidas": {
+          "description": "Quantidade total acumulada de unidades vendidas do produto.",
+          "examples": [5000, 12, 890]
+        },
+        "total_avaliacoes": {
+          "description": "Quantidade total de avaliações recebidas pelo produto.",
+          "examples": [450, 10, 1200]
+        },
+        "media_nota_produto": {
           "description": "Nota média de avaliação do produto em estrelas.",
           "examples": [4.7, 3.2, 5.0]
+        },
+        "media_nota_nps": {
+          "description": "Média da nota NPS dos clientes que avaliaram o produto.",
+          "examples": [8.5, 7.0, 9.2]
         },
         "pct_recomendacoes_sim": {
           "description": "Percentual de clientes que recomendariam o produto (0–100).",
           "examples": [92.5, 45.0, 100.0]
+        },
+        "total_tickets": {
+          "description": "Quantidade total de tickets de suporte relacionados ao produto.",
+          "examples": [45, 0, 12]
+        },
+        "media_tempo_resolucao_horas": {
+          "description": "Tempo médio de resolução dos tickets relacionados ao produto (em horas).",
+          "examples": [12.5, 48.0, 2.0]
+        },
+        "media_nota_suporte": {
+          "description": "Nota média de satisfação dos tickets relacionados ao produto.",
+          "examples": [4.5, 3.8, 5.0]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -304,21 +418,57 @@
           "description": "Chave surrogate da data (ex: AAAAMMDD).",
           "examples": ["20240115", "20241201", "20240630"]
         },
-        "data_completa": {
-          "description": "Data no formato ISO (YYYY-MM-DD).",
-          "examples": ["2024-01-15", "2024-12-01", "2024-06-30"]
+        "ano": {
+          "description": "Ano da data.",
+          "examples": [2024, 2023, 2025]
         },
         "mes": {
           "description": "Número do mês (1–12).",
           "examples": [1, 12, 6]
         },
-        "ano": {
-          "description": "Ano da data.",
-          "examples": [2024, 2023, 2025]
+        "dia": {
+          "description": "Dia do mês (1–31).",
+          "examples": [1, 15, 31]
         },
         "trimestre": {
           "description": "Trimestre do ano (1, 2, 3, 4).",
           "examples": [1, 4, 2]
+        },
+        "dia_semana_num": {
+          "description": "Número do dia da semana (0=domingo, 6=sábado).",
+          "examples": [0, 1, 5]
+        },
+        "dia_do_ano": {
+          "description": "Dia do ano (1–366).",
+          "examples": [1, 100, 365]
+        },
+        "semana_do_ano": {
+          "description": "Semana do ano (1–53).",
+          "examples": [1, 26, 52]
+        },
+        "nome_mes": {
+          "description": "Nome do mês em português.",
+          "examples": ["Janeiro", "Fevereiro", "Dezembro"]
+        },
+        "nome_dia_semana": {
+          "description": "Nome do dia da semana em português.",
+          "examples": ["Segunda-feira", "Sexta-feira", "Domingo"]
+        },
+        "ano_mes": {
+          "description": "Ano e mês concatenados (AAAAMM).",
+          "examples": ["202401", "202412", "202406"]
+        },
+        "trimestre_label": {
+          "description": "Label do trimestre (ex: 2024-T1).",
+          "examples": ["2024-T1", "2024-T2", "2024-T4"]
+        },
+        "fim_de_semana": {
+          "description": "Indicador se o dia é fim de semana (1 = sim, 0 = não).",
+          "examples": [1, 0]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -341,6 +491,10 @@
         "tempo_medio_resolucao": {
           "description": "Tempo médio de resolução dos tickets do agente (em horas).",
           "examples": [12.5, 48.0, 2.0]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     },
@@ -359,6 +513,68 @@
         "nota_media_satisfacao": {
           "description": "Média das notas de satisfação dos clientes para esse tipo de problema.",
           "examples": [3.5, 4.2, 4.8]
+        },
+        "tempo_medio_resolucao_horas": {
+          "description": "Tempo médio de resolução dos tickets desse tipo (em horas).",
+          "examples": [12.5, 48.0, 2.0]
+        }
+      }
+    },
+    "gold_categoria": {
+      "display_name": "categorias",
+      "description": "Tabela agregada (gold) com métricas e atributos por categoria de produto.",
+      "columns": {
+        "id_categoria": {
+          "description": "Identificador único da categoria.",
+          "examples": ["CAT-01", "ELEC", "MOVE"]
+        },
+        "nome_categoria": {
+          "description": "Nome da categoria de produto.",
+          "examples": ["Eletrônicos", "Móveis", "Vestuário"]
+        },
+        "slug_categoria": {
+          "description": "Slug da categoria para URLs.",
+          "examples": ["eletronicos", "moveis", "vestuario"]
+        },
+        "imagem_url": {
+          "description": "URL da imagem representativa da categoria.",
+          "examples": ["https://cdn.example.com/cat/eletronicos.jpg"]
+        },
+        "total_produtos": {
+          "description": "Quantidade total de produtos na categoria.",
+          "examples": [150, 12, 890]
+        },
+        "total_produtos_ativos": {
+          "description": "Quantidade de produtos ativos na categoria.",
+          "examples": [140, 10, 850]
+        },
+        "total_com_estoque": {
+          "description": "Quantidade de produtos com estoque disponível.",
+          "examples": [130, 8, 800]
+        },
+        "preco_medio": {
+          "description": "Preço médio dos produtos da categoria (em BRL).",
+          "examples": [250.0, 45.0, 120.0]
+        },
+        "preco_minimo": {
+          "description": "Preço mínimo dos produtos da categoria (em BRL).",
+          "examples": [10.0, 5.0, 50.0]
+        },
+        "preco_maximo": {
+          "description": "Preço máximo dos produtos da categoria (em BRL).",
+          "examples": [5000.0, 1000.0, 500.0]
+        },
+        "peso_medio_kg": {
+          "description": "Peso médio dos produtos da categoria (em kg).",
+          "examples": [0.5, 1.5, 0.2]
+        },
+        "total_precisa_revisao": {
+          "description": "Quantidade de produtos da categoria que precisam de revisão.",
+          "examples": [5, 1, 10]
+        },
+        "timestamp_ingestion_gold": {
+          "description": "Timestamp de ingestão na camada gold.",
+          "examples": ["2024-01-15T10:00:00", "2024-12-01T08:30:00"]
         }
       }
     }

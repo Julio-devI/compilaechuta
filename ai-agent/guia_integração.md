@@ -1,4 +1,4 @@
-# Guia de Integração Backend — Módulo `ai-agent`
+# Guia de Integração Backend: Módulo `ai-agent`
 
 Este documento orienta o time de backend a consumir o módulo Python do agente de IA Text-to-SQL da V-Commerce. O conteúdo abaixo foi validado contra a implementação atual em `src/vcommerce_ai_agent/agent.py`, `src/vcommerce_ai_agent/core/config.py`, `src/vcommerce_ai_agent/core/exceptions.py`, `src/vcommerce_ai_agent/database/db.py`, `src/vcommerce_ai_agent/llm/sql_generator.py`, `src/vcommerce_ai_agent/llm/insight_generator.py` e os testes unitários do contrato.
 
@@ -15,11 +15,15 @@ Pergunta do usuário
   -> Chamada 1 ao LLM para gerar SQL
   -> validação de segurança e schema do SQL
   -> execução read-only no SQLite
+  -> mascaramento reversível de dados sensíveis antes da Chamada 2
   -> Chamada 2 ao LLM para gerar insight
+  -> restauração local dos tokens nos textos exibíveis
   -> AgentResponse
 ```
 
 O agente não cria tabelas, não popula dados e não gerencia migrações. O banco SQLite é responsabilidade do backend.
+
+Quando a query retorna colunas marcadas como sensíveis no `schema_descriptions.json`, o agente substitui esses valores por tokens temporários antes de enviar os dados ao Gemini na Chamada 2. A restauração acontece localmente antes da montagem do `AgentResponse`. O contrato público não muda: `user_response.data` continua trazendo as linhas reais retornadas pelo banco, enquanto o mapa `token -> valor real` nunca é retornado, persistido no histórico ou exposto em `developer_debug`.
 
 ## Pré-requisitos
 
@@ -37,6 +41,7 @@ Variáveis reconhecidas:
 | `GEMINI_API_KEY` | Chave obrigatória para chamadas ao Gemini. A falha aparece como erro estruturado `LLM_AUTHENTICATION_ERROR`. |
 | `DB_PATH` | Caminho padrão do SQLite, caso o backend opte por ler do ambiente e repassar ao agente. |
 | `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2. Padrão atual: `0.3`. |
+| `LLM_TEMPERATURE_SUGGESTIONS` | Temperatura da geração de sugestões iniciais (`initial_suggestions`). Padrão atual: `0.5`. |
 
 ## Instalação e Importação no Backend
 
@@ -189,12 +194,45 @@ logger.warning(
 return response.user_response
 ```
 
-### `initial_suggestions() -> list[str]`
+### `async initial_suggestions(previous_suggestions: list[str] | None = None) -> list[str]`
 
-Retorna uma lista fixa de 20 perguntas sugeridas, cobrindo vendas, produtos, clientes, suporte, avaliações e navegação. O backend pode devolver todas ou selecionar um subconjunto para o frontend.
+Gera dinamicamente 5 perguntas de exemplo para o início da conversa, com base no schema real do banco. Em caso de falha esperada (LLM indisponível, schema inválido, resposta malformada), retorna uma lista de 5 perguntas de fallback.
 
 ```python
-suggestions = agent.initial_suggestions()
+suggestions = await agent.initial_suggestions()
+
+next_suggestions = await agent.initial_suggestions(
+    previous_suggestions=suggestions
+)
+```
+
+Comportamento:
+
+- O método é assíncrono e pode consumir 1 chamada ao LLM.
+- Não depende de histórico de conversa; não lê nem altera `self._history`.
+- Não executa queries no banco.
+- Retorna exatamente 5 perguntas em português brasileiro.
+- Aceita `previous_suggestions` para evitar repetir perguntas já exibidas quando o usuário clicar várias vezes no botão.
+- Falhas esperadas retornam fallback local sem quebrar o backend.
+
+Exemplo de uso em um endpoint FastAPI para o botão de perguntas de exemplo:
+
+```python
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class SuggestionsRequest(BaseModel):
+    previous_suggestions: list[str] = Field(default_factory=list)
+
+
+@router.post("/ai-agent/suggestions")
+async def get_suggestions(payload: SuggestionsRequest) -> dict[str, Any]:
+    suggestions = await agent.initial_suggestions(
+        previous_suggestions=payload.previous_suggestions
+    )
+    return {"suggestions": suggestions}
 ```
 
 ### `invalidate_schema() -> None`
@@ -472,6 +510,7 @@ class ResponseError:
 | `sql_validation` | `SQL_PARSE_ERROR` | Não | SQL não pôde ser parseado durante a validação de segurança após tentativas de correção. |
 | `sql_validation` | `SCHEMA_VIOLATION_ALLOWLIST` | Não | SQL usa tabela/coluna fora do schema permitido. |
 | `sql_validation` | `SCHEMA_VIOLATION_SEMANTIC` | Não | SQL referencia coluna fora da tabela/alias correto. |
+| `sql_validation` | `SENSITIVE_DATA_MASKING_ERROR` | Não | Falha ao mascarar coluna sensível antes da Chamada 2, por exemplo `SELECT *` inseguro ou agregação `MIN`/`MAX` sobre dado pessoal. |
 | `database` | `EXECUTION_TIMEOUT` | Sim | Query excedeu timeout configurado. |
 | `database` | `DB_EXECUTION_ERROR` | Não | SQLite falhou ao executar a query. |
 | `insight_generation` | `INSIGHT_PARSE_ERROR` | Sim | Chamada 2 retornou JSON fora do contrato. |
@@ -483,6 +522,7 @@ class ResponseError:
 | `llm` | `LLM_INVALID_REQUEST_ERROR` | Não | Requisição inválida ou modelo indisponível. |
 | `llm` | `LLM_INTERNAL_ERROR` | Sim | Erro interno do provedor. |
 | `llm` | `LLM_UNKNOWN_ERROR` | Não | Falha não categorizada. |
+| (interno) | `UNKNOWN_GUARDRAIL` | Não | Fallback defensivo interno. Nunca emitido pelos guardrails atuais; existe como valor padrão do `GuardrailError` para extensões futuras. |
 
 ## Tratamento Recomendado no Backend
 
@@ -516,6 +556,8 @@ O agente sempre extrai o schema técnico diretamente do SQLite. O arquivo `schem
 - `description`: descrição da tabela ou coluna.
 - `columns`: metadados das colunas.
 - `examples`: exemplos de valores para orientar o LLM.
+- `sensitive`: marca uma coluna como sensível para mascaramento antes da Chamada 2.
+- `mask_label`: prefixo usado nos tokens temporários, como `Cliente_1` ou `Pedido_1`.
 
 O pacote inclui um arquivo padrão em `src/vcommerce_ai_agent/database/schema_descriptions.json`, mas em produção o backend deve preferir um arquivo externo configurável:
 
@@ -560,6 +602,12 @@ Exemplo curto e completo:
           "description": "Identificador único do cliente.",
           "examples": [101, 102]
         },
+        "nome_cliente": {
+          "description": "Nome completo ou razão social do cliente.",
+          "examples": ["Maria Silva", "Loja Exemplo Ltda"],
+          "sensitive": true,
+          "mask_label": "Cliente"
+        },
         "regiao": {
           "description": "Região comercial do cliente.",
           "examples": ["Sul", "Sudeste"]
@@ -579,6 +627,8 @@ Validações aplicadas no carregamento:
 - `columns`, quando presente, deve ser objeto.
 - Cada coluna deve ter metadados em objeto.
 - `examples`, quando presente, deve ser lista.
+- `sensitive`, quando presente, deve ser booleano.
+- `mask_label`, quando presente, deve ser string não vazia.
 
 Se a estrutura for inválida, `ask()` retorna `status="error"` com `developer_debug.error.stage == "schema"` e `code == "SCHEMA_LOAD_ERROR"`.
 
@@ -596,10 +646,11 @@ O agente aplica validações em camadas:
 
 - Input vazio, longo demais ou tipo inválido.
 - Detecção de prompt injection e pedido de exfiltração de instruções.
-- Bloqueio de operações destrutivas como `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA` e `VACUUM`.
+- Apenas queries `SELECT` são permitidas. Qualquer operação não-SELECT (incluindo `DELETE`, `DROP`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `ATTACH`, `DETACH`, `PRAGMA`, `VACUUM` e outras) é bloqueada automaticamente via análise AST.
 - Bloqueio de múltiplos statements.
 - Bloqueio de tabelas/colunas fora do allowlist extraído do schema real.
 - Validação semântica de colunas por tabela/alias.
+- Mascaramento reversível de colunas sensíveis antes da Chamada 2.
 - Adição automática de `LIMIT` quando a query não possui limite.
 - Execução SQLite em modo read-only para arquivos em disco.
 
@@ -610,9 +661,49 @@ O backend ainda deve manter seus próprios controles de autenticação, autoriza
 - A primeira chamada após inicializar o agente carrega e formata o schema; chamadas seguintes usam cache.
 - Chame `invalidate_schema()` depois de mudanças no banco ou no arquivo de descrições.
 - O prompt de insight recebe no máximo 100 linhas de dados para preservar contexto, mas `user_response.data` mantém as linhas retornadas pelo banco até `max_rows`.
+- Dados sensíveis retornados pela query são mascarados antes da Chamada 2 e restaurados localmente nos textos exibíveis.
 - Falhas transitórias do LLM têm retry automático interno com backoff.
 - Perguntas fora do escopo não retornam `ResponseError`; elas usam `status="out_of_scope"`.
 - Pedidos por tabelas ocultas, internas ou fora do schema autorizado são bloqueados antes da chamada ao LLM.
+
+## Logging e Observabilidade
+
+O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. O backend deve configurar handlers, nível e formato. O pacote **nunca** chama `logging.basicConfig`.
+
+Exemplo de configuração mínima no backend:
+
+```python
+import logging
+
+vcommerce_logger = logging.getLogger("vcommerce_ai_agent")
+vcommerce_logger.setLevel(logging.INFO)
+
+# Opcional: adicionar um handler se o root logger ainda nao estiver configurado
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
+vcommerce_logger.addHandler(handler)
+```
+
+Eventos úteis para dashboards:
+
+| Evento | Nível | Campos úteis para dashboards |
+|---|---|---|
+| `ask_started` | INFO | `model` |
+| `schema_loaded` | INFO | `elapsed_ms` |
+| `sql_generated` | INFO | `elapsed_ms`, `tokens_used`, `model` |
+| `layer_2_blocked` | WARNING | `error_code`, `stage`, `attempt` |
+| `query_executed` | INFO | `elapsed_ms`, `rows_count`, `truncated` |
+| `sensitive_masking_applied` | INFO | `masked_columns_count` |
+| `insight_generated` | INFO | `elapsed_ms`, `tokens_used`, `model` |
+| `ask_finished` | INFO | `status`, `total_time_ms`, `tokens_used`, `error_code` |
+| `llm_retry_attempted` | INFO | `attempt`, `error_code`, `backoff_seconds` |
+
+Interpretação de níveis:
+
+- `INFO` indica progresso normal do pipeline.
+- `WARNING` indica tentativas de ataque (prompt injection, `layer_2_blocked`) ou situações que exigem atenção. O backend pode usar esses eventos para alertas de segurança.
+
+O pacote garante que nenhum log contém PII: a pergunta do usuário, dados do banco, mapa de tokens e nomes de colunas sensíveis nunca aparecem nos extras dos eventos. O campo `sql` é incluído apenas em eventos de erro, como `layer_2_blocked`, para facilitar auditoria de tentativas maliciosas.
 
 ## Checklist de Integração
 

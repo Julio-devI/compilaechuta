@@ -1,4 +1,4 @@
-# Decisões Arquiteturais — V-Commerce CRM 360: Agente de IA
+# Decisões Arquiteturais: V-Commerce CRM 360, Agente de IA
 
 > Registro das decisões arquiteturais tomadas durante o desenvolvimento do projeto.
 
@@ -36,9 +36,9 @@
 
 - **Decisão:** Organizar os guardrails em três camadas sequenciais:
 
-  - **Camada 1 (pré-LLM):** validação do input do usuário — rejeita string vazia, limita tamanho da pergunta.
+  - **Camada 1 (pré-LLM):** validação do input do usuário. Rejeita string vazia e limita tamanho da pergunta.
 
-  - **Camada 2 (pós-LLM):** validação do SQL gerado — remove comentários, bloqueia queries destrutivas, detecta múltiplos statements, valida allowlist de tabelas/colunas contra o schema real e verifica semântica das colunas referenciadas.
+  - **Camada 2 (pós-LLM):** validação do SQL gerado. Remove comentários, bloqueia queries destrutivas, detecta múltiplos statements, valida allowlist de tabelas/colunas contra o schema real e verifica semântica das colunas referenciadas.
 
   - **Camada 3 (execução):** conexão SQLite read-only (`?mode=ro`), timeout de execução e truncamento de resultados.
 
@@ -54,7 +54,7 @@
 
 - **Decisão:** Manter o schema técnico extraído dinamicamente do SQLite (`PRAGMA table_info`, `PRAGMA foreign_key_list`) em `db.py`, e os metadados descritivos (descrições de tabelas/colunas e exemplos de valores) em um arquivo JSON estático (`schema_descriptions.json`). A combinação ocorre em `schema.py`.
 
-- **Justificativa:** O schema técnico muda sempre que o time de engenharia de dados altera o banco, portanto precisa ser dinâmico. Já os metadados de negócio são conhecimento de domínio mantido pelo time de dados/análise e não mudam automaticamente — manter em JSON estático evita dependência de comentários no banco e permite versionamento separado.
+- **Justificativa:** O schema técnico muda sempre que o time de engenharia de dados altera o banco, portanto precisa ser dinâmico. Já os metadados de negócio são conhecimento de domínio mantido pelo time de dados/análise e não mudam automaticamente. Mantê-los em JSON estático evita dependência de comentários no banco e permite versionamento separado.
 
 - **Implicações:** O arquivo `schema_descriptions.json` precisa ser atualizado manualmente quando novas tabelas/colunas forem adicionadas ao modelo de dados. Tabelas ausentes no JSON ainda aparecem no prompt, mas sem descrições.
 
@@ -100,7 +100,7 @@
 
 - **Contexto:** SQL exige precisão, mas insights beneficiam-se de uma resposta mais natural.
 
-- **Decisão:** Temperatura `0.0` na Chamada 1 (SQL — determinístico) e `0.3` na Chamada 2 (insight — criativo mas controlado).
+- **Decisão:** Temperatura `0.0` na Chamada 1 (SQL, determinístico) e `0.3` na Chamada 2 (insight, criativo mas controlado).
 
 - **Justificativa:** SQL é uma linguagem formal: variações criativas na sintaxe aumentam o risco de erros de execução. Temperatura zero maximiza a reprodutibilidade e correção da query. Já o insight é texto em português, onde uma temperatura moderada (0.3) produz respostas mais naturais e contextualizadas sem inventar dados.
 
@@ -112,7 +112,7 @@
 
 - **Contexto:** Os system prompts são extensos e precisam ser iterados sem alterar código Python.
 
-- **Decisão:** Manter `sql_system.txt` e `insight_system.txt` em `src/prompts/`, carregados em runtime com substituição de placeholders (`{schema}`, `{question}`, `{data}`, `{sql}`).
+- **Decisão:** Manter `sql_system.txt` e `insight_system.txt` em `src/vcommerce_ai_agent/llm/prompts/`, carregados em runtime com substituição de placeholders (`{schema}`, `{question}`, `{data}`, `{sql}`).
 
 - **Justificativa:** Prompts em arquivos externos permitem ajustes de engenharia de prompt (few-shot examples, regras de formatação) sem reimplantação de código. Isso acelera iterações com o time de dados e facilita testes A/B de diferentes versões de prompt.
 
@@ -186,11 +186,11 @@
 
 ### DA-14: Allowlist Configurável com Exclusão de Tabelas Sensíveis
 
-- **Contexto:** O banco pode conter tabelas sensíveis (ex.: dados de usuários do sistema, auditoria, logs internos) que não devem ser expostas ao agente nem consultadas pelos analistas de negócio. O allowlist de tabelas e colunas alimenta tanto o schema enviado ao prompt do LLM quanto as validações dos guardrails da Camada 2. Se uma tabela sensível aparecer no prompt, o LLM pode gerar SQL consultando-a — mesmo que o allowlist técnico a bloqueie depois.
+- **Contexto:** O banco pode conter tabelas sensíveis (ex.: dados de usuários do sistema, auditoria, logs internos) que não devem ser expostas ao agente nem consultadas pelos analistas de negócio. O allowlist de tabelas e colunas alimenta tanto o schema enviado ao prompt do LLM quanto as validações dos guardrails da Camada 2. Se uma tabela sensível aparecer no prompt, o LLM pode gerar SQL consultando-a, mesmo que o allowlist técnico a bloqueie depois.
 
 - **Decisão:** `excluded_tables` é um parâmetro do construtor `VCommerceAgent.__init__(db_path, excluded_tables=None)`. O backend passa o conjunto de tabelas sensíveis ao instanciar o agente. Esse conjunto é aplicado em dois pontos: (1) `format_schema()` omite as tabelas do texto enviado ao prompt do LLM, e (2) `build_allowlist()` omite as mesmas tabelas do allowlist usado pelos guardrails G9 e G10. O filtro é aplicado em runtime e reflete o estado atual do banco.
 
-- **Justificativa:** O backend conhece o schema completo do sistema e controla quais tabelas são sensíveis. O módulo ai-agent não deve precisar saber quais tabelas são sensíveis — ele apenas aplica o filtro recebido via parâmetro de construtor. Isso desacopla a política de segurança (backend) da implementação técnica (ai-agent). Filtrar apenas no allowlist dos guardrails (Camada 2) não é suficiente: o LLM ainda vê a tabela no schema e pode alucinar queries válidas sintaticamente mas inválidas semanticamente (ex.: JOIN com tabela sensível usando colunas que não existem). Remover a tabela do prompt elimina a alucinação por construção.
+- **Justificativa:** O backend conhece o schema completo do sistema e controla quais tabelas são sensíveis. O módulo ai-agent não deve precisar saber quais tabelas são sensíveis; ele apenas aplica o filtro recebido via parâmetro de construtor. Isso desacopla a política de segurança (backend) da implementação técnica (ai-agent). Filtrar apenas no allowlist dos guardrails (Camada 2) não é suficiente: o LLM ainda vê a tabela no schema e pode alucinar queries válidas sintaticamente mas inválidas semanticamente (ex.: JOIN com tabela sensível usando colunas que não existem). Remover a tabela do prompt elimina a alucinação por construção.
 
 - **Implicações:** O backend controla a lista de tabelas sensíveis e as passa ao instanciar `VCommerceAgent`. Tabelas excluídas ficam invisíveis para o LLM e bloqueadas pelos guardrails. O cache do schema (`invalidate_schema()`) invalida o allowlist junto, garantindo consistência após mudanças.
 
@@ -202,7 +202,7 @@
 
 - **Decisão:** Em vez de rejeitar imediatamente, o agente tenta corrigir o SQL automaticamente usando o próprio LLM. O pipeline captura o `GuardrailError`, monta um prompt de correção contendo o SQL problemático, a descrição técnica do erro e o schema disponível, e reinvoca o LLM. O processo se repete até 3 tentativas com backoff exponencial (1s, 2s, 4s). Se esgotar, retorna mensagem genérica ao usuário.
 
-- **Justificativa:** Erros de geração SQL são invisíveis ao usuário final: ele apenas percebe que a pergunta não foi respondida. Subir um erro genérico imediato gera frustração e interrompe o fluxo de uso. Ao usar o próprio LLM para corrigir o SQL, o agente tenta recuperar automaticamente de alucinações de schema (tabelas ou colunas inexistentes) — o tipo mais comum de falha da Camada 2 — sem exigir que o usuário reformule a pergunta. Isso melhora a percepção de confiabilidade do sistema e reduz o atrito na experiência do chat.
+- **Justificativa:** Erros de geração SQL são invisíveis ao usuário final: ele apenas percebe que a pergunta não foi respondida. Subir um erro genérico imediato gera frustração e interrompe o fluxo de uso. Ao usar o próprio LLM para corrigir o SQL, o agente tenta recuperar automaticamente de alucinações de schema (tabelas ou colunas inexistentes, o tipo mais comum de falha da Camada 2) sem exigir que o usuário reformule a pergunta. Isso melhora a percepção de confiabilidade do sistema e reduz o atrito na experiência do chat.
 
 - **Implicações:** Latência adicional de até 3 chamadas ao LLM em caso de falha (até ~7s de backoff). O trade-off é taxa de sucesso maior sem intervenção manual. O loop de autocorreção aplica-se apenas à Camada 2 (pós-LLM); falhas da Camada 1 (input do usuário) e Camada 3 (execução no banco) não disparam retry, pois não são recuperáveis via regeneração de SQL.
 
@@ -254,8 +254,8 @@
 
   - **Chamada 2 (Insight):** recebe perguntas anteriores + insights textuais, mantendo coerência narrativa entre respostas.
 
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
-- **Implicações:** O volume de tokens por chamada aumenta proporcionalmente ao tamanho do histórico. A injeção é feita via blocos de texto nos prompts (não via `message_history` nativo do PydanticAI), pois as duas chamadas usam agentes distintos com system prompts diferentes — misturar respostas SQL com respostas de insight no histórico nativo quebraria o contexto de cada chamada.
+- **Justificativa:** Injetar o histórico em ambas as chamadas permite que o agente interprete o contexto conversacional de forma completa, viabilizando follow-ups vagos como "E o ano anterior?" ou "E o vendedor X?". A Chamada 1 precisa das perguntas e SQLs anteriores para resolver referências temporais e filtros implícitos; a Chamada 2 precisa das perguntas e insights anteriores para manter coerência narrativa entre respostas consecutivas. O consumo adicional de tokens não é uma preocupação prática para o modelo atual, já que o limite de requisições diárias é atingido muito antes do limite de tokens, porém esse cenário pode mudar caso o modelo seja substituído.
+- **Implicações:** O volume de tokens por chamada aumenta proporcionalmente ao tamanho do histórico. A injeção é feita via blocos de texto nos prompts (não via `message_history` nativo do PydanticAI), pois as duas chamadas usam agentes distintos com system prompts diferentes. Misturar respostas SQL com respostas de insight no histórico nativo quebraria o contexto de cada chamada.
 
 ---
 
@@ -265,25 +265,24 @@
 
 - **Decisão:** O `VCommerceAgent` gerencia o histórico internamente em `self._history`. O método `ask(question)` armazena automaticamente cada par pergunta/resposta após uma interação bem-sucedida. O agente é responsável por truncar o histórico ao limite de `MAX_HISTORY_TURNS` e por formatar a injeção nos prompts. O método `clear_history()` permite reset explícito.
 
-- **Justificativa:** Gerenciar contexto de conversa é responsabilidade natural do agente — ele já mantém estado interno (cache de schema). Centralizar a lógica de memória no ai-agent simplifica a integração para o backend (que só precisa chamar `ask()`) e garante que o formato do histórico injetado nos prompts seja controlado pelo módulo que sabe como usá-lo. O backend não precisa conhecer detalhes internos como a inclusão de SQL ou a estratégia de truncamento.
+- **Justificativa:** Gerenciar contexto de conversa é responsabilidade natural do agente, que já mantém estado interno (cache de schema). Centralizar a lógica de memória no ai-agent simplifica a integração para o backend (que só precisa chamar `ask()`) e garante que o formato do histórico injetado nos prompts seja controlado pelo módulo que sabe como usá-lo. O backend não precisa conhecer detalhes internos como a inclusão de SQL ou a estratégia de truncamento.
 
-- **Implicações:** O backend não deve compartilhar uma instância stateful de `VCommerceAgent` entre usuários quando a memória estiver ativa. Para APIs HTTP, a fronteira detalhada em DA-30 recomenda que o backend persista o snapshot exportado pelo agente por `session_id`, restaure esse snapshot em uma instância isolada e aplique lock por sessão para controlar concorrência.
+- **Implicações:** O backend não deve compartilhar uma instância stateful de `VCommerceAgent` entre usuários quando a memória estiver ativa. Para APIs HTTP, a fronteira detalhada em DA-29 recomenda que o backend persista o snapshot exportado pelo agente por `session_id`, restaure esse snapshot em uma instância isolada e aplique lock por sessão para controlar concorrência.
 
 ---
 
-### DA-21: API de Export/Import para Persistência Opcional pelo Backend
-
+### DA-21: API de Export/Import para Persistência Opcional pelo Backend
 - **Contexto:** O gerenciamento stateful pelo ai-agent (DA-20) resolve o caso de uso padrão, mas o histórico é perdido se o servidor reiniciar ou a instância for destruída. O backend pode desejar persistir sessões de chat em banco de dados ou cache distribuído.
 
 - **Decisão:** O `VCommerceAgent` expõe dois métodos adicionais:
 
-  - `export_history() -> list[dict]` — retorna o histórico atual em formato serializável (JSON-compatível).
+  - `export_history() -> list[dict]`: retorna o histórico atual em formato serializável (JSON-compatível).
 
-  - `import_history(history: list[dict]) -> None` — restaura o histórico a partir de um snapshot previamente exportado.
+  - `import_history(history: list[dict]) -> None`: restaura o histórico a partir de um snapshot previamente exportado.
 
   O agente gerencia tudo internamente por padrão; o backend só usa export/import se quiser persistência entre restarts.
 
-- **Justificativa:** Manter a abordagem de gerenciamento interno (DA-20) como padrão simplifica o uso comum. Expor export/import permite que o backend adicione persistência sem alterar o módulo ai-agent, respeitando o princípio de que funcionalidades opcionais não devem complicar o fluxo principal. O formato serializável (`list[dict]`) é agnóstico de tecnologia de armazenamento — o backend pode usar Redis, PostgreSQL, filesystem ou qualquer outro mecanismo.
+- **Justificativa:** Manter a abordagem de gerenciamento interno (DA-20) como padrão simplifica o uso comum. Expor export/import permite que o backend adicione persistência sem alterar o módulo ai-agent, respeitando o princípio de que funcionalidades opcionais não devem complicar o fluxo principal. O formato serializável (`list[dict]`) é agnóstico de tecnologia de armazenamento, permitindo que o backend use Redis, PostgreSQL, filesystem ou qualquer outro mecanismo.
 
 - **Implicações:** O contrato de `export_history`/`import_history` torna-se parte da interface pública do agente. Alterações no formato interno do histórico exigem migração ou versionamento do snapshot. O `import_history` valida o formato recebido e aplica o truncamento de `MAX_HISTORY_TURNS` automaticamente.
 
@@ -293,9 +292,9 @@
 
 - **Contexto:** A estrutura original agrupava todos os arquivos no diretório src/ raiz e tests/ raiz, misturando componentes de diferentes naturezas (LLM, banco de dados, segurança) e tipos de teste (unitários rápidos e smoke tests lentos de integração).
 
-- **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade: src/core, src/database, src/llm, src/security e separando os testes em tests/unit/ e tests/integration/. O agent.py atua como facade na raiz do src/.
+- **Decisão:** Refatorar a arquitetura de pastas agrupando os arquivos por domínio de responsabilidade sob `src/vcommerce_ai_agent/`: `core/`, `database/`, `llm/` e `security/`. Os testes ficam separados em `tests/unit/` e `tests/integration/`. O `agent.py` atua como facade do pacote.
 
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Justificativa:** O agrupamento por domínio de responsabilidade facilita tanto a manutenção quanto a revisão do código, tornando explícita a fronteira entre componentes (LLM, banco de dados, segurança, core). Além disso, a separação entre `tests/unit/` e `tests/integration/` permite executar os testes unitários isoladamente via `pytest tests/unit/`, sem consumir chamadas de API do Gemini. Os smoke tests de integração, que dependem da API real, ficam em `tests/integration/` e são executados separadamente conforme a disponibilidade de quota.
 
 - **Implicações:** Todos os imports internos do projeto foram remapeados. As automações de CI/CD podem agora isolar a execução da pasta tests/unit/ sem consumir a cota de tokens da API do Gemini e separar testes de integração na pipeline de homologação.
 
@@ -313,54 +312,43 @@
 
 ---
 
-### DA-24: ~~Resposta Pública Estruturada com Dados do Banco~~
+### DA-24: Separação de Resposta Analítica e Origem dos Dados
 
-> **_Substituída por DA-25, DA-26 e DA-27._** _Esta entrada permanece apenas como registro histórico da primeira versão do contrato de resposta. O contrato vigente removeu os campos top-level descritos abaixo e consolidou o payload em `user_response` e `developer_debug`._
-
-- **Contexto:** O backend precisa consumir respostas previsíveis do agente e o frontend precisa renderizar seções alinhadas ao layout do Figma, sem depender de parsing de texto livre.
-- **Decisão:** `AgentResponse` passa a expor `status`, `presentation`, `data`, `chart`, `sql`, `error`, `out_of_scope` e `truncated`. O campo `error` sempre existe no contrato como objeto estruturado ou `null`, usando códigos específicos para falhas de guardrail, banco, parsing e LLM. O SQL continua sendo enviado ao backend como metadado técnico, mas não faz parte da apresentação ao usuário. O campo `data` é preenchido exclusivamente com linhas retornadas pelo banco após execução do SQL validado; a Chamada 2 gera apenas apresentação textual e sugestão de gráfico. As fontes exibíveis usam aliases de negócio definidos em `schema_descriptions.json` ou inferidos automaticamente a partir do nome físico da tabela, evitando expor nomes como `dim_cliente` ao frontend.
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
-- **Implicações:** O backend passa a consumir um contrato mais estável e consegue distinguir sucesso, erro e fora de escopo via `status`. Falhas do provedor LLM podem ser tratadas por código específico, como autenticação, rate limit, quota, timeout e indisponibilidade. O frontend pode renderizar `presentation` sem interpretar texto livre e sem conhecer nomes técnicos de tabelas. A Chamada 2 deixa de ser fonte de verdade para dados, reduzindo risco de alucinação ou divergência entre resultado SQL e visualização.
-
----
-
-### DA-25: Separação de Resposta Analítica e Origem dos Dados
-
-- **Contexto:** O backend precisa consumir separadamente o texto principal da resposta e a explicação sobre a origem dos dados, sem perder compatibilidade com consumidores que já usam o campo legado `text`.
-- **Decisão:** Adicionar `answer_text` e `sources_text` ao `AgentResponse`. O campo `text` permanece como composição compatível dos dois textos. O campo técnico `sql` permanece bruto, formatado e executável, sem sanitização.
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Contexto:** O backend precisa consumir separadamente o texto principal da resposta e a explicação sobre a origem dos dados.
+- **Decisão:** O `AgentResponse` expõe `answer_text` (resposta analítica principal) e `sources_text` (explicação curta sobre a origem dos dados) como campos distintos dentro de `user_response`. O campo técnico `sql` permanece bruto, formatado e executável, sem sanitização.
+- **Justificativa:** O campo `sources_text` é um requisito direto do case do projeto. Ele permite que o analista de dados identifique a origem dos dados retornados pelo agente e realize verificação manual quando necessário. Separar `answer_text` e `sources_text` em campos distintos dá ao frontend autonomia para renderizar cada seção de forma independente (ex.: destaque visual para fontes) e permite que o backend armazene ou audite as fontes separadamente da resposta analítica.
 - **Implicações:** O backend pode renderizar ou armazenar resposta e fontes separadamente. Textos humanos continuam usando aliases de negócio e ocultando prefixos físicos de tabelas, enquanto `sql` continua adequado para auditoria técnica.
 
 ---
 
-### DA-26: Separação de Payload Público e Debug Técnico
+### DA-25: Separação de Payload Público e Debug Técnico
 
 - **Contexto:** O backend precisa distinguir com clareza quais campos podem ser enviados ao frontend e quais campos existem apenas para auditoria, logs e troubleshooting.
 - **Decisão:** Adicionar `user_response` e `developer_debug` ao `AgentResponse` como grupos explícitos para consumo do frontend e do backend.
-- **Justificativa:** As descrições detalhadas do schema auxiliam a geração de SQL e a interpretação pelo agente, mas não são úteis para o backend. Separar payload público e debug técnico reduz ambiguidade de integração e evita que SQL, erros internos ou metadados técnicos sejam tratados como conteúdo de usuário.
+- **Justificativa:** Separar payload público e debug técnico reduz ambiguidade de integração e evita que SQL, erros internos ou metadados técnicos sejam tratados como conteúdo de usuário. O backend sabe exatamente quais campos encaminhar ao frontend (`user_response`) e quais manter apenas em logs e auditoria (`developer_debug`).
 - **Implicações:** O backend novo deve preferir `user_response` para o frontend e `developer_debug` para logs. As descrições longas das fontes permanecem internas ao agente, enquanto `sources_text` expõe apenas uma explicação curta e empresarial.
 
 ---
 
-### DA-27: Contrato Enxuto Para Integração Inicial
+### DA-26: Contrato Enxuto Para Integração Inicial
 
-- **Contexto:** O contrato entre backend e agente estava extenso e ainda não havia consumidor externo usando os campos legados.
-- **Decisão:** Remover os campos top-level legados do `AgentResponse` e manter apenas `status`, `user_response` e `developer_debug`. O payload de erro técnico permanece disponível ao backend em `developer_debug.error`.
-- **Justificativa:** Como ainda não há consumidor do contrato, posso remover a compatibilidade temporária agora para permitir uma integração inicial mais clara. O backend precisa receber erros estruturados de uso normal do agente para diagnosticar falhas sem expor detalhes técnicos ao frontend.
+- **Contexto:** O contrato entre backend e agente precisava ser simplificado para facilitar a integração inicial.
+- **Decisão:** O `AgentResponse` expõe apenas `status`, `user_response` e `developer_debug`. O payload de erro técnico permanece disponível ao backend em `developer_debug.error`.
+- **Justificativa:** Como ainda não há consumidor do contrato, um formato enxuto desde o início permite uma integração mais clara. O backend precisa receber erros estruturados de uso normal do agente para diagnosticar falhas sem expor detalhes técnicos ao frontend.
 - **Implicações:** O backend deve tratar `AgentResponse` como envelope de integração e encaminhar apenas `user_response` ao frontend. Logs, auditoria, SQL gerado e erros mapeados devem usar `developer_debug`.
 
 ---
 
-### DA-28: Pacote Python Instalável Para Integração com Backend
+### DA-27: Pacote Python Instalável Para Integração com Backend
 
 - **Contexto:** A integração anterior dependia de adicionar manualmente o diretório `ai-agent/` ao `PYTHONPATH`, e o pacote importável se chamava genericamente `src`, o que torna a integração com o backend mais frágil e menos explícita.
 - **Decisão:** Transformar o módulo em um pacote Python instalável via `pyproject.toml`, com nome de distribuição `vcommerce-ai-agent` e pacote importável `vcommerce_ai_agent`. A estrutura passa a ser `src/vcommerce_ai_agent/`, e a API pública principal é reexportada em `vcommerce_ai_agent.__init__`.
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Justificativa:** Como o módulo é desenvolvido separadamente dos demais componentes do monorepo, a evolução para pacote instalável é natural. A importação via `pip install` permite o total desacoplamento do ai-agent em relação ao frontend e ao backend, eliminando dependência de manipulação de `PYTHONPATH` e tornando o contrato de integração explícito pelo nome do pacote (`vcommerce_ai_agent`).
 - **Implicações:** O backend deve instalar o agente como dependência local, por exemplo com `pip install -e ../ai-agent`, e importar `VCommerceAgent` via `from vcommerce_ai_agent import VCommerceAgent`. Imports internos, testes e documentação passam a referenciar o pacote nomeado, reduzindo dependência de manipulação manual de path.
 
 ---
 
-### DA-29: Descrições de Schema Configuráveis Pelo Backend
+### DA-28: Descrições de Schema Configuráveis Pelo Backend
 
 - **Contexto:** O arquivo `schema_descriptions.json` contém aliases, descrições e exemplos usados pelo LLM para interpretar o schema técnico extraído do SQLite. Em produção, tabelas e colunas podem mudar, ou novos aliases podem ser necessários sem alteração de código do pacote instalável.
 - **Decisão:** Adicionar o parâmetro `schema_descriptions_path` ao `VCommerceAgent`, permitindo que o backend informe um JSON externo de descrições do schema. O arquivo padrão empacotado continua existindo como fallback quando o parâmetro não é informado. O carregamento valida a estrutura do JSON antes de usá-lo.
@@ -369,36 +357,54 @@
 
 ---
 
-### DA-30: Fronteira Entre Memória de Conversa e Concorrência
+### DA-29: Fronteira Entre Memória de Conversa e Concorrência
 
 - **Contexto:** O agente mantém memória de conversa internamente para resolver perguntas de follow-up, mas a aplicação backend pode atender múltiplas sessões e múltiplas requisições simultâneas.
 - **Decisão:** O `ai-agent` é responsável por manejar a memória de conversa: formato do histórico, validação, truncamento, injeção nos prompts, atualização após respostas bem-sucedidas e exportação/importação do snapshot. O backend é responsável por concorrência e ciclo de vida da sessão: associação por `session_id`, persistência do snapshot, isolamento entre usuários, expiração e lock por sessão.
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Justificativa:** O módulo é completamente agnóstico ao backend. Assumir responsabilidade por concorrência e gestão de múltiplos usuários acoplaria o ai-agent a detalhes de infraestrutura que variam entre stacks. Se o módulo fosse migrado para outra implementação ou outro backend, toda essa lógica precisaria ser refeita. Definir a fronteira de responsabilidades garante que cada componente tenha papel claro e independente: o agente cuida do domínio conversacional, o backend cuida do ciclo de vida das sessões.
 - **Implicações:** O backend deve tratar o histórico exportado pelo agente como dado opaco e não editar manualmente seu conteúdo. Em APIs HTTP, o fluxo recomendado é recuperar o histórico por `session_id`, instanciar/restaurar o agente, chamar `ask()`, persistir `export_history()` e serializar requisições simultâneas da mesma sessão com lock. Uma instância global compartilhada de `VCommerceAgent` não deve ser usada para conversas de múltiplos usuários com memória ativa.
 
 ---
 
-### DA-31: Parser SQL Baseado em AST com `sqlglot`
+### DA-30: Parser SQL Baseado em AST com `sqlglot`
 
 - **Contexto:** Os guardrails precisam validar SQL gerado por LLM além de padrões textuais simples, incluindo CTEs, aliases, subqueries, escopos de colunas e referências correlacionadas.
 - **Decisão:** Usar `sqlglot` como parser SQL e AST para validar comandos permitidos, múltiplos escopos, allowlist de tabelas/colunas, pertencimento semântico das colunas e extração de fontes consultadas.
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Justificativa:** Validar SQL via regex enrijece as verificações e torna as expressões frágeis diante de variações sintáticas como CTEs, subqueries e aliases. O `sqlglot` já oferece pronta a maioria das validações necessárias (parsing, extração de tabelas/colunas, resolução de escopos), resultando em código mais limpo e com melhor desempenho do que uma bateria de expressões regulares manuais.
 - **Implicações:** `sqlglot` passa a ser dependência de runtime do pacote. Os guardrails deixam de depender apenas de regex para interpretar SQL e passam a validar a estrutura parseada da query. Mudanças de versão do `sqlglot` podem afetar parsing, semântica de escopos e compatibilidade com dialeto SQLite.
 
 ---
 
-### DA-32: Fora de Escopo Sem Classificador LLM Dedicado
+### DA-31: Fora de Escopo Sem Classificador LLM Dedicado
 
 - **Contexto:** O agente precisa rejeitar perguntas que não podem ser respondidas com o schema disponível, mas cada chamada adicional ao LLM aumenta latência e consumo de quota.
 - **Decisão:** Não criar uma chamada LLM separada para classificação de escopo. A Chamada 1 retorna o marcador `FORA_DO_ESCOPO` quando a pergunta é ambígua ou impossível de responder; o pipeline detecta esse marcador antes dos guardrails de SQL e retorna `status="out_of_scope"`. Pedidos explícitos por tabelas ocultas, internas ou fora do schema são bloqueados antes do LLM por padrões locais.
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Justificativa:** O principal motivo é dar ao agente de geração de SQL uma saída explícita para perguntas que ele não consegue responder, mitigando fortemente alucinações. Sem essa saída, o modelo seria forçado a inventar SQL para qualquer pergunta recebida. Além disso, eliminar uma chamada LLM dedicada reduz latência, custo operacional e consumo de quota, o que é especialmente relevante no free tier do Gemini.
 - **Implicações:** O controle de escopo fica distribuído entre prompt de SQL, detecção local do marcador e guardrails de schema. O agente economiza uma chamada LLM por pergunta, mas a qualidade da classificação de escopo depende da aderência do modelo ao prompt e da cobertura das validações locais.
 
 ---
 
-### DA-33: Fontes Exibíveis Derivadas do SQL Validado
+### DA-32: Fontes Exibíveis Derivadas do SQL Validado
 
 - **Contexto:** O frontend precisa exibir uma explicação curta sobre a origem dos dados sem expor nomes físicos de tabelas, enquanto o backend precisa manter o SQL bruto para auditoria técnica.
 - **Decisão:** Derivar `sources_text` no código a partir do SQL validado e executado, usando AST para extrair tabelas reais, aliases de negócio de `schema_descriptions.json` e sanitização de nomes físicos. O texto de fontes gerado pelo LLM é tratado apenas como fallback quando não há fontes extraídas do SQL.
-- **Justificativa:** *Pendente — justificativa não fornecida pelo desenvolvedor.*
+- **Justificativa:** Derivar as fontes diretamente do SQL executado garante 100% de certeza sobre a origem dos dados, independentemente do que o LLM afirme ter consultado. Depender apenas do LLM para descrever as fontes pode causar problemas para os analistas que utilizam a plataforma, já que o modelo pode alucinar tabelas não consultadas ou omitir tabelas que foram. O texto gerado pelo LLM é mantido como fallback, criando redundância: se a extração via AST falhar, o fallback ainda cumpre a função.
 - **Implicações:** A origem exibida ao usuário fica ancorada nas tabelas efetivamente consultadas, reduzindo dependência do LLM para metadados de proveniência. O módulo precisa manter a lógica de extração/sanitização sincronizada com o contrato de `schema_descriptions.json` e com a estratégia de ocultação de tabelas sensíveis.
+
+---
+
+### DA-33: Mascaramento Reversível Antes da Chamada 2
+
+- **Contexto:** A Chamada 2 recebe os dados retornados pela query SQL para gerar insights. Quando esses dados contêm colunas sensíveis, enviar os valores reais ao LLM expõe informações da empresa ao provedor do modelo de IA.
+- **Decisão:** Mascarar valores sensíveis depois da execução SQL e antes da Chamada 2, usando tokens temporários por requisição (ex.: `Email_1`, `Cliente_1`) e um mapa local de reversão mantido apenas em memória. A Chamada 2 recebe somente dados mascarados. Após o retorno do LLM, o agente substitui os tokens pelos valores reais antes de montar o `AgentResponse`.
+- **Justificativa:** O objetivo do mascaramento é proteger os dados sensíveis da empresa exclusivamente na fronteira de comunicação com o provedor do LLM (Gemini), impedindo que essas informações sejam enviadas à API externa. Este mascaramento reversível é restrito ao agente; o processo é revertido antes da resposta final, garantindo que o usuário da plataforma receba os dados reais de forma transparente e não perceba diferença no output.
+- **Implicações:** O `schema_descriptions.json` passa a marcar colunas sensíveis que devem ser mascaradas antes da Chamada 2. O mapa `token -> valor real` não pode ser enviado ao LLM, retornado no contrato, serializado no histórico ou registrado em logs. A resposta final pode voltar a conter os valores reais quando a política da plataforma permitir exibição ao usuário autorizado. O contrato atual de comunicação com o backend deve permanecer inalterado; mascaramento e reversão são responsabilidades internas do módulo `ai-agent`.
+
+---
+
+### DA-34: Sugestões Iniciais Dinâmicas Baseadas no Schema
+
+- **Contexto:** O backend precisa expor um botão de perguntas de exemplo no início do chat. Essas perguntas devem ser úteis para o banco disponível, mas não devem depender de histórico conversacional.
+- **Decisão:** `initial_suggestions(previous_suggestions=None)` passa a gerar 5 perguntas dinamicamente via LLM, usando o schema formatado, um prompt dedicado e, quando informado, o conjunto de perguntas já exibidas ao usuário. Em caso de falha esperada, o método retorna uma lista local de 5 perguntas balanceadas por domínio, também evitando perguntas anteriores quando houver alternativas disponíveis.
+- **Justificativa:** O recurso é acionado no início da conversa e pode ser usado várias vezes pelo botão de perguntas de exemplo. As sugestões devem refletir o banco disponível, não depender do contexto conversacional e evitar repetir perguntas já exibidas ao usuário. O fallback local mantém a experiência estável quando a API do LLM estiver indisponível ou retornar payload inválido.
+- **Implicações:** A chamada de sugestões passa a ser assíncrona e pode consumir uma chamada ao LLM. O backend deve usar `await agent.initial_suggestions(previous_suggestions=...)`, repassando as perguntas já renderizadas no chat quando o usuário solicitar novas sugestões, e tratar o retorno como uma lista sempre segura para exibição.

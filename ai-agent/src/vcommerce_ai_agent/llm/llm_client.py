@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from google.api_core import exceptions as google_exceptions
 from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelHTTPError
@@ -18,6 +19,7 @@ from pydantic_ai.models.gemini import GeminiModel
 from pydantic_ai.settings import ModelSettings
 
 from vcommerce_ai_agent.core import config
+from vcommerce_ai_agent.core.logger import logger
 from vcommerce_ai_agent.core.exceptions import (
     LLMAuthenticationError,
     LLMError,
@@ -226,6 +228,15 @@ class LLMAgent:
                 if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
                     raise mapped from exc
                 last_error = mapped
+            except httpx.TimeoutException as exc:
+                mapped = LLMTimeoutError(
+                    "A API Gemini demorou demais para responder. "
+                    "Tente novamente ou simplifique a pergunta.",
+                    original_error=exc,
+                )
+                if attempt == _MAX_RETRIES - 1:
+                    raise mapped from exc
+                last_error = mapped
             except TimeoutError as exc:
                 mapped = LLMTimeoutError(
                     "A API Gemini demorou demais para responder. "
@@ -240,8 +251,18 @@ class LLMAgent:
                     raise
                 last_error = exc
 
-            # Backoff exponencial: 1s, 2s, 4s
-            await asyncio.sleep(_BACKOFF_BASE_SECONDS * (2 ** attempt))
+            backoff = _BACKOFF_BASE_SECONDS * (2 ** attempt)
+            logger.info(
+                "llm_retry_attempted",
+                extra={
+                    "event": "llm_retry_attempted",
+                    "attempt": attempt + 1,
+                    "error_code": getattr(last_error, 'error_code', 'UNKNOWN') if last_error else 'UNKNOWN',
+                    "retryable": True,
+                    "backoff_seconds": backoff,
+                },
+            )
+            await asyncio.sleep(backoff)
 
         # Fallback — nunca deveria chegar aqui, mas garante tipagem segura
         if last_error is not None:

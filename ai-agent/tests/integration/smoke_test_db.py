@@ -13,17 +13,26 @@ def create_test_db(path: str) -> None:
         CREATE TABLE IF NOT EXISTS dim_cliente (
             id_cliente INTEGER PRIMARY KEY,
             nome_cliente TEXT,
+            email_cliente TEXT,
+            documento_cliente TEXT,
+            telefone_cliente TEXT,
+            cidade TEXT,
+            estado TEXT,
             regiao TEXT,
-            segmento_rfm TEXT
+            segmento_rfm TEXT,
+            qtd_pedidos_realizados INTEGER,
+            total_gasto_brl REAL,
+            qtd_tickets_suporte INTEGER
         );
         CREATE TABLE IF NOT EXISTS dim_produto (
             id_produto INTEGER PRIMARY KEY,
             nome_produto TEXT,
-            categoria TEXT,
+            id_categoria TEXT,
             preco REAL
         );
         CREATE TABLE IF NOT EXISTS fato_vendas (
             id_pedido INTEGER PRIMARY KEY,
+            id_pedido_display TEXT,
             id_cliente INTEGER,
             id_produto INTEGER,
             valor_total_venda REAL,
@@ -58,40 +67,121 @@ def create_test_db(path: str) -> None:
 
     # Dados sinteticos minimos
     cur.executemany(
-        "INSERT INTO dim_cliente (id_cliente, nome_cliente, regiao, segmento_rfm) VALUES (?, ?, ?, ?)",
+        """
+        INSERT INTO dim_cliente (
+            id_cliente,
+            nome_cliente,
+            email_cliente,
+            documento_cliente,
+            telefone_cliente,
+            cidade,
+            estado,
+            regiao,
+            segmento_rfm,
+            qtd_pedidos_realizados,
+            total_gasto_brl,
+            qtd_tickets_suporte
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
         [
-            (1, "Ana Silva", "Sudeste", "Campeões"),
-            (2, "Bruno Costa", "Nordeste", "Regulares"),
-            (3, "Carla Dias", "Sul", "Campeões"),
-            (4, "Daniel Lima", "Sudeste", "Regulares"),
-            (5, "Elisa Mendes", "Centro-Oeste", "Campeões"),
+            (
+                1,
+                "Ana Silva",
+                "ana.silva@example.com",
+                "123.456.789-01",
+                "(11) 90000-0001",
+                "São Paulo",
+                "SP",
+                "Sudeste",
+                "Campeões",
+                3,
+                6020.00,
+                2,
+            ),
+            (
+                2,
+                "Bruno Costa",
+                "bruno.costa@example.com",
+                "234.567.890-12",
+                "(81) 90000-0002",
+                "Recife",
+                "PE",
+                "Nordeste",
+                "Regulares",
+                2,
+                4620.00,
+                1,
+            ),
+            (
+                3,
+                "Carla Dias",
+                "carla.dias@example.com",
+                "345.678.901-23",
+                "(51) 90000-0003",
+                "Porto Alegre",
+                "RS",
+                "Sul",
+                "Campeões",
+                2,
+                5350.00,
+                1,
+            ),
+            (
+                4,
+                "Daniel Lima",
+                "daniel.lima@example.com",
+                "456.789.012-34",
+                "(21) 90000-0004",
+                "Rio de Janeiro",
+                "RJ",
+                "Sudeste",
+                "Regulares",
+                2,
+                1520.00,
+                1,
+            ),
+            (
+                5,
+                "Elisa Mendes",
+                "elisa.mendes@example.com",
+                "567.890.123-45",
+                "(62) 90000-0005",
+                "Goiânia",
+                "GO",
+                "Centro-Oeste",
+                "Campeões",
+                1,
+                120.00,
+                1,
+            ),
         ],
     )
 
     cur.executemany(
-        "INSERT INTO dim_produto (id_produto, nome_produto, categoria, preco) VALUES (?, ?, ?, ?)",
+        "INSERT INTO dim_produto (id_produto, nome_produto, id_categoria, preco) VALUES (?, ?, ?, ?)",
         [
-            (1, "Notebook X1", "Eletrônicos", 4500.00),
-            (2, "Mouse Sem Fio", "Eletrônicos", 120.00),
-            (3, "Cadeira Ergonômica", "Móveis", 850.00),
-            (4, "Monitor 27\"", "Eletrônicos", 1400.00),
-            (5, "Mesa Escritório", "Móveis", 600.00),
+            (1, "Notebook X1", "ELEC", 4500.00),
+            (2, "Mouse Sem Fio", "ELEC", 120.00),
+            (3, "Cadeira Ergonômica", "MOVE", 850.00),
+            (4, "Monitor 27\"", "ELEC", 1400.00),
+            (5, "Mesa Escritório", "MOVE", 600.00),
         ],
     )
 
     cur.executemany(
-        "INSERT INTO fato_vendas (id_pedido, id_cliente, id_produto, valor_total_venda, id_data, status, quantidade_vendas) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO fato_vendas (id_pedido, id_pedido_display, id_cliente, id_produto, valor_total_venda, id_data, status, quantidade_vendas) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            (1, 1, 1, 4500.00, "20240115", "Entregue", 1),
-            (2, 1, 2, 120.00, "20240120", "Entregue", 1),
-            (3, 2, 1, 4500.00, "20240210", "Entregue", 1),
-            (4, 3, 3, 850.00, "20240212", "Entregue", 1),
-            (5, 4, 4, 1400.00, "20240305", "Entregue", 1),
-            (6, 5, 2, 120.00, "20240308", "Entregue", 1),
-            (7, 2, 2, 120.00, "20240315", "Entregue", 1),
-            (8, 1, 4, 1400.00, "20240401", "Entregue", 1),
-            (9, 3, 1, 4500.00, "20240410", "Entregue", 1),
-            (10, 4, 2, 120.00, "20240412", "Entregue", 1),
+            (1, "PED-2024-0001", 1, 1, 4500.00, "20240115", "Entregue", 1),
+            (2, "PED-2024-0002", 1, 2, 120.00, "20240120", "Entregue", 1),
+            (3, "PED-2024-0003", 2, 1, 4500.00, "20240210", "Entregue", 1),
+            (4, "PED-2024-0004", 3, 3, 850.00, "20240212", "Entregue", 1),
+            (5, "PED-2024-0005", 4, 4, 1400.00, "20240305", "Entregue", 1),
+            (6, "PED-2024-0006", 5, 2, 120.00, "20240308", "Entregue", 1),
+            (7, "PED-2024-0007", 2, 2, 120.00, "20240315", "Entregue", 1),
+            (8, "PED-2024-0008", 1, 4, 1400.00, "20240401", "Entregue", 1),
+            (9, "PED-2024-0009", 3, 1, 4500.00, "20240410", "Entregue", 1),
+            (10, "PED-2024-0010", 4, 2, 120.00, "20240412", "Entregue", 1),
         ],
     )
 

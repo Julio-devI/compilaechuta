@@ -1,4 +1,4 @@
-# ai-agent — Módulo de Agente de IA (Text-to-SQL)
+# ai-agent: Módulo de Agente de IA (Text-to-SQL)
 
 Módulo Python independente que traduz perguntas em linguagem natural (português) para queries SQL, executa contra o banco de dados da V-Commerce e retorna insights de negócio estruturados.
 
@@ -47,6 +47,17 @@ agent.import_history(history)
 
 # Inicia nova conversa
 agent.clear_history()
+
+# Sugestões dinâmicas de perguntas para o botão inicial do chat
+suggestions = await agent.initial_suggestions()
+print(suggestions)
+# Exemplo: ['Qual é a receita total agrupada por região do país?', 'Quais são os principais clientes do segmento "Campeões" que mais gastaram na loja?', ...]
+
+# Ao clicar novamente no botão, envie as perguntas já exibidas para evitar repetição
+next_suggestions = await agent.initial_suggestions(
+    previous_suggestions=suggestions
+)
+print(next_suggestions)
 ```
 
 ## Contrato de Resposta
@@ -120,24 +131,46 @@ Regras do contrato:
 
 ## Estrutura
 
-- `pyproject.toml` — Metadados de pacote instalável e dependências
-- `src/vcommerce_ai_agent/agent.py` — Classe pública `VCommerceAgent` (Facade)
-- `src/vcommerce_ai_agent/core/` — Configurações e tratamento de erros customizados
-- `src/vcommerce_ai_agent/database/` — Conexão, execução SQL e extração de schema
-- `src/vcommerce_ai_agent/llm/` — Geração de prompts, chamadas à API Gemini e clientes LLM
-- `src/vcommerce_ai_agent/security/` — Validações de segurança e guardrails
-- `tests/unit/` — Testes automatizados rápidos e isolados
-- `tests/integration/` — Smoke tests contra a API real e banco sintético
+- `pyproject.toml`: Metadados de pacote instalável e dependências
+- `src/vcommerce_ai_agent/agent.py`: Classe pública `VCommerceAgent` (Facade)
+- `src/vcommerce_ai_agent/core/`: Configurações e tratamento de erros customizados
+- `src/vcommerce_ai_agent/database/`: Conexão, execução SQL e extração de schema
+- `src/vcommerce_ai_agent/llm/`: Geração de prompts, chamadas à API Gemini e clientes LLM
+- `src/vcommerce_ai_agent/security/`: Validações de segurança, guardrails e mascaramento reversível de dados sensíveis
+- `tests/unit/`: Testes automatizados rápidos e isolados
+- `tests/integration/`: Smoke tests contra a API real e banco sintético
 
 ## Testes
 
-```bash
-# Testes unitários (rápidos, sem consumo de cota API)
-pytest tests/unit/ -v
+O projeto possui três categorias de testes:
 
-# Smoke tests de integração (consomem cota API)
-pytest tests/integration/ -v
-# ou rodar os scripts python manualmente
+### 1. Testes unitários (rápidos, sem consumo de cota API)
+
+```bash
+pytest tests/unit/ -v
+```
+
+### 2. Testes de integração offline (banco SQLite temporário e LLM mockado)
+
+```bash
+pytest tests/integration/test_integration_offline.py -v
+```
+
+### 3. Smoke tests manuais (consomem cota da API Gemini real)
+
+```bash
+python tests/integration/smoke_test.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_guardrails.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_memory.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_anonymization.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_suggestions.py --api-key SUA_CHAVE
+```
+
+Também é possível passar a chave via variável de ambiente:
+
+```bash
+GEMINI_API_KEY=SUA_CHAVE python tests/integration/smoke_test.py
 ```
 
 ## Smoke Test
@@ -158,6 +191,9 @@ O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real.
 python tests/integration/smoke_test.py
 python tests/integration/smoke_test_guardrails.py
 python tests/integration/smoke_test_memory.py
+python tests/integration/smoke_test_anonymization.py
+python tests/integration/smoke_test_sensitive_data_masking.py
+python tests/integration/smoke_test_suggestions.py
 ```
 
 ### O que o script faz
@@ -173,6 +209,35 @@ python tests/integration/smoke_test_memory.py
 4. **Remove o banco temporário** automaticamente ao final (bloco `try/finally`).
 
 > **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Perguntas de fluxo feliz disparam 2 chamadas ao LLM (geração de SQL + geração de insight), perguntas fora do escopo normalmente disparam 1 chamada, e bloqueios pré-LLM disparam 0 chamadas. Cada script valida o orçamento antes de executar o próximo cenário e não deve ultrapassar 20 requisições planejadas por chave. Para reduzir estouro de quota, os smoke tests usam 1 tentativa por chamada LLM; retries continuam habilitados no agente em uso normal. Os limites dos smoke tests são constantes hardcoded e centralizadas em `tests/integration/smoke_tests_config.py`, pois refletem limites fixos do free tier.
+
+O script `smoke_test_anonymization.py` valida o fluxo principal de mascaramento reversível em três cenários: consulta agregada sem dado sensível, consulta simples com nome de cliente e consulta complexa com joins entre Vendas, Clientes, Produtos e Calendário. O cenário complexo confirma múltiplos prefixos de tokens (`Cliente_`, `Email_`, `Telefone_`, `Documento_`, `Pedido_`), restauração dos valores reais na resposta final e ausência de tokens no texto exibido ao usuário.
+
+O script `smoke_test_sensitive_data_masking.py` compara cenários com e sem mascaramento reversível, capturando os dados enviados à Chamada 2, o JSON bruto retornado pelo LLM e a resposta final restaurada pelo agente. Ele aceita `ANON_SMOKE_RUNS` e `ANON_SMOKE_QUESTION` para controlar a quantidade de rodadas ou executar uma pergunta customizada.
+
+## Logging Interno
+
+O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. O backend é responsável por configurar handlers, nível e formato. O pacote **nunca** chama `logging.basicConfig`.
+
+Eventos principais emitidos:
+
+- `ask_started` — início do processamento de uma pergunta.
+- `prompt_injection_detected` — tentativa de prompt injection detectada na Camada 1.
+- `schema_loaded` — schema carregado com sucesso.
+- `sql_generated` — SQL gerado pela Chamada 1.
+- `layer_2_blocked` — guardrail da Camada 2 bloqueou o SQL (nível WARNING).
+- `sql_correction_attempted` — tentativa de correção automática do SQL.
+- `query_executed` — query executada no banco.
+- `sensitive_masking_applied` — dados sensíveis foram mascarados antes da Chamada 2.
+- `insight_generated` — insight gerado pela Chamada 2.
+- `ask_finished` — fim do processamento, com status e métricas.
+- `suggestions_started`, `suggestions_generated`, `suggestions_fallback`, `suggestions_finished` — ciclo de geração de sugestões iniciais.
+- `llm_retry_attempted` — retry automático em caso de instabilidade do LLM.
+
+Garantias de segurança nos logs:
+
+- Nenhum log contém a pergunta do usuário, dados retornados pelo banco, mapa de tokens ou nomes de colunas sensíveis.
+- O campo `sql` aparece apenas em eventos de erro (por exemplo, `layer_2_blocked`), nunca em logs de sucesso.
+- O backend pode usar esses eventos para dashboards de observabilidade, auditoria e alertas de segurança.
 
 ## Variáveis de Ambiente
 
@@ -200,6 +265,7 @@ O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, 
 | `sql_validation` | `MULTIPLE_STATEMENTS` | Não | Guardrail detectou múltiplos statements. |
 | `sql_validation` | `SCHEMA_VIOLATION_ALLOWLIST` | Não | SQL usa tabela ou coluna inexistente no schema permitido. |
 | `sql_validation` | `SCHEMA_VIOLATION_SEMANTIC` | Não | SQL referencia coluna fora da tabela/alias correto. |
+| `sql_validation` | `SENSITIVE_DATA_MASKING_ERROR` | Não | Falha ao mascarar coluna sensível antes da Chamada 2 (ex: SELECT * inseguro ou agregação MIN/MAX sobre dado pessoal). |
 | `database` | `EXECUTION_TIMEOUT` | Sim | Query excedeu `QUERY_TIMEOUT_SECONDS`. |
 | `database` | `DB_EXECUTION_ERROR` | Não | SQLite recusou ou falhou ao executar a query. |
 | `insight_generation` | `INSIGHT_PARSE_ERROR` | Sim | Chamada 2 retornou JSON malformado ou fora do contrato após retries. |
@@ -219,7 +285,8 @@ O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, 
 - O backend pode informar um `schema_descriptions_path` externo para manter descrições, aliases e exemplos do schema fora do pacote instalável.
 - Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
-- A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional — o escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
+- A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional. O escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
+- Dados sensíveis (ex: `nome_cliente`) são mascarados por tokens temporários antes do envio ao LLM na Chamada 2. A classificação de sensibilidade é determinística e baseada no `schema_descriptions.json`. A resposta final restaura os valores reais localmente, mas o mapa de reversão nunca cruza a fronteira do processo.
 
 ## Decisões Arquiteturais
 

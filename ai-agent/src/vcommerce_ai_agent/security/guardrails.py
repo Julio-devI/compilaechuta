@@ -18,9 +18,11 @@ import re
 import sqlglot
 import sqlglot.expressions as exp
 from sqlglot.optimizer.scope import traverse_scope
+from sqlglot.tokens import Tokenizer, TokenType
 
 from vcommerce_ai_agent.core.config import MAX_INPUT_CHARS
 from vcommerce_ai_agent.core.exceptions import GuardrailError, ErrorCode
+from vcommerce_ai_agent.core.logger import logger
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +136,10 @@ def validate_destructive_queries(sql: str) -> None:
     except Exception as exc:
         raise GuardrailError(f"Falha ao parsear SQL: {exc}", error_code=ErrorCode.SQL_PARSE_ERROR) from exc
     if not isinstance(parsed, exp.Select):
+        logger.warning(
+            "layer_2_blocked",
+            extra={"event": "layer_2_blocked", "error_code": ErrorCode.DESTRUCTIVE_QUERY.value},
+        )
         raise GuardrailError(
             f"Apenas consultas SELECT são permitidas. "
             f"Tipo detectado: {type(parsed).__name__}",
@@ -141,23 +147,50 @@ def validate_destructive_queries(sql: str) -> None:
         )
 
 
-_MULTIPLE_STATEMENTS_RE = re.compile(r";\s*\S+", re.MULTILINE)
+def _has_tokens_after_statement_separator(sql: str) -> bool:
+    """Detecta tokens reais após ponto-e-vírgula fora de string literal."""
+    tokens = Tokenizer(dialect="sqlite").tokenize(sql)
+    for index, token in enumerate(tokens):
+        if token.token_type == TokenType.SEMICOLON and tokens[index + 1:]:
+            return True
+    return False
 
 
 def validate_multiple_statements(sql: str) -> None:
     """
-    Detecta múltiplos statements separados por ponto-e-vírgula.
+    Detecta múltiplos statements via parser SQL.
 
     SQLite já recusa múltiplos statements via cursor.execute(), mas este
     guardrail atua antes da execução para permitir retry controlado.
+    O uso de AST evita falso positivo com ponto-e-vírgula dentro de
+    string literal.
 
     Args:
         sql: Query SQL bruto retornado pelo LLM.
 
     Raises:
-        GuardrailError: Se houver `;` seguido de conteúdo não-vazio.
+        GuardrailError: Se houver mais de um statement SQL.
     """
-    if _MULTIPLE_STATEMENTS_RE.search(sql):
+    try:
+        expressions = sqlglot.parse(sql, read="sqlite")
+    except Exception as exc:
+        if _has_tokens_after_statement_separator(sql):
+            raise GuardrailError(
+                "Multiplos statements SQL detectados. "
+                "Apenas um unico statement SELECT e permitido.",
+                error_code=ErrorCode.MULTIPLE_STATEMENTS
+            ) from exc
+        raise GuardrailError(
+            f"Falha ao parsear SQL para validar statements: {exc}",
+            error_code=ErrorCode.SQL_PARSE_ERROR,
+        ) from exc
+
+    statements = [expr for expr in expressions if expr is not None]
+    if len(statements) > 1:
+        logger.warning(
+            "layer_2_blocked",
+            extra={"event": "layer_2_blocked", "error_code": ErrorCode.MULTIPLE_STATEMENTS.value},
+        )
         raise GuardrailError(
             "Multiplos statements SQL detectados. "
             "Apenas um unico statement SELECT e permitido.",
@@ -207,6 +240,10 @@ def validate_table_column_allowlist(
         if table.name in cte_names:
             continue
         if table.name not in allowlist:
+            logger.warning(
+                "layer_2_blocked",
+                extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_ALLOWLIST.value},
+            )
             raise GuardrailError(
                 f"Tabela '{table.name}' nao esta no allowlist do schema.",
                 error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
@@ -227,6 +264,10 @@ def validate_table_column_allowlist(
         if col.name in select_aliases:
             continue
         if col.name not in allowed_columns:
+            logger.warning(
+                "layer_2_blocked",
+                extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_ALLOWLIST.value},
+            )
             raise GuardrailError(
                 f"Coluna '{col.name}' nao esta no allowlist do schema.",
                 error_code=ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
@@ -366,6 +407,10 @@ def validate_semantic_schema(
                     continue
                 if _semantic_column_in_parent_scope(table_ref, col_name, scope, allowlist):
                     continue
+                logger.warning(
+                    "layer_2_blocked",
+                    extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_SEMANTIC.value},
+                )
                 raise GuardrailError(
                     f"Coluna '{col_name}' (tabela '{table_ref}') "
                     f"nao pertence ao schema.",
@@ -373,6 +418,10 @@ def validate_semantic_schema(
                 )
 
             if not _semantic_unqualified_column_in_sources(col_name, scope_sources):
+                logger.warning(
+                    "layer_2_blocked",
+                    extra={"event": "layer_2_blocked", "error_code": ErrorCode.SCHEMA_VIOLATION_SEMANTIC.value},
+                )
                 raise GuardrailError(
                     f"Coluna '{col_name}' nao pertence a nenhuma "
                     f"tabela do FROM/JOIN.",
@@ -415,6 +464,10 @@ def apply_layer_2(
     try:
         parsed = sqlglot.parse_one(sql, read="sqlite")
     except Exception as exc:
+        logger.warning(
+            "layer_2_blocked",
+            extra={"event": "layer_2_blocked", "error_code": ErrorCode.SQL_PARSE_ERROR.value},
+        )
         raise GuardrailError(
             f"Falha ao parsear SQL na Camada 2: {exc}",
             error_code=ErrorCode.SQL_PARSE_ERROR
@@ -429,17 +482,17 @@ def add_limit_if_missing(
     sql: str, max_rows: int, parsed: exp.Expression | None = None
 ) -> str:
     """
-    Adiciona LIMIT max_rows ao final do SQL caso não exista.
+    Garante LIMIT máximo no statement principal.
 
     Preserva o ponto-e-vírgula final, se presente.
 
     Args:
         sql: Query SQL válido.
-        max_rows: Número máximo de linhas a serem retornadas.
+        max_rows: Número máximo de linhas permitido pela aplicação.
         parsed: AST pré-parseada do SQL. Se None, parseia internamente.
 
     Returns:
-        SQL com LIMIT injetado no final, quando necessário.
+        SQL com LIMIT injetado ou reduzido para respeitar `max_rows`.
 
     Raises:
         GuardrailError: Se o SQL não puder ser parseado.
@@ -448,15 +501,37 @@ def add_limit_if_missing(
         try:
             parsed = sqlglot.parse_one(sql, read="sqlite")
         except Exception as exc:
+            logger.warning(
+                "layer_2_blocked",
+                extra={"event": "layer_2_blocked", "error_code": ErrorCode.SQL_PARSE_ERROR.value},
+            )
             raise GuardrailError(
                 f"Falha ao parsear SQL para verificar LIMIT: {exc}",
                 error_code=ErrorCode.SQL_PARSE_ERROR
             ) from exc
 
-    if parsed.args.get("limit"):
-        return sql
+    trailing_semicolon = sql.strip().endswith(";")
+    limit = parsed.args.get("limit")
+    if limit:
+        expression = limit.args.get("expression")
+        llm_limit: int | None = None
+        if isinstance(expression, exp.Literal) and not expression.is_string:
+            try:
+                llm_limit = int(str(expression.this))
+            except ValueError:
+                llm_limit = None
+
+        if llm_limit is not None and 0 <= llm_limit <= max_rows:
+            return sql
+
+        parsed.set(
+            "limit",
+            exp.Limit(expression=exp.Literal.number(max_rows)),
+        )
+        limited_sql = parsed.sql(dialect="sqlite")
+        return limited_sql + ";" if trailing_semicolon else limited_sql
 
     stripped = sql.strip()
-    if stripped.endswith(";"):
+    if trailing_semicolon:
         return stripped[:-1].rstrip() + f" LIMIT {max_rows};"
     return stripped + f" LIMIT {max_rows}"

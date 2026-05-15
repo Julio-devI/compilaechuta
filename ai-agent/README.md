@@ -2,6 +2,11 @@
 
 Módulo Python independente que traduz perguntas em linguagem natural (português) para queries SQL, executa contra o banco de dados da V-Commerce e retorna insights de negócio estruturados.
 
+Documentos auxiliares:
+
+- [`README_INTEGRATION.md`](README_INTEGRATION.md) -> Guia para integração do módulo. 
+- [`README_DECISOES.md`](README_DECISOES.md) -> Arquivo contendo justificativas das decisões arquiteturais tomadas.
+
 ## Requisitos
 
 - Python 3.11+
@@ -308,7 +313,3 @@ O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, 
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
 - A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional. O escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
 - Dados sensíveis (ex: `nome_cliente`) são mascarados por tokens temporários antes do envio ao LLM na Chamada 2. A classificação de sensibilidade é determinística e baseada no `schema_descriptions.json`. A resposta final restaura os valores reais localmente, mas o mapa de reversão nunca cruza a fronteira do processo.
-
-## Decisões Arquiteturais
-
-As decisões arquiteturais do projeto estão documentadas em [`README_DECISOES.md`](README_DECISOES.md).

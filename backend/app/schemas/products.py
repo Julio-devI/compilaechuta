@@ -12,7 +12,6 @@ class ProductBase(BaseModel):
     estoque_disponivel: Optional[int] = 0
     ativo: Optional[str] = "Sim"
     precisa_revisao: Optional[str] = "Não"
-    descricao: Optional[str] = None
 
 class ProductCreate(ProductBase):
     id_produto: str = Field(..., description="ID manual do produto (ex: PROD-0001)")
@@ -25,7 +24,6 @@ class ProductUpdate(BaseModel):
     peso_kg: Optional[float] = Field(None, gt=0)
     estoque_disponivel: Optional[int] = Field(None, ge=0)
     ativo: Optional[str] = None  # "Sim" ou "Não"
-    descricao: Optional[str] = None
 
 class ProductResponse(ProductBase):
     id_produto: str

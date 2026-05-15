@@ -19,6 +19,7 @@ async def main():
             # Criação de índices para otimizar as queries de tickets e pedidos
             await connection.execute(text("CREATE INDEX IF NOT EXISTS idx_ticket_id_pedido ON fato_suporte_ticket(id_pedido);"))
             await connection.execute(text("CREATE INDEX IF NOT EXISTS idx_ticket_status ON fato_suporte_ticket(status);"))
+            await connection.execute(text("CREATE INDEX IF NOT EXISTS idx_ticket_status ON dim_produto(nome_produto);"))
             await connection.execute(text("CREATE INDEX IF NOT EXISTS idx_ticket_pedido_status ON fato_suporte_ticket(id_pedido, status);"))
             await connection.execute(text("CREATE INDEX IF NOT EXISTS idx_vendas_status ON fato_vendas(status);"))
             

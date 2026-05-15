@@ -3,7 +3,7 @@ from datetime import date, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, or_, func, cast, Date, Table, MetaData, Column, String
+from sqlalchemy import select, or_, func, Table, MetaData, Column, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import Cliente
@@ -76,9 +76,9 @@ async def get_all_tickets(
 
     # Convertemos a coluna datetime do banco para Date na hora de comparar
     if start_date:
-        query = query.where(cast(TicketModel.data_abertura, Date) >= start_date)
+        query = query.where(func.date(TicketModel.data_abertura) >= start_date)
     if end_date:
-        query = query.where(cast(TicketModel.data_abertura, Date) <= end_date)
+        query = query.where(func.date(TicketModel.data_abertura) <= end_date)
 
     # Filtros de Status e Categoria (Módulo 2 do Case)
     if status:
@@ -119,9 +119,9 @@ async def get_ticket_count(
     query = select(func.count(TicketModel.id_ticket))
 
     if start_date:
-        query = query.where(cast(TicketModel.data_abertura, Date) >= start_date)
+        query = query.where(func.date(TicketModel.data_abertura) >= start_date)
     if end_date:
-        query = query.where(cast(TicketModel.data_abertura, Date) <= end_date)
+        query = query.where(func.date(TicketModel.data_abertura) <= end_date)
     if status:
         query = query.where(TicketModel.status == status)
     if agente:

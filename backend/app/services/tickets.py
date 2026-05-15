@@ -41,6 +41,9 @@ async def get_all_tickets(
             detail="start_date deve ser anterior ou igual a end_date",
         )
 
+    if start_date and not end_date:
+        end_date = date.today()
+
     if skip < 0:
         raise HTTPException(
             status_code=400,
@@ -93,6 +96,9 @@ async def get_ticket_count(
             status_code=400,
             detail="start_date deve ser anterior ou igual a end_date",
         )
+
+    if start_date and not end_date:
+        end_date = date.today()
 
     return await crud.get_ticket_count(
         db,

@@ -212,9 +212,11 @@ def main() -> None:
         )
         raise SystemExit(1)
 
+    import os
     from vcommerce_ai_agent.core import config
 
     config.GEMINI_API_KEY = api_key
+    os.environ['GEMINI_API_KEY'] = api_key
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name

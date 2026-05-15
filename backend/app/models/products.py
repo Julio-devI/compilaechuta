@@ -20,6 +20,7 @@ class Produto(Base):
     estoque_disponivel = Column(Integer, default=0)
     ativo = Column(String, default="Sim")
     precisa_revisao = Column(String, default="Não")
+    descricao = Column(String, nullable=True)
     data_cadastro_produto = Column(
         DateTime(timezone=True), 
         default=get_sp_time,

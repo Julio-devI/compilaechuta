@@ -1,8 +1,10 @@
 from typing import List, Optional
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models.products import Produto
+from app.models.orders import Pedido
 from app.schemas.products import ProductCreate, ProductUpdate
 
 async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto:
@@ -81,7 +83,27 @@ async def delete_product(db: AsyncSession, id_produto: str) -> bool:
     db_product = await get_productById(db, id_produto)
     if not db_product:
         return False
-        
+
     await db.delete(db_product)
     await db.commit()
     return True
+
+
+async def get_products_by_cliente(
+    db: AsyncSession,
+    id_cliente: str,
+    skip: int = 0,
+    limit: int = 100,
+) -> tuple[int, List[Produto]]:
+    query = (
+        select(Produto)
+        .join(Pedido, Pedido.id_produto == Produto.id_produto)
+        .where(Pedido.id_cliente == id_cliente)
+        .distinct()
+    )
+
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar_one()
+
+    result = await db.execute(query.offset(skip).limit(limit))
+    return total, list(result.scalars().all())

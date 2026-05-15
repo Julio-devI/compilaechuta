@@ -8,6 +8,7 @@ from datetime import date
 from app.api.deps import get_db
 from app.services import clients as service
 from app.schemas.clients import ClienteListOut, ClienteOut
+from app.schemas.products import ProductListOut
 
 
 class StatusTicket(str, Enum):
@@ -97,3 +98,13 @@ async def tickets(
     db: AsyncSession = Depends(get_db),
 ):
     return await service.listar_tickets_cliente(db, cliente_id, status)
+
+
+@router.get("/{cliente_id}/produtos", response_model=ProductListOut)
+async def produtos_do_cliente(
+    cliente_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    return await service.listar_produtos_cliente(db, cliente_id, skip=skip, limit=limit)

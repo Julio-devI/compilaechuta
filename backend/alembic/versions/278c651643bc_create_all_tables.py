@@ -1,8 +1,8 @@
-"""create_tables
+"""create_all_tables
 
-Revision ID: 659790997f80
+Revision ID: 278c651643bc
 Revises: 
-Create Date: 2026-05-12 13:57:40.439843
+Create Date: 2026-05-13 20:47:04.058975
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '659790997f80'
+revision: str = '278c651643bc'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -73,6 +73,21 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id_categoria')
     )
     op.create_index(op.f('ix_gold_categoria_id_categoria'), 'gold_categoria', ['id_categoria'], unique=False)
+    op.create_table('gold_operador',
+    sa.Column('id_operador', sa.String(), nullable=False),
+    sa.Column('nome', sa.String(), nullable=False),
+    sa.Column('username', sa.String(), nullable=False),
+    sa.Column('email', sa.String(), nullable=False),
+    sa.Column('telefone', sa.String(), nullable=True),
+    sa.Column('role', sa.String(), nullable=False),
+    sa.Column('active', sa.Boolean(), nullable=False),
+    sa.Column('senha_hash', sa.String(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.PrimaryKeyConstraint('id_operador')
+    )
+    op.create_index(op.f('ix_gold_operador_email'), 'gold_operador', ['email'], unique=True)
+    op.create_index(op.f('ix_gold_operador_id_operador'), 'gold_operador', ['id_operador'], unique=False)
+    op.create_index(op.f('ix_gold_operador_username'), 'gold_operador', ['username'], unique=True)
     op.create_table('fato_suporte_ticket',
     sa.Column('id_ticket', sa.String(), nullable=False),
     sa.Column('id_cliente', sa.String(), nullable=False),
@@ -118,6 +133,10 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_fato_suporte_ticket_id_ticket'), table_name='fato_suporte_ticket')
     op.drop_index(op.f('ix_fato_suporte_ticket_id_cliente'), table_name='fato_suporte_ticket')
     op.drop_table('fato_suporte_ticket')
+    op.drop_index(op.f('ix_gold_operador_username'), table_name='gold_operador')
+    op.drop_index(op.f('ix_gold_operador_id_operador'), table_name='gold_operador')
+    op.drop_index(op.f('ix_gold_operador_email'), table_name='gold_operador')
+    op.drop_table('gold_operador')
     op.drop_index(op.f('ix_gold_categoria_id_categoria'), table_name='gold_categoria')
     op.drop_table('gold_categoria')
     op.drop_index(op.f('ix_dim_produto_id_produto'), table_name='dim_produto')

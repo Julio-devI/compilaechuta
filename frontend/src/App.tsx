@@ -11,10 +11,13 @@ import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
 import { EsqueciSenha } from './pages/EsqueciSenha'
-import { Cadastro } from './pages/Cadastro'
+import { RedefinirSenha } from './pages/RedefinirSenha'
+import { Operadores } from './pages/Operadores'
 import { CadastroProduto } from './pages/CadastroProduto'
 import { EditarProduto } from './pages/EditarProduto'
-import {ThemeProvider} from "./contexts/ThemeContext";
+import { ThemeProvider } from './contexts/ThemeContext'
+import { AuthProvider } from './contexts/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import { Toaster } from 'sonner'
 
 function AppLayout() {
@@ -33,29 +36,48 @@ function AppLayout() {
 
 function App() {
   return (
-      <ThemeProvider>
+    <ThemeProvider>
+      <AuthProvider>
         <Toaster position="top-right" richColors />
         <BrowserRouter>
           <Routes>
+            {/* Redireciona raiz para login */}
             <Route index element={<Navigate to="/login" replace />} />
+
+            {/* Rotas públicas */}
             <Route path="/login" element={<Login />} />
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
-            <Route path="/cadastro" element={<Cadastro />} />
-            <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/clientes" element={<Clientes />} />
-              <Route path="/pedidos" element={<Pedidos />} />
-              <Route path="/produtos" element={<Produtos />} />
-              <Route path="/produtos/novo" element={<CadastroProduto />} />
-              <Route path="/produtos/editar/:id" element={<EditarProduto />} />
-              <Route path="/suporte" element={<Suporte />} />
-              <Route path="/relatorios" element={<Relatorios />} />
-              <Route path="/chat-ia" element={<ChatIA />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+
+            {/* Rotas protegidas — qualquer usuário autenticado */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/clientes" element={<Clientes />} />
+                <Route path="/pedidos" element={<Pedidos />} />
+                <Route path="/produtos" element={<Produtos />} />
+                <Route path="/produtos/novo" element={<CadastroProduto />} />
+                <Route path="/produtos/editar/:id" element={<EditarProduto />} />
+                <Route path="/suporte" element={<Suporte />} />
+                <Route path="/relatorios" element={<Relatorios />} />
+                <Route path="/chat-ia" element={<ChatIA />} />
+                <Route path="/configuracoes" element={<Configuracoes />} />
+              </Route>
             </Route>
+
+            {/* Rotas protegidas — apenas Admin e Super Admin */}
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
+              <Route element={<AppLayout />}>
+                <Route path="/operadores" element={<Operadores />} />
+              </Route>
+            </Route>
+
+            {/* Qualquer rota desconhecida redireciona para login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </BrowserRouter>
-      </ThemeProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

@@ -1,0 +1,292 @@
+{
+  "tables": {
+    "dim_cliente": {
+      "display_name": "clientes",
+      "description": "Dimensao com dados cadastrais e comportamentais dos clientes.",
+      "columns": {
+        "id_cliente": {
+          "description": "Identificador unico do cliente.",
+          "examples": ["C001", "C002", "C003"]
+        },
+        "nome_cliente": {
+          "description": "Nome completo ou razao social do cliente.",
+          "examples": ["Maria Silva", "Loja Exemplo Ltda", "Joao Pereira"],
+          "sensitive": true,
+          "mask_label": "Cliente"
+        },
+        "cidade": {
+          "description": "Cidade do endereco do cliente.",
+          "examples": ["Sao Paulo", "Rio de Janeiro", "Belo Horizonte"]
+        },
+        "estado": {
+          "description": "Unidade federativa do cliente.",
+          "examples": ["SP", "RJ", "MG"]
+        },
+        "regiao": {
+          "description": "Regiao comercial do cliente.",
+          "examples": ["Sudeste", "Sul", "Nordeste"]
+        },
+        "qtd_pedidos_realizados": {
+          "description": "Quantidade total de pedidos realizados pelo cliente.",
+          "examples": [5, 12, 0]
+        },
+        "total_gasto_brl": {
+          "description": "Valor total gasto pelo cliente em reais.",
+          "examples": [1299.5, 5400.0, 0.0]
+        },
+        "qtd_tickets_suporte": {
+          "description": "Quantidade de tickets de suporte abertos pelo cliente.",
+          "examples": [1, 0, 3]
+        },
+        "data_ultima_compra": {
+          "description": "Data da ultima compra realizada pelo cliente.",
+          "examples": ["2026-05-10T14:30:00", "2026-04-22T09:15:00"]
+        },
+        "media_estrelas_dadas": {
+          "description": "Media de estrelas atribuidas pelo cliente em avaliacoes.",
+          "examples": [4.5, 3.0, 5.0]
+        },
+        "segmento_rfm": {
+          "description": "Segmento RFM do cliente (ex: Campeoes, Leais, Em Risco).",
+          "examples": ["Campeoes", "Leais", "Em Risco"]
+        }
+      }
+    },
+    "dim_produto": {
+      "display_name": "produtos",
+      "description": "Dimensao com dados dos produtos comercializados.",
+      "columns": {
+        "id_produto": {
+          "description": "Identificador unico do produto.",
+          "examples": ["P001", "P002", "P003"]
+        },
+        "sku": {
+          "description": "Codigo SKU do produto.",
+          "examples": ["SKU-001", "SKU-002"]
+        },
+        "nome_produto": {
+          "description": "Nome do produto.",
+          "examples": ["Notebook Pro", "Mouse Sem Fio", "Teclado Mecanico"]
+        },
+        "categoria": {
+          "description": "Nome da categoria do produto (chave para gold_categoria).",
+          "examples": ["Eletronicos", "Acessorios", "Perifericos"]
+        },
+        "fornecedor": {
+          "description": "Nome do fornecedor do produto.",
+          "examples": ["Fornecedor A", "Fornecedor B"]
+        },
+        "preco": {
+          "description": "Preco unitario do produto em reais.",
+          "examples": [2999.9, 149.5, 399.0]
+        },
+        "peso_kg": {
+          "description": "Peso do produto em quilogramas.",
+          "examples": [2.5, 0.3, 1.2]
+        },
+        "estoque_disponivel": {
+          "description": "Quantidade em estoque disponivel para venda.",
+          "examples": [50, 0, 120]
+        },
+        "ativo": {
+          "description": "Indica se o produto esta ativo no catalogo.",
+          "examples": ["Sim", "Nao"]
+        },
+        "precisa_revisao": {
+          "description": "Indica se o produto precisa de revisao.",
+          "examples": ["Sim", "Nao"]
+        },
+        "data_cadastro_produto": {
+          "description": "Data de cadastro do produto no sistema.",
+          "examples": ["2026-01-15T10:00:00", "2026-02-20T14:30:00"]
+        },
+        "total_pedidos": {
+          "description": "Total de pedidos que incluiram este produto.",
+          "examples": [150, 0, 45]
+        },
+        "receita_total": {
+          "description": "Receita total gerada pelo produto em reais.",
+          "examples": [450000.0, 0.0, 17955.0]
+        },
+        "ticket_medio": {
+          "description": "Ticket medio dos pedidos com este produto.",
+          "examples": [3000.0, 149.5, 399.0]
+        },
+        "total_unidades_vendidas": {
+          "description": "Total de unidades vendidas do produto.",
+          "examples": [150, 0, 45]
+        },
+        "total_avaliacoes": {
+          "description": "Quantidade total de avaliacoes do produto.",
+          "examples": [50, 0, 12]
+        },
+        "media_nota_produto": {
+          "description": "Media de avaliacao do produto (0 a 5).",
+          "examples": [4.8, 0.0, 3.5]
+        },
+        "media_nota_nps": {
+          "description": "Media de NPS associada ao produto.",
+          "examples": [75.0, 0.0, 60.5]
+        },
+        "pct_recomendacoes_sim": {
+          "description": "Percentual de recomendacoes positivas.",
+          "examples": [85.0, 0.0, 72.5]
+        },
+        "total_tickets": {
+          "description": "Total de tickets de suporte relacionados ao produto.",
+          "examples": [5, 0, 1]
+        },
+        "media_tempo_resolucao_horas": {
+          "description": "Media de tempo de resolucao de tickets em horas.",
+          "examples": [24.5, 0.0, 48.0]
+        },
+        "media_nota_suporte": {
+          "description": "Media de nota do suporte para tickets deste produto.",
+          "examples": [4.5, 0.0, 3.8]
+        }
+      }
+    },
+    "gold_categoria": {
+      "display_name": "categorias",
+      "description": "Dimensao agregada com metricas por categoria de produto.",
+      "columns": {
+        "id_categoria": {
+          "description": "Identificador unico da categoria.",
+          "examples": ["CAT01", "CAT02", "CAT03"]
+        },
+        "nome_categoria": {
+          "description": "Nome da categoria.",
+          "examples": ["Eletronicos", "Acessorios", "Perifericos"]
+        },
+        "imagem_url": {
+          "description": "URL da imagem representativa da categoria.",
+          "examples": ["https://exemplo.com/img1.jpg"]
+        },
+        "total_produtos": {
+          "description": "Quantidade total de produtos na categoria.",
+          "examples": [25, 10, 5]
+        },
+        "total_produtos_ativos": {
+          "description": "Quantidade de produtos ativos na categoria.",
+          "examples": [20, 8, 3]
+        },
+        "total_com_estoque": {
+          "description": "Quantidade de produtos com estoque disponivel.",
+          "examples": [18, 5, 2]
+        },
+        "preco_medio": {
+          "description": "Preco medio dos produtos da categoria.",
+          "examples": [1500.0, 200.0, 450.0]
+        },
+        "preco_minimo": {
+          "description": "Preco minimo dos produtos da categoria.",
+          "examples": [500.0, 50.0, 150.0]
+        },
+        "preco_maximo": {
+          "description": "Preco maximo dos produtos da categoria.",
+          "examples": [5000.0, 800.0, 1200.0]
+        },
+        "peso_medio_kg": {
+          "description": "Peso medio dos produtos da categoria em kg.",
+          "examples": [1.5, 0.4, 0.8]
+        },
+        "total_precisa_revisao": {
+          "description": "Quantidade de produtos que precisam de revisao.",
+          "examples": [2, 1, 0]
+        }
+      }
+    },
+    "fato_suporte_ticket": {
+      "display_name": "tickets de suporte",
+      "description": "Tabela fato com historico de tickets de suporte ao cliente.",
+      "columns": {
+        "id_ticket": {
+          "description": "Identificador unico do ticket.",
+          "examples": ["T001", "T002", "T003"]
+        },
+        "id_cliente": {
+          "description": "Chave estrangeira para dim_cliente.",
+          "examples": ["C001", "C002"]
+        },
+        "id_pedido": {
+          "description": "Identificador do pedido relacionado ao ticket.",
+          "examples": ["PED001", "PED002"]
+        },
+        "id_produto": {
+          "description": "Identificador do produto relacionado ao ticket.",
+          "examples": ["P001", "P002"]
+        },
+        "data_abertura": {
+          "description": "Data e hora de abertura do ticket.",
+          "examples": ["2026-05-01T09:00:00", "2026-05-03T14:30:00"]
+        },
+        "data_resolucao": {
+          "description": "Data e hora de resolucao do ticket.",
+          "examples": ["2026-05-02T10:00:00", null]
+        },
+        "tempo_resolucao_horas": {
+          "description": "Tempo total de resolucao em horas.",
+          "examples": [25.0, 48.5, 0.0]
+        },
+        "status": {
+          "description": "Status atual do ticket (aberto ou resolvido).",
+          "examples": ["aberto", "resolvido"]
+        },
+        "tipo_problema": {
+          "description": "Categoria do problema reportado.",
+          "examples": ["Defeito", "Duvida", "Troca"]
+        },
+        "agente_suporte": {
+          "description": "Nome do agente de suporte responsavel.",
+          "examples": ["Ana Souza", "Carlos Lima"]
+        },
+        "nota_avaliacao": {
+          "description": "Nota de avaliacao do atendimento (0 a 5).",
+          "examples": [5.0, 4.0, 3.5]
+        }
+      }
+    },
+    "fato_vendas": {
+      "display_name": "vendas",
+      "description": "Tabela fato com transacoes de vendas realizadas.",
+      "columns": {
+        "id_pedido": {
+          "description": "Identificador unico do pedido.",
+          "examples": ["PED001", "PED002", "PED003"]
+        },
+        "id_cliente": {
+          "description": "Chave estrangeira para dim_cliente.",
+          "examples": ["C001", "C002"]
+        },
+        "id_produto": {
+          "description": "Identificador do produto vendido.",
+          "examples": ["P001", "P002"]
+        },
+        "id_data": {
+          "description": "Identificador da data do pedido.",
+          "examples": ["20260501", "20260502"]
+        },
+        "quantidade_vendas": {
+          "description": "Quantidade de unidades vendidas no pedido.",
+          "examples": [1, 2, 5]
+        },
+        "valor_unitario": {
+          "description": "Valor unitario do produto no momento da venda.",
+          "examples": [2999.9, 149.5]
+        },
+        "valor_total_venda": {
+          "description": "Valor total da venda (quantidade x unitario).",
+          "examples": [2999.9, 299.0, 1995.0]
+        },
+        "status": {
+          "description": "Status do pedido (ex: entregue, em transito, cancelado).",
+          "examples": ["entregue", "em transito", "cancelado"]
+        },
+        "metodo_pagamento": {
+          "description": "Metodo de pagamento utilizado.",
+          "examples": ["cartao", "boleto", "pix"]
+        }
+      }
+    }
+  }
+}

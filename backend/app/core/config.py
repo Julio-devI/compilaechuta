@@ -17,7 +17,23 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
+
+    # AI Agent
+    GEMINI_API_KEY: Optional[str] = None
+    SCHEMA_DESCRIPTIONS_PATH: Optional[str] = None
+    LLM_TEMPERATURE_INSIGHT: float = 0.3
+
+    @property
+    def DB_PATH(self) -> str:
+        """Extrai o caminho do arquivo SQLite a partir do DATABASE_URL."""
+        url = self.DATABASE_URL
+        prefix = "sqlite+aiosqlite:///"
+        if url.startswith(prefix):
+            path = url[len(prefix):]
+            import os
+            return os.path.abspath(path)
+        return self.DATABASE_URL
+
     class Config:
         env_file = ".env"
         case_sensitive = True

@@ -9,6 +9,7 @@ from alembic import context
 
 
 from app.core.database import Base
+from app.models.ai_agent import AIAgentSession  # noqa: F401
 from app.models.clients import Cliente   # noqa: F401
 from app.models.tickets import Ticket    # noqa: F401
 from app.models.products import Produto  # noqa: F401

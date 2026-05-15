@@ -11,7 +11,7 @@ from app.schemas.orders import PedidoListOut
 async def listar_pedidos(
     db: AsyncSession,
     status: Optional[str] = None,
-    id_produto: Optional[str] = None,
+    id_pedido_display: Optional[str] = None,
     data_inicio: Optional[str] = None,
     data_fim: Optional[str] = None,
     tipo_cliente: Optional[str] = None,
@@ -23,7 +23,7 @@ async def listar_pedidos(
     total, data = await crud.get_orders(
         db=db,
         status=status,
-        id_produto=id_produto,
+        id_pedido_display=id_pedido_display,
         data_inicio=data_inicio,
         data_fim=data_fim,
         tipo_cliente=tipo_cliente,

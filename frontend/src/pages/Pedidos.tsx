@@ -345,7 +345,7 @@ export function Pedidos() {
           <Search className="w-5 h-5 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar por ID do pedido, cliente ou SKU..."
+            placeholder="Buscar por ID do pedido..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-4 bg-background rounded-2xl border-none text-foreground focus:ring-2 focus:ring-blue-500 outline-none"

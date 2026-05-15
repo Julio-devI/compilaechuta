@@ -36,8 +36,8 @@ router = APIRouter()
 async def listar(
     status:        Optional[StatusPedido] = Query(
         None, description="Filtrar por status"),
-    id_produto:    Optional[str] = Query(
-        None, description="Filtrar por produto"),
+    id_pedido_display:    Optional[str] = Query(
+        None, description="Filtrar por SKU pedido"),
     data_inicio:   Optional[str] = Query(
         None, description="Filtrar por data início (YYYY-MM-DD)"),
     data_fim:      Optional[str] = Query(
@@ -55,7 +55,7 @@ async def listar(
     return await service.listar_pedidos(
         db=db, 
         status=status, 
-        id_produto=id_produto, 
+        id_pedido_display=id_pedido_display,
         data_inicio=data_inicio, 
         data_fim=data_fim, 
         tipo_cliente=tipo_cliente, 

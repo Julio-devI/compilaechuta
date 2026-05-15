@@ -1,4 +1,5 @@
-﻿.venv/
+﻿.gitignore
+.venv/
 banco_local.db
 .env
 __pycache__/

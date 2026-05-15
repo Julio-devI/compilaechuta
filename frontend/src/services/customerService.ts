@@ -29,7 +29,7 @@ export interface FiltrosClientes {
 export function getClienteStatusStyle(segmento: string | null | undefined): string {
   if (!segmento) return 'bg-slate-100 text-slate-600 border border-slate-200';
   const s = segmento.toLowerCase();
-  
+
   if (s.includes('vip')) return 'bg-[#020854] text-white border border-[#020854]';
   if (s.includes('novo')) return 'bg-[#1E5EFF] text-white border border-[#1E5EFF]';
   if (s.includes('inativo') || s.includes('perdido')) return 'bg-slate-100 text-slate-600 border border-slate-200';
@@ -37,11 +37,11 @@ export function getClienteStatusStyle(segmento: string | null | undefined): stri
   if (s.includes('regular') || s.includes('recorrente') || s.includes('potencial') || s.includes('promissor')) return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
   if (s.includes('fiel') || s.includes('leal')) return 'bg-purple-100 text-purple-700 border border-purple-200';
   if (s.includes('risco')) return 'bg-red-100 text-red-700 border border-red-200';
-  
+
   return 'bg-slate-100 text-slate-600 border border-slate-200'; // Default
 }
 
-const API_URL = 'http://localhost:8000/clientes'
+const API_URL = 'http://localhost:8000/api/v1/clients/'
 
 export async function getClientes(
   skip: number = 0,
@@ -57,10 +57,10 @@ export async function getClientes(
     if (filtros?.search) params.append('search', filtros.search);
     if (filtros?.status && filtros.status !== 'todos') params.append('status', filtros.status);
     if (filtros?.segmento) params.append('segmento', filtros.segmento);
-    
+
     if (filtros?.lvtMin !== undefined) params.append('lvt_min', filtros.lvtMin.toString());
     if (filtros?.lvtMax !== undefined) params.append('lvt_max', filtros.lvtMax.toString());
-    
+
     if (filtros?.ticket_min !== undefined) params.append('ticket_min', filtros.ticket_min.toString());
     if (filtros?.ticket_max !== undefined) params.append('ticket_max', filtros.ticket_max.toString());
 
@@ -86,7 +86,7 @@ export async function getClientes(
         estrelas: c.media_estrelas_dadas,
         qtd_tickets_suporte: c.qtd_tickets_suporte,
         segmento: c.segmento_rfm || 'Geral',
-        status: c.segmento_rfm || 'Geral', 
+        status: c.segmento_rfm || 'Geral',
         tendencia: 'stable'
       }
     });

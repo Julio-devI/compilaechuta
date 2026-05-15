@@ -5,6 +5,9 @@ import {
   Filter, Ticket, Table, Grid
 } from 'lucide-react'
 import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
+import { ExportCsvButton, OrderFilters } from '../components/ExportCsvButton'
+import { Toaster, toast } from 'react-hot-toast'
+
 
 // --- Interfaces ---
 interface Pedido {
@@ -104,6 +107,16 @@ export function Pedidos() {
       {/* 1. Database Search Card */}
       <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6">
         <div className="flex justify-between items-center mb-4">
+          <ExportCsvButton<OrderFilters>
+            type="order"
+            filters={{
+              
+            }}
+            endpoint="/api/v1/export/csv"
+            onSuccess={(msg) => toast.success(msg)}
+            onError={(err) => toast.error(err)}
+          />
+          <Toaster position="top-right" />
           <div className="flex items-center gap-2 text-foreground font-bold">
             <span className="p-1.5 bg-background rounded-lg flex items-center justify-center">
               <Database className="w-5 h-5 text-muted-foreground" />
@@ -339,9 +352,9 @@ export function Pedidos() {
                           {[1, 2, 3, 4, 5].map((step) => (
                             <div key={step} className="flex items-center">
                               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 
-                                ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' : 
-                                  step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' : 
-                                  'bg-background border-border text-muted-foreground'}`}>
+                                ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' :
+                                  step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' :
+                                    'bg-background border-border text-muted-foreground'}`}>
                                 {step < pedido.progresso ? <CheckCircle2 className="w-4 h-4" /> : step}
                               </div>
                               {step < 5 && (
@@ -360,8 +373,8 @@ export function Pedidos() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {pedidosMock.map((pedido) => (
-              <div 
-                key={pedido.id} 
+              <div
+                key={pedido.id}
                 className="bg-card p-6 rounded-3xl border border-border flex flex-col justify-between hover:shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] transition-shadow cursor-pointer h-full"
                 onClick={() => setPedidoSelecionado(pedido)}
               >
@@ -375,7 +388,7 @@ export function Pedidos() {
                       {pedido.status.toUpperCase()}
                     </span>
                   </div>
-                  
+
                   <div className="bg-background rounded-2xl p-4 mb-4">
                     <h3 className="font-black text-[#020854] dark:text-foreground text-lg">{pedido.cliente}</h3>
                     <p className="text-muted-foreground text-sm font-medium">{pedido.cidade}, {pedido.estado}</p>
@@ -392,15 +405,15 @@ export function Pedidos() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mt-6 pt-4 border-t border-border">
                   <div className="flex items-center gap-1 justify-center">
                     {[1, 2, 3, 4, 5].map((step) => (
                       <div key={step} className="flex items-center">
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 
-                          ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' : 
-                            step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' : 
-                            'bg-background border-border text-muted-foreground'}`}>
+                          ${step < pedido.progresso ? 'bg-blue-900 border-blue-900 text-white' :
+                            step === pedido.progresso ? 'bg-red-400 border-red-400 text-white' :
+                              'bg-background border-border text-muted-foreground'}`}>
                           {step < pedido.progresso ? <CheckCircle2 className="w-3 h-3" /> : step}
                         </div>
                         {step < 5 && <div className={`w-3 h-0.5 ${step < pedido.progresso ? 'bg-blue-900' : 'bg-border'}`} />}

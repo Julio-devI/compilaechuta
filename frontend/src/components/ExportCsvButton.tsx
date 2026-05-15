@@ -24,6 +24,7 @@ export interface OrderFilters {
 type FiltersType = ClientFilters | OrderFilters;
 
 interface ExportCsvButtonProps<T extends FiltersType = FiltersType> {
+  type: 'client' | 'order';
   filters: T;
   endpoint: string;
   onSuccess?: (message: string) => void;
@@ -31,6 +32,7 @@ interface ExportCsvButtonProps<T extends FiltersType = FiltersType> {
 }
 
 export function ExportCsvButton<T extends FiltersType = FiltersType>({
+  type,
   filters,
   endpoint,
   onSuccess,
@@ -38,28 +40,58 @@ export function ExportCsvButton<T extends FiltersType = FiltersType>({
 }: ExportCsvButtonProps<T>) {
   const [isLoading, setIsLoading] = useState(false);
 
+  const formatPayload = (rawFilters: T) => {
+    if (type === 'client') {
+
+      const clientFilters = rawFilters as ClientFilters;
+      return {
+        ticket_min: clientFilters.averageTicketFloor,
+        ticket_max: clientFilters.averageTicketCeil,
+        lvt_min: clientFilters.ltvFloor,
+        lvt_max: clientFilters.ltvCeil,
+        data_inicio: clientFilters.lastOrderDateFloor,
+        data_fim: clientFilters.lastOrderDateCeil,
+        regiao: clientFilters.region,
+        status: clientFilters.rfmSegment,
+      };
+    }
+
+    else if (type === 'order') {
+
+      const orderFilters = rawFilters as OrderFilters;
+      return {
+        data_inicio: orderFilters.orderDateFloor,
+        data_fim: orderFilters.orderDateCeil,
+      };
+    }
+
+    return {};
+  };
+
   const handleExport = async () => {
     try {
       setIsLoading(true);
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(filters),
+      const mappedBody = formatPayload(filters);
+      const query = new URLSearchParams(
+        Object.entries(mappedBody)
+          .filter(([, value]) => value !== undefined && value !== null)
+          .map(([key, value]) => [key, String(value)])
+      ).toString();
+
+      const response = await fetch(`${endpoint}?${query}`, {
+        method: 'GET',
       });
 
       if (!response.ok) {
         throw new Error(`Erro ao exportar: ${response.statusText}`);
       }
 
-      // Para download de arquivo
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `export_${new Date().getTime()}.csv`;
+      link.download = type === 'client' ? `clientes_${new Date().getTime()}.csv` : `pedidos_${new Date().getTime()}.csv`;
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);

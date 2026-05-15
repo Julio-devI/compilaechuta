@@ -10,39 +10,47 @@ from app.crud import clients as crud
 from app.schemas.clients import ClienteCreate, ClienteListOut, ClienteOut
 
 
+class ClientFilters:
+    def __init__(
+        self,
+        ticket_min: Optional[float] = None,
+        ticket_max: Optional[float] = None,
+        lvt_min: Optional[float] = None,
+        lvt_max: Optional[float] = None,
+        data_inicio: Optional[date] = None,
+        data_fim: Optional[date] = None,
+        regiao: Optional[str] = None,
+        status: Optional[str] = None,
+    ):
+        self.ticket_min = ticket_min
+        self.ticket_max = ticket_max
+        self.lvt_min = lvt_min
+        self.lvt_max = lvt_max
+        self.data_inicio = data_inicio
+        self.data_fim = data_fim
+        self.regiao = regiao
+        self.status = status
+
+
 async def listar_clientes(
     db: AsyncSession,
+    filtros: ClientFilters,
     cidade: Optional[str] = None,
-    frequencia_minima: Optional[int] = None,
     status_ticket: Optional[str] = None,
+    frequencia_minima: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
-    search: str = None,
-    status: str = None,
-    ticket_min: float = None,
-    ticket_max: float = None,
-    lvt_min: float = None,
-    lvt_max: float = None,
-    data_inicio: Optional[date] = None,
-    data_fim: Optional[date] = None,
-    regiao: Optional[str] = None
+    search: str = None
 ) -> ClienteListOut:
     total, data = await crud.get_clients(
         db=db,
+        filtros=filtros,
         cidade=cidade,
         frequencia_minima=frequencia_minima,
         status_ticket=status_ticket,
         skip=skip,
         limit=limit,
         search=search,
-        status=status,
-        ticket_min=ticket_min,
-        ticket_max=ticket_max,
-        lvt_min=lvt_min,
-        lvt_max=lvt_max,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-        regiao=regiao
     )
     return ClienteListOut(total=total, skip=skip, limit=limit, data=data)
 
@@ -59,8 +67,15 @@ async def listar_tickets_cliente(db: AsyncSession, cliente_id: str, status: str)
     return await crud.get_tickets_by_status(db, cliente_id, status)
 
 
-async def exportar_clientes_csv(db: AsyncSession) -> io.StringIO:
-    clientes = await crud.get_all_clients_for_export(db)
+async def exportar_clientes_csv(
+        db: AsyncSession,
+        filtros: ClientFilters
+    ) -> io.StringIO:
+    
+    clientes = await crud.get_all_clients_for_export(
+        db=db,
+        filtros=filtros
+    )
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([

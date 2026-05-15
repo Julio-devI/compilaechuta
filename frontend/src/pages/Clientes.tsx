@@ -228,17 +228,18 @@ export function Clientes() {
         </div>
 
         <ExportCsvButton<ClientFilters>
+          type="client"
           filters={{
-            rfmSegment: selectedSegmento,
-            lastOrderDateFloor: dateRange.inicio,
-            lastOrderDateCeil: dateRange.fim,
             averageTicketFloor: ticketRange.min,
             averageTicketCeil: ticketRange.max,
-            region: regiaoSelecionada,
             ltvFloor: lvtRange.min,
-            ltvCeil: lvtRange.max
+            ltvCeil: lvtRange.max,
+            lastOrderDateFloor: dateRange.inicio,
+            lastOrderDateCeil: dateRange.fim,
+            region: regiaoSelecionada,
+            rfmSegment: filterStatus !== 'todos' ? filterStatus : undefined,
           }}
-          endpoint="/api/v1/export/csv"
+          endpoint="http://localhost:8000/api/v1/clients/exportar"
           onSuccess={(msg) => toast.success(msg)}
           onError={(err) => toast.error(err)}
         />

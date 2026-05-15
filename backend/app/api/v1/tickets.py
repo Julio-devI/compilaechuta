@@ -5,7 +5,7 @@ from datetime import date
 
 from app.api.deps import get_db
 from app.services import tickets as service
-from app.schemas.tickets import TicketCreate, TicketUpdate, TicketOut
+from app.schemas.tickets import TicketUpdate, TicketOut
 
 router = APIRouter()
 
@@ -25,12 +25,23 @@ async def get_all_tickets(
     return await service.get_all_tickets(db, skip, limit, start_date, end_date, status, agente, tipo, search)
 
 
-@router.get("/pedido/{id_pedido}", response_model=TicketOut)
-async def buscar_por_pedido(id_pedido: str, db: AsyncSession = Depends(get_db)):
-    ticket = await service.buscar_ticket_por_pedido(db, id_pedido)
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Nenhum ticket encontrado para este pedido")
-    return ticket
+@router.get("/count")
+async def get_tickets_count(
+    start_date: Optional[date] = Query(None, description="Filtro início (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Filtro fim (YYYY-MM-DD)"),
+    status: Optional[str] = Query(None, description="Status do ticket (aberto/resolvido)"),
+    agente: Optional[str] = Query(None, description="Filtrar por nome do agente de suporte"),
+    tipo: Optional[str] = Query(None, description="Filtrar por tipo de problema"),
+    search: Optional[str] = Query(None, description="Busca por ID do ticket ou cliente"),
+    db: AsyncSession = Depends(get_db),
+):
+    total = await service.get_ticket_count(db, start_date, end_date, status, agente, tipo, search)
+    return {"total": total}
+
+
+@router.get("/summary")
+async def get_tickets_summary(db: AsyncSession = Depends(get_db)):
+    return await service.get_ticket_summary(db)
 
 
 @router.get("/{ticket_id}", response_model=TicketOut)
@@ -38,9 +49,9 @@ async def get_ticket_by_id(ticket_id: str, db: AsyncSession = Depends(get_db)):
     return await service.get_ticket_by_id(db, ticket_id)
 
 
-@router.post("/", response_model=TicketOut, status_code=201)
-async def create_ticket(ticket: TicketCreate, db: AsyncSession = Depends(get_db)):
-    return await service.create_ticket(db, ticket)
+@router.get("/pedido/{order_id}", response_model=Optional[TicketOut])
+async def get_ticket_by_order(order_id: str, db: AsyncSession = Depends(get_db)):
+    return await service.buscar_ticket_por_pedido(db, order_id)
 
 
 @router.patch("/{ticket_id}", response_model=TicketOut)

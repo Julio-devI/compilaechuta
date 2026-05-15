@@ -1,122 +1,354 @@
-import { useState } from 'react'
+import { useEffect, useState } from "react";
 import {
-  Search, Maximize2, Minimize2, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Box, Calendar, Filter, Ticket, Headphones, MessageSquare, Clock, User
-} from 'lucide-react'
-import { ModalDetalhesTicket } from '../components/ModalDetalhesTicket'
+  Search,
+  Maximize2,
+  Minimize2,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
+  CheckCircle2,
+  Box,
+  Calendar,
+  Filter,
+  Ticket,
+  Headphones,
+  MessageSquare,
+  Clock,
+  User,
+} from "lucide-react";
+import { ModalDetalhesTicket } from "../components/ModalDetalhesTicket";
+import {
+  getSupportTickets,
+  getSupportTicketsCount,
+  getSupportTicketSummary,
+  type SupportTicket,
+  type SupportTicketFilters,
+  type SupportTicketSummary,
+} from "../services/supportService";
 
-// --- Interfaces ---
-interface SuporteTicket {
-  id_ticket: string
-  id_cliente: string
-  nome_cliente: string
-  id_pedido: string | null
-  id_produto: string | null
-  data_abertura: string
-  data_resolucao: string | null
-  tempo_resolucao_horas: number | null
-  status: 'aberto' | 'resolvido'
-  tipo_problema: string
-  agente_suporte: string | null
-  nota_avaliacao: number | null
-}
-
-// --- Mock de Dados ---
-const ticketsMock: SuporteTicket[] = [
-  {
-    id_ticket: 'TK-77821',
-    id_cliente: 'CL-001',
-    nome_cliente: 'Marina Albuquerque',
-    id_pedido: 'VC-308422',
-    id_produto: 'SKU-001234',
-    data_abertura: '2024-05-10T14:30:00Z',
-    data_resolucao: null,
-    tempo_resolucao_horas: null,
-    status: 'aberto',
-    tipo_problema: 'Atraso na Entrega',
-    agente_suporte: 'Carlos Silva',
-    nota_avaliacao: null
-  },
-  {
-    id_ticket: 'TK-77822',
-    id_cliente: 'CL-002',
-    nome_cliente: 'João Santos',
-    id_pedido: 'VC-308423',
-    id_produto: 'SKU-001235',
-    data_abertura: '2024-05-09T10:15:00Z',
-    data_resolucao: '2024-05-09T14:45:00Z',
-    tempo_resolucao_horas: 4.5,
-    status: 'resolvido',
-    tipo_problema: 'Produto com Defeito',
-    agente_suporte: 'Ana Costa',
-    nota_avaliacao: 5.0
-  },
-  {
-    id_ticket: 'TK-77823',
-    id_cliente: 'CL-003',
-    nome_cliente: 'Roberto Lima',
-    id_pedido: null,
-    id_produto: null,
-    data_abertura: '2024-05-11T09:00:00Z',
-    data_resolucao: null,
-    tempo_resolucao_horas: null,
-    status: 'aberto',
-    tipo_problema: 'Dúvida de Pagamento',
-    agente_suporte: null,
-    nota_avaliacao: null
-  },
-  {
-    id_ticket: 'TK-77824',
-    id_cliente: 'CL-004',
-    nome_cliente: 'Fernanda Souza',
-    id_pedido: 'VC-308425',
-    id_produto: 'SKU-001236',
-    data_abertura: '2024-05-08T16:20:00Z',
-    data_resolucao: '2024-05-10T11:30:00Z',
-    tempo_resolucao_horas: 43.1,
-    status: 'resolvido',
-    tipo_problema: 'Troca de Produto',
-    agente_suporte: 'Carlos Silva',
-    nota_avaliacao: 4.5
-  },
-]
+const TICKETS_PER_PAGE = 20;
 
 export function Suporte() {
-  const [isFiltrosOpen, setIsFiltrosOpen] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('todos')
-  const [ticketSelecionado, setTicketSelecionado] = useState<SuporteTicket | null>(null)
+  const [areFiltersOpen, setAreFiltersOpen] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [agentFilter, setAgentFilter] = useState("");
+  const [problemTypeFilter, setProblemTypeFilter] = useState("");
+  const [isCustomDateFilterOpen, setIsCustomDateFilterOpen] = useState(false);
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [matchingTicketsCount, setMatchingTicketsCount] = useState(0);
+  const [summary, setSummary] = useState<SupportTicketSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(
+    null,
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'aberto': return 'bg-[#FEF9C3] text-[#A16207]'
-      case 'resolvido': return 'bg-[#DCFCE7] text-[#15803D]'
-      default: return 'bg-slate-100 text-slate-600'
+      case "aberto":
+        return "bg-[#FEF9C3] text-[#A16207]";
+      case "resolvido":
+        return "bg-[#DCFCE7] text-[#15803D]";
+      default:
+        return "bg-slate-100 text-slate-600";
     }
-  }
+  };
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-  }
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
 
-  const filteredTickets = ticketsMock.filter(ticket => {
-    const matchesSearch = ticket.id_ticket.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.nome_cliente.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === 'todos' || ticket.status === filterStatus
-    return matchesSearch && matchesFilter
-  })
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    statusFilter,
+    agentFilter,
+    problemTypeFilter,
+    startDateFilter,
+    endDateFilter,
+  ]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadSummary() {
+      setIsSummaryLoading(true);
+
+      try {
+        const data = await getSupportTicketSummary();
+
+        if (!controller.signal.aborted) {
+          setSummary(data);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Erro ao buscar resumo de tickets:", error);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSummaryLoading(false);
+        }
+      }
+    }
+
+    loadSummary();
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadTickets() {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const filters: SupportTicketFilters = {
+          search: searchTerm.trim(),
+          status: statusFilter,
+          agent: agentFilter,
+          problemType: problemTypeFilter,
+          skip: (currentPage - 1) * TICKETS_PER_PAGE,
+          limit: TICKETS_PER_PAGE,
+          startDate: startDateFilter,
+          endDate: endDateFilter,
+        };
+        const [data, total] = await Promise.all([
+          getSupportTickets(filters),
+          getSupportTicketsCount(filters),
+        ]);
+
+        if (!controller.signal.aborted) {
+          setTickets(data);
+          setMatchingTicketsCount(total);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Erro ao buscar tickets:", error);
+          setErrorMessage("Não foi possível carregar os tickets.");
+          setTickets([]);
+          setMatchingTicketsCount(0);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadTickets();
+
+    return () => controller.abort();
+  }, [
+    searchTerm,
+    statusFilter,
+    agentFilter,
+    problemTypeFilter,
+    startDateFilter,
+    endDateFilter,
+    currentPage,
+  ]);
+
+  const totalTickets = summary?.total ?? 0;
+  const openTicketsCount = summary?.open ?? 0;
+  const resolvedTicketsCount = summary?.resolved ?? 0;
+  const averageResolutionTime = (
+    summary?.averageResolutionTimeHours ?? 0
+  ).toFixed(1);
+  const supportAgents = summary?.agents ?? [];
+  const problemTypes = summary?.problemTypes ?? [];
+  const totalPages = Math.max(
+    1,
+    Math.ceil(matchingTicketsCount / TICKETS_PER_PAGE),
+  );
+  const firstVisibleTicket =
+    matchingTicketsCount === 0 ? 0 : (currentPage - 1) * TICKETS_PER_PAGE + 1;
+  const lastVisibleTicket = Math.min(
+    currentPage * TICKETS_PER_PAGE,
+    matchingTicketsCount,
+  );
+  const paginationPages = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1,
+  ).filter(
+    (page) =>
+      page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1,
+  );
+
+  const renderTicketRows = () => {
+    if (isLoading) {
+      return Array.from({ length: 5 }, (_, index) => (
+        <tr
+          key={`skeleton-${index}`}
+          className="bg-card animate-pulse border-b border-border"
+        >
+          <td className="py-4 px-6 rounded-l-2xl border-0">
+            <div className="h-4 w-24 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-40 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-52 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-28 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-24 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-14 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 rounded-r-2xl border-0">
+            <div className="h-4 w-16 rounded-full bg-slate-200" />
+          </td>
+        </tr>
+      ));
+    }
+
+    return tickets.map((ticket) => (
+      <tr
+        key={ticket.ticketId}
+        className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
+        onClick={() => setSelectedTicket(ticket)}
+      >
+        <td className="py-4 px-6 rounded-l-2xl border-0">
+          <div className="flex flex-col gap-1">
+            <span className="font-black text-[#020854] dark:text-foreground text-lg">
+              {ticket.ticketDisplayId}
+            </span>
+            {ticket.supportAgent ? (
+              <span className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-1">
+                <User className="w-3 h-3" /> {ticket.supportAgent}
+              </span>
+            ) : (
+              <span className="text-amber-500 text-[10px] font-bold uppercase italic flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Aguardando Agente
+              </span>
+            )}
+          </div>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-black text-sm border border-sky-200">
+              {getInitials(ticket.customerName)}
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-foreground">
+                {ticket.customerName}
+              </span>
+              <span className="text-muted-foreground text-xs font-medium">
+                {ticket.customerId}
+              </span>
+            </div>
+          </div>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-foreground">
+              {ticket.problemType}
+            </span>
+            <div className="flex gap-2">
+              {ticket.orderId && (
+                <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">
+                  Ped: {ticket.orderId}
+                </span>
+              )}
+              {ticket.productId && (
+                <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">
+                  Prod: {ticket.productId}
+                </span>
+              )}
+            </div>
+          </div>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          <span className="text-muted-foreground font-medium text-sm">
+            {new Date(ticket.openedAt).toLocaleDateString("pt-BR")} <br />
+            <span className="text-xs text-muted-foreground">
+              {new Date(ticket.openedAt).toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </span>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          {ticket.resolvedAt ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-emerald-600 font-bold text-sm">
+                {new Date(ticket.resolvedAt).toLocaleDateString("pt-BR")}
+              </span>
+              <span className="text-xs font-bold text-muted-foreground bg-background px-2 py-0.5 rounded w-fit">
+                {ticket.resolutionTimeHours}h
+              </span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground italic text-sm">-</span>
+          )}
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          {ticket.rating ? (
+            <div className="flex items-center gap-1">
+              <span className="font-black text-foreground">
+                {ticket.rating.toFixed(1)}
+              </span>
+              <span className="text-[#FFD700] text-lg leading-none">★</span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground italic text-sm">-</span>
+          )}
+        </td>
+
+        <td className="py-4 px-6 rounded-r-2xl border-0">
+          <span
+            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap border ${ticket.status === "resolvido" ? "border-[#BBF7D0]" : "border-[#FEF08A]"} ${getStatusColor(ticket.status)}`}
+          >
+            {ticket.status}
+          </span>
+        </td>
+      </tr>
+    ));
+  };
 
   return (
     <div className="min-h-screen bg-background p-8 font-sans text-foreground">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground">Suporte & Tickets</h1>
+        <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground">
+          Suporte & Tickets
+        </h1>
       </div>
 
       {/* 1. Cards de Resumo */}
       <div className="grid grid-cols-4 gap-6 mb-8">
         <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Total de Tickets</p>
-            <p className="text-3xl font-black text-[#020854] dark:text-foreground">{ticketsMock.length}</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">
+              Total de Tickets
+            </p>
+            <p className="text-3xl font-black text-[#020854] dark:text-foreground">
+              {isSummaryLoading ? "..." : totalTickets}
+            </p>
           </div>
           <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center">
             <Ticket className="w-7 h-7 text-blue-600" />
@@ -124,8 +356,12 @@ export function Suporte() {
         </div>
         <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Tickets Abertos</p>
-            <p className="text-3xl font-black text-amber-500">{ticketsMock.filter(t => t.status === 'aberto').length}</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">
+              Tickets Abertos
+            </p>
+            <p className="text-3xl font-black text-amber-500">
+              {isSummaryLoading ? "..." : openTicketsCount}
+            </p>
           </div>
           <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center">
             <AlertCircle className="w-7 h-7 text-amber-500" />
@@ -133,8 +369,12 @@ export function Suporte() {
         </div>
         <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Resolvidos</p>
-            <p className="text-3xl font-black text-emerald-500">{ticketsMock.filter(t => t.status === 'resolvido').length}</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">
+              Resolvidos
+            </p>
+            <p className="text-3xl font-black text-emerald-500">
+              {isSummaryLoading ? "..." : resolvedTicketsCount}
+            </p>
           </div>
           <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center">
             <CheckCircle2 className="w-7 h-7 text-emerald-500" />
@@ -142,9 +382,11 @@ export function Suporte() {
         </div>
         <div className="bg-card rounded-3xl p-6 shadow-sm border border-border flex items-center justify-between">
           <div>
-            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">Tempo Médio</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-1">
+              Tempo Médio
+            </p>
             <p className="text-3xl font-black text-purple-600">
-              {(ticketsMock.reduce((acc, t) => acc + (t.tempo_resolucao_horas || 0), 0) / (ticketsMock.filter(t => t.status === 'resolvido').length || 1)).toFixed(1)}h
+              {isSummaryLoading ? "..." : `${averageResolutionTime}h`}
             </p>
           </div>
           <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center">
@@ -155,7 +397,7 @@ export function Suporte() {
 
       {/* 2. Database Search Card */}
       <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
-         <div className="relative w-full max-w-3xl">
+        <div className="relative w-full max-w-3xl">
           <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -166,8 +408,10 @@ export function Suporte() {
           />
         </div>
         <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-sm font-bold">Exibindo</span>
-            <span className="bg-sky-100 text-sky-700 px-3 py-1 rounded-full text-sm font-black border border-sky-200">{filteredTickets.length}</span>
+          <span className="text-slate-400 text-sm font-bold">Exibindo</span>
+          <span className="bg-sky-100 text-sky-700 px-3 py-1 rounded-full text-sm font-black border border-sky-200">
+            {tickets.length} de {matchingTicketsCount}
+          </span>
         </div>
       </div>
 
@@ -175,16 +419,24 @@ export function Suporte() {
       <div className="bg-card rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
         <div className="p-6 flex justify-between items-center">
           <button
-            onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
+            onClick={() => setAreFiltersOpen(!areFiltersOpen)}
             className="flex items-center gap-2 font-bold text-foreground border-none outline-none cursor-pointer hover:opacity-70 transition-opacity"
           >
-            {isFiltrosOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            {isFiltrosOpen ? 'Esconder Filtros' : 'Mostrar Filtros'}
+            {areFiltersOpen ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+            {areFiltersOpen ? "Esconder Filtros" : "Mostrar Filtros"}
           </button>
-          {isFiltrosOpen ? <Minimize2 className="w-5 h-5 text-slate-400" /> : <Maximize2 className="w-5 h-5 text-slate-400" />}
+          {areFiltersOpen ? (
+            <Minimize2 className="w-5 h-5 text-slate-400" />
+          ) : (
+            <Maximize2 className="w-5 h-5 text-slate-400" />
+          )}
         </div>
 
-        {isFiltrosOpen && (
+        {areFiltersOpen && (
           <div className="px-8 pb-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
             {/* Coluna Esquerda */}
             <div className="space-y-6">
@@ -193,22 +445,22 @@ export function Suporte() {
                   <Filter className="w-4 h-4" /> Status do Ticket
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <button 
-                    onClick={() => setFilterStatus('todos')}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'todos' ? 'bg-[#020854] text-white shadow-md' : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'}`}
+                  <button
+                    onClick={() => setStatusFilter("all")}
+                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${statusFilter === "all" ? "bg-[#020854] text-white shadow-md" : "bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border"}`}
                   >
                     Todos
                   </button>
                   <button
-                    onClick={() => setFilterStatus('aberto')}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'aberto' ? 'bg-[#FEF9C3] text-[#A16207] shadow-md border border-[#FEF08A]' : 'bg-background text-muted-foreground hover:bg-[#FEF9C3] hover:text-[#A16207]'}`}
+                    onClick={() => setStatusFilter("aberto")}
+                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${statusFilter === "aberto" ? "bg-[#FEF9C3] text-[#A16207] shadow-md border border-[#FEF08A]" : "bg-background text-muted-foreground hover:bg-[#FEF9C3] hover:text-[#A16207]"}`}
                   >
                     <span className="w-2 h-2 rounded-full bg-[#A16207]"></span>
                     Aberto
                   </button>
                   <button
-                    onClick={() => setFilterStatus('resolvido')}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${filterStatus === 'resolvido' ? 'bg-[#DCFCE7] text-[#15803D] shadow-md border border-[#BBF7D0]' : 'bg-background text-muted-foreground hover:bg-[#DCFCE7] hover:text-[#15803D]'}`}
+                    onClick={() => setStatusFilter("resolvido")}
+                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${statusFilter === "resolvido" ? "bg-[#DCFCE7] text-[#15803D] shadow-md border border-[#BBF7D0]" : "bg-background text-muted-foreground hover:bg-[#DCFCE7] hover:text-[#15803D]"}`}
                   >
                     <span className="w-2 h-2 rounded-full bg-[#15803D]"></span>
                     Resolvido
@@ -221,10 +473,17 @@ export function Suporte() {
                   <Headphones className="w-4 h-4" /> Agente de Suporte
                 </label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none appearance-none cursor-pointer">
-                    <option>Todos os Agentes</option>
-                    <option>Carlos Silva</option>
-                    <option>Ana Costa</option>
+                  <select
+                    value={agentFilter}
+                    onChange={(e) => setAgentFilter(e.target.value)}
+                    className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">Todos os Agentes</option>
+                    {supportAgents.map((agent) => (
+                      <option key={agent} value={agent}>
+                        {agent}
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -237,25 +496,70 @@ export function Suporte() {
                 <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Calendar className="w-4 h-4" /> Data de Abertura
                 </label>
-                <div className="flex gap-2">
-                  <button className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold">Todos</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-border">Hoje</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-border">Últimos 7 dias</button>
-                  <button className="bg-background text-muted-foreground px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-border">Personalizado</button>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    onClick={() => {
+                      setIsCustomDateFilterOpen(false);
+                      setStartDateFilter("");
+                      setEndDateFilter("");
+                    }}
+                    className={`${!isCustomDateFilterOpen && !startDateFilter && !endDateFilter ? "bg-blue-600 text-white" : "bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border"} px-5 py-2.5 rounded-full text-xs font-bold`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => setIsCustomDateFilterOpen(true)}
+                    className={`${isCustomDateFilterOpen || startDateFilter || endDateFilter ? "bg-blue-600 text-white" : "bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border"} px-5 py-2.5 rounded-full text-xs font-bold`}
+                  >
+                    Personalizado
+                  </button>
                 </div>
+                {isCustomDateFilterOpen && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+                        Data inicial
+                      </label>
+                      <input
+                        type="date"
+                        value={startDateFilter}
+                        max={endDateFilter || undefined}
+                        onChange={(e) => setStartDateFilter(e.target.value)}
+                        className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+                        Data final
+                      </label>
+                      <input
+                        type="date"
+                        value={endDateFilter}
+                        min={startDateFilter || undefined}
+                        onChange={(e) => setEndDateFilter(e.target.value)}
+                        className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              
+
               <div>
                 <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
                   <Box className="w-4 h-4" /> Tipo de Problema
                 </label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none appearance-none cursor-pointer">
-                    <option>Todos os Problemas</option>
-                    <option>Atraso na Entrega</option>
-                    <option>Produto com Defeito</option>
-                    <option>Dúvida de Pagamento</option>
-                    <option>Troca de Produto</option>
+                  <select
+                    value={problemTypeFilter}
+                    onChange={(e) => setProblemTypeFilter(e.target.value)}
+                    className="w-full p-4 bg-background rounded-2xl border-none text-foreground font-medium outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">Todos os Problemas</option>
+                    {problemTypes.map((problemType) => (
+                      <option key={problemType} value={problemType}>
+                        {problemType}
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -270,120 +574,110 @@ export function Suporte() {
         <table className="w-full border-separate border-spacing-y-2">
           <thead>
             <tr className="bg-[#020854] text-white">
-              <th className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none">Ticket</th>
-              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Cliente</th>
-              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Problema</th>
-              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Abertura</th>
-              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Resolução</th>
-              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Avaliação</th>
-              <th className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none">Status</th>
+              <th className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none">
+                Ticket
+              </th>
+              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">
+                Cliente
+              </th>
+              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">
+                Problema
+              </th>
+              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">
+                Abertura
+              </th>
+              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">
+                Resolução
+              </th>
+              <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">
+                Avaliação
+              </th>
+              <th className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none">
+                Status
+              </th>
             </tr>
           </thead>
-          <tbody>
-            {filteredTickets.map((ticket, idx) => (
-              <tr
-                key={idx}
-                className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
-                onClick={() => setTicketSelecionado(ticket)}
+          <tbody>{renderTicketRows()}</tbody>
+        </table>
+
+        {!isLoading && errorMessage && (
+          <div className="w-full py-12 flex flex-col items-center justify-center text-red-500">
+            <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
+            <p className="font-bold text-lg">{errorMessage}</p>
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && tickets.length === 0 && (
+          <div className="w-full py-12 flex flex-col items-center justify-center text-muted-foreground">
+            <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
+            <p className="font-bold text-lg">Nenhum ticket encontrado.</p>
+            <p className="text-sm">Tente ajustar seus filtros de busca.</p>
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && matchingTicketsCount > 0 && (
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-2 py-4 border-t border-border">
+            <p className="text-sm font-bold text-muted-foreground">
+              Mostrando {firstVisibleTicket}-{lastVisibleTicket} de{" "}
+              {matchingTicketsCount}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+                className="w-10 h-10 rounded-full bg-background text-muted-foreground border border-border flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-border transition-colors"
+                aria-label="Página anterior"
               >
-                <td className="py-4 px-6 rounded-l-2xl border-0">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-black text-[#020854] dark:text-foreground text-lg">{ticket.id_ticket}</span>
-                    {ticket.agente_suporte ? (
-                      <span className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-1">
-                        <User className="w-3 h-3" /> {ticket.agente_suporte}
-                      </span>
-                    ) : (
-                      <span className="text-amber-500 text-[10px] font-bold uppercase italic flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Aguardando Agente
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {paginationPages.map((page, index) => {
+                const previousPage = paginationPages[index - 1];
+                const shouldShowGap =
+                  previousPage !== undefined && page - previousPage > 1;
+
+                return (
+                  <div key={page} className="flex items-center gap-2">
+                    {shouldShowGap && (
+                      <span className="text-muted-foreground font-bold px-1">
+                        ...
                       </span>
                     )}
+                    <button
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-10 h-10 rounded-full px-3 text-sm font-black transition-colors ${
+                        currentPage === page
+                          ? "bg-[#020854] text-white shadow-md"
+                          : "bg-background text-muted-foreground border border-border hover:bg-slate-100 dark:hover:bg-border"
+                      }`}
+                    >
+                      {page}
+                    </button>
                   </div>
-                </td>
+                );
+              })}
 
-                <td className="py-4 px-6 border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-black text-sm border border-sky-200">
-                      {getInitials(ticket.nome_cliente)}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-foreground">{ticket.nome_cliente}</span>
-                      <span className="text-muted-foreground text-xs font-medium">{ticket.id_cliente}</span>
-                    </div>
-                  </div>
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-bold text-foreground">{ticket.tipo_problema}</span>
-                    <div className="flex gap-2">
-                      {ticket.id_pedido && (
-                        <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Ped: {ticket.id_pedido}</span>
-                      )}
-                      {ticket.id_produto && (
-                        <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Prod: {ticket.id_produto}</span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  <span className="text-muted-foreground font-medium text-sm">
-                    {new Date(ticket.data_abertura).toLocaleDateString('pt-BR')} <br/>
-                    <span className="text-xs text-muted-foreground">{new Date(ticket.data_abertura).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
-                  </span>
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  {ticket.data_resolucao ? (
-                    <div className="flex flex-col gap-1">
-                       <span className="text-emerald-600 font-bold text-sm">
-                         {new Date(ticket.data_resolucao).toLocaleDateString('pt-BR')}
-                       </span>
-                       <span className="text-xs font-bold text-muted-foreground bg-background px-2 py-0.5 rounded w-fit">
-                         {ticket.tempo_resolucao_horas}h
-                       </span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground italic text-sm">-</span>
-                  )}
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  {ticket.nota_avaliacao ? (
-                    <div className="flex items-center gap-1">
-                      <span className="font-black text-foreground">{ticket.nota_avaliacao.toFixed(1)}</span>
-                      <span className="text-[#FFD700] text-lg leading-none">★</span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground italic text-sm">-</span>
-                  )}
-                </td>
-
-                <td className="py-4 px-6 rounded-r-2xl border-0">
-                  <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap border ${ticket.status === 'resolvido' ? 'border-[#BBF7D0]' : 'border-[#FEF08A]'} ${getStatusColor(ticket.status)}`}>
-                    {ticket.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        
-        {filteredTickets.length === 0 && (
-          <div className="w-full py-12 flex flex-col items-center justify-center text-muted-foreground">
-             <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
-             <p className="font-bold text-lg">Nenhum ticket encontrado.</p>
-             <p className="text-sm">Tente ajustar seus filtros de busca.</p>
+              <button
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="w-10 h-10 rounded-full bg-background text-muted-foreground border border-border flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-border transition-colors"
+                aria-label="Próxima página"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      <ModalDetalhesTicket 
-        isOpen={!!ticketSelecionado} 
-        onClose={() => setTicketSelecionado(null)} 
-        ticket={ticketSelecionado} 
+      <ModalDetalhesTicket
+        isOpen={!!selectedTicket}
+        onClose={() => setSelectedTicket(null)}
+        ticket={selectedTicket}
       />
     </div>
-  )
+  );
 }

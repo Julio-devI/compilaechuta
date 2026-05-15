@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import date
 
 from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,30 +73,36 @@ async def get_orders(
     query = select(Pedido)
 
     # Base filtering
-    if status:
-        status_str = status.value if hasattr(status, "value") else status
+    if filters.status:
+        status_str = filters.status.value if hasattr(
+            filters.status, "value") else filters.status
         query = query.where(Pedido.status == status_str)
 
-    if id_produto:
-        query = query.where(Pedido.id_pedido_display.ilike(f"%{id_produto}%"))
+    if filters.id_pedido_display:
+        query = query.where(Pedido.id_pedido_display.ilike(
+            f"%{filters.id_pedido_display}%"))
 
-    if data_inicio:
-        query = query.where(Pedido.id_data >= data_inicio)
+    if filters.data_inicio:
+        query = query.where(Pedido.id_data >= filters.data_inicio)
 
-    if data_fim:
-        query = query.where(Pedido.id_data <= data_fim)
+    if filters.data_fim:
+        query = query.where(Pedido.id_data <= filters.data_fim)
 
     if tipo_cliente:
-        tipo_str = tipo_cliente.value if hasattr(tipo_cliente, "value") else tipo_cliente
-        query = query.join(Pedido.cliente).where(Cliente.segmento_rfm == tipo_str)
+        tipo_str = tipo_cliente.value if hasattr(
+            tipo_cliente, "value") else tipo_cliente
+        query = query.join(Pedido.cliente).where(
+            Cliente.segmento_rfm == tipo_str)
 
-    if nome_produto:
-        query = query.join(Pedido.produto).where(Produto.nome_produto.ilike(f"%{nome_produto}%"))
+    if filters.nome_produto:
+        query = query.join(Pedido.produto).where(
+            Produto.nome_produto.ilike(f"%{filters.nome_produto}%"))
 
-    # If filtering by status_ticket, we need to filter the orders. 
+    # If filtering by status_ticket, we need to filter the orders.
     # EXISTS is usually faster than JOIN+DISTINCT for this scenario.
-    if status_ticket:
-        status_str = status_ticket.value if hasattr(status_ticket, "value") else status_ticket
+    if filters.status_ticket:
+        status_str = filters.status_ticket.value if hasattr(
+            filters.status_ticket, "value") else filters.status_ticket
         # using EXISTS with a correlated subquery
         query = query.where(
             select(Ticket.id_ticket)
@@ -107,21 +114,22 @@ async def get_orders(
     # We do a fast count instead of a subquery if possible.
     # Because we've removed the JOIN+DISTINCT logic and replaced it with EXISTS/direct filters,
     # the count of `id_pedido` on the main query is now straightforward.
-    
+
     # However, because we have `.join(Pedido.cliente)` and `.join(Pedido.produto)` potentially,
     # and they are N-1 or 1-1 relationships from the Order perspective (an order has one client, one product),
     # there is NO row duplication happening! Thus, `func.count()` works perfectly without distinct subqueries.
-    
+
     count_query = query.with_only_columns(func.count(Pedido.id_pedido))
     # Reset order_by to avoid overhead during counting
     count_query = count_query.order_by(None)
-    
+
     total = (await db.execute(count_query)).scalar_one()
 
     # --- Fetching data ---
     # We eager load the relationships that are needed
-    query = query.options(selectinload(Pedido.produto), selectinload(Pedido.cliente))
-    
+    query = query.options(selectinload(Pedido.produto),
+                          selectinload(Pedido.cliente))
+
     result = await db.execute(query.offset(skip).limit(limit))
     data = result.scalars().all()
 

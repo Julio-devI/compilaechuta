@@ -7,7 +7,7 @@ from app.api.v1 import (
   category,
   dashboard,
   orders,
-  orders_evaluation,
+  orders_evaluation
 )
 
 api_router = APIRouter()

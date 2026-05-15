@@ -15,6 +15,15 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> Optional[TicketM
     result = await db.execute(select(TicketModel).where(TicketModel.id_ticket == ticket_id))
     return result.scalar_one_or_none()
 
+async def get_ticket_by_pedido(db: AsyncSession, id_pedido: str) -> Optional[TicketModel]:
+    # Retorna o ticket mais recente (caso tenha mais de um) associado a este pedido
+    result = await db.execute(
+        select(TicketModel)
+        .where(TicketModel.id_pedido == id_pedido)
+        .order_by(TicketModel.data_abertura.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
 
 async def get_all_tickets(
     db: AsyncSession,

@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, event, text
 from app.core.database import Base
 from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship
 
 class Categoria(Base):
     __tablename__ = "gold_categoria"
@@ -16,6 +17,7 @@ class Categoria(Base):
     preco_maximo = Column(Float, default=0.0)
     peso_medio_kg = Column(Float, default=0.0)
     total_precisa_revisao = Column(Integer, default=0)
+
+
     slug_categoria = Column(String, nullable=True)
-    produtos = relationship("Produto", back_populates="categoria_rel")
-    
+    produto = relationship("Produto", back_populates="categoria", lazy="select")

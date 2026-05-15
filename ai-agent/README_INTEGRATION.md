@@ -430,7 +430,7 @@ Regras importantes:
 - A Chamada 2 não altera nem sintetiza `data`.
 - Em sucesso com resultado escalar, `data` continua lista de dicts, por exemplo `[{"receita_total": 12345.67}]`.
 - Em sucesso sem linhas, `data` é `[]`.
-- Nomes físicos de tabelas são sanitizados nos textos humanos, mas não no SQL técnico.
+- Nomes físicos de tabelas só são sanitizados nos textos humanos se houver um `display_name` configurado no arquivo `schema_descriptions.json`. No SQL técnico, eles nunca são alterados.
 
 ### `ChartSuggestion`
 
@@ -447,8 +447,10 @@ Regras:
 
 - `type` mapeia diretamente para Recharts: `bar`, `line`, `pie`, `area`.
 - `x_axis` e `y_axis`, quando presentes, correspondem a chaves existentes em `data`.
+- O campo `chart` é **opcional e decisão do agente**. O agente retorna `chart=None` por padrão, preenchendo apenas quando o usuário solicita explicitamente uma visualização (verbos como "mostre", "exiba", "plote", "gráfico de") ou quando os dados possuem padrão visual claro (ranking, série temporal, proporção limitada).
+- Respostas escalares (valor único, total, média) e listagens detalhadas sem agregação retornam `chart=None`.
 - Se o tipo ou eixos forem inválidos, o agente retorna `chart=None`.
-- O frontend decide se renderiza gráfico ou tabela.
+- O frontend deve sempre tratar `chart` como opcional; quando `chart=None` e `data` existe, renderiza como tabela.
 
 ### `DeveloperDebug`
 
@@ -573,7 +575,8 @@ Estrutura esperada:
 - A raiz do JSON deve conter obrigatoriamente o objeto `tables`.
 - As chaves dentro de `tables` devem ser os nomes físicos das tabelas no SQLite.
 - As chaves dentro de `columns` devem ser os nomes físicos das colunas no SQLite.
-- `display_name`, `description`, `columns` e `examples` são metadados opcionais, mas recomendados para melhorar a qualidade do SQL e dos textos de fonte.
+- `display_name` agora atua como a única forma de traduzir nomes técnicos para termos de negócio na UI (o agente não remove mais prefixos como `fato_` magicamente). Se omitido, o nome da tabela física será exibido ao usuário.
+- `description`, `columns` e `examples` são metadados opcionais, mas fortemente recomendados para melhorar a qualidade do SQL gerado pelo modelo.
 
 Exemplo curto e completo:
 

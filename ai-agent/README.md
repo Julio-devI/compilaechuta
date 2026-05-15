@@ -127,7 +127,7 @@ Regras do contrato:
 - Em sucesso sem linhas, `data` é `[]`.
 - Em erro ou fora de escopo sem execução, `data` é `None`.
 - Textos humanos (`answer_text`, `sources_text` e títulos de gráfico) não devem expor nomes físicos nem prefixos técnicos de tabelas. Essa regra não se aplica ao campo técnico `developer_debug.sql`.
-- `chart` é apenas sugestão. Se o tipo ou os eixos não forem compatíveis com `data`, o agente retorna `chart=None`.
+- `chart` é sugestão opcional gerada pelo agente. O agente decide se a resposta merece visualização gráfica com base na pergunta do usuário e nos dados retornados. Quando o usuário solicita explicitamente um gráfico, o agente preenche o campo obrigatoriamente. Quando os dados não têm padrão visual claro (resposta escalar, listagem detalhada sem agregação), `chart` é `None`.
 
 ## Estrutura
 
@@ -135,8 +135,9 @@ Regras do contrato:
 - `src/vcommerce_ai_agent/agent.py`: Classe pública `VCommerceAgent` (Facade)
 - `src/vcommerce_ai_agent/core/`: Configurações e tratamento de erros customizados
 - `src/vcommerce_ai_agent/database/`: Conexão, execução SQL e extração de schema
-- `src/vcommerce_ai_agent/llm/`: Geração de prompts, chamadas à API Gemini e clientes LLM
+- `src/vcommerce_ai_agent/llm/`: Geração de prompts, chamadas à API Gemini, clientes LLM e geração de sugestões iniciais
 - `src/vcommerce_ai_agent/security/`: Validações de segurança, guardrails e mascaramento reversível de dados sensíveis
+- `src/vcommerce_ai_agent/llm/prompts/`: Prompts do sistema para SQL, insight, correção de SQL e sugestões iniciais
 - `tests/unit/`: Testes automatizados rápidos e isolados
 - `tests/integration/`: Smoke tests contra a API real e banco sintético
 
@@ -165,6 +166,7 @@ python tests/integration/smoke_test_memory.py --api-key SUA_CHAVE
 python tests/integration/smoke_test_anonymization.py --api-key SUA_CHAVE
 python tests/integration/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
 python tests/integration/smoke_test_suggestions.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_chart_decision.py --api-key SUA_CHAVE
 ```
 
 Também é possível passar a chave via variável de ambiente:
@@ -180,20 +182,36 @@ O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real.
 ### Pré-requisitos
 
 1. Ambiente virtual ativado e dependências instaladas (`pip install -e ".[test]"`).
-2. Arquivo `.env` na raiz do projeto com a chave da API:
-   ```bash
-   GEMINI_API_KEY=sua-chave-aqui
-   ```
+2. Chave da API Gemini disponível via arquivo `.env` ou flag `--api-key`:
+   - Arquivo `.env` na raiz do projeto:
+     ```bash
+     GEMINI_API_KEY=sua-chave-aqui
+     ```
+   - Ou passada diretamente por linha de comando:
+     ```bash
+     python tests/integration/smoke_test.py --api-key SUA_CHAVE
+     ```
 
 ### Como executar
 
 ```bash
+# Usando variável de ambiente (padrão)
 python tests/integration/smoke_test.py
 python tests/integration/smoke_test_guardrails.py
 python tests/integration/smoke_test_memory.py
 python tests/integration/smoke_test_anonymization.py
 python tests/integration/smoke_test_sensitive_data_masking.py
 python tests/integration/smoke_test_suggestions.py
+python tests/integration/smoke_test_chart_decision.py
+
+# Ou passando a chave diretamente via flag
+python tests/integration/smoke_test.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_guardrails.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_memory.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_anonymization.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_suggestions.py --api-key SUA_CHAVE
+python tests/integration/smoke_test_chart_decision.py --api-key SUA_CHAVE
 ```
 
 ### O que o script faz
@@ -213,6 +231,8 @@ python tests/integration/smoke_test_suggestions.py
 O script `smoke_test_anonymization.py` valida o fluxo principal de mascaramento reversível em três cenários: consulta agregada sem dado sensível, consulta simples com nome de cliente e consulta complexa com joins entre Vendas, Clientes, Produtos e Calendário. O cenário complexo confirma múltiplos prefixos de tokens (`Cliente_`, `Email_`, `Telefone_`, `Documento_`, `Pedido_`), restauração dos valores reais na resposta final e ausência de tokens no texto exibido ao usuário.
 
 O script `smoke_test_sensitive_data_masking.py` compara cenários com e sem mascaramento reversível, capturando os dados enviados à Chamada 2, o JSON bruto retornado pelo LLM e a resposta final restaurada pelo agente. Ele aceita `ANON_SMOKE_RUNS` e `ANON_SMOKE_QUESTION` para controlar a quantidade de rodadas ou executar uma pergunta customizada.
+
+O script `smoke_test_chart_decision.py` valida a decisão do agente sobre quando retornar `chart` preenchido ou `null`. Executa 6 cenários variados: metade espera gráfico (ranking, série temporal, proporção) e metade espera `chart=None` (resposta escalar, listagem detalhada). Valida que o agente preenche o campo quando o usuário solicita explicitamente uma visualização e o omite quando não há padrão visual claro.
 
 ## Logging Interno
 
@@ -246,6 +266,7 @@ Garantias de segurança nos logs:
 | `GEMINI_API_KEY` | Chave da API Google Gemini |
 | `DB_PATH` | Caminho para o banco SQLite do backend |
 | `LLM_TEMPERATURE_INSIGHT` | Temperatura da Chamada 2 (padrão: 0.3) |
+| `LLM_TEMPERATURE_SUGGESTIONS` | Temperatura da geração de sugestões iniciais (padrão: 0.5) |
 
 ## Guardrails e Códigos de Erro
 
@@ -283,7 +304,7 @@ O backend recebe detalhes em `AgentResponse.developer_debug.error`, com `code`, 
 - O agente depende do schema do banco Gold estar atualizado.
 - A memória de conversa é manejada pelo agente e mantida no estado da instância. Para APIs com múltiplas sessões, o backend deve persistir o snapshot de `export_history()` por `session_id`, restaurá-lo com `import_history()` e aplicar lock por sessão para evitar chamadas concorrentes na mesma conversa.
 - O backend pode informar um `schema_descriptions_path` externo para manter descrições, aliases e exemplos do schema fora do pacote instalável.
-- Gráficos são sugeridos pelo agente; o frontend decide se renderiza.
+- Gráficos são sugeridos pelo agente de forma opcional; o frontend decide se renderiza. Quando `chart=None` e `data` existe, o frontend renderiza como tabela.
 - O agente aplica guardrails de segurança em três camadas (input, SQL gerado e execução), mas não substituem uma auditoria manual de queries críticas.
 - A detecção de perguntas fora do escopo não utiliza classificador por LLM adicional. O escopo é controlado exclusivamente pelo prompt do SQL (marcador `FORA_DO_ESCOPO`) e pelos guardrails da Camada 2 (allowlist e validação semântica), economizando requisições à API.
 - Dados sensíveis (ex: `nome_cliente`) são mascarados por tokens temporários antes do envio ao LLM na Chamada 2. A classificação de sensibilidade é determinística e baseada no `schema_descriptions.json`. A resposta final restaura os valores reais localmente, mas o mapa de reversão nunca cruza a fronteira do processo.

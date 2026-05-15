@@ -1,22 +1,25 @@
-import React, { useState } from 'react' // Import useState
-import { 
-  LayoutDashboard, 
-  Users, 
-  ShoppingCart, 
-  Package, 
-  HeadphonesIcon, 
+import React, { useState } from 'react'
+import {
+  LayoutDashboard,
+  Users,
+  ShoppingCart,
+  Package,
+  HeadphonesIcon,
   BarChart3,
   MessageSquare,
   Settings,
-  LogOut
+  LogOut,
+  ShieldCheck,
 } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface NavItem {
   icon: React.ElementType
   label: string
   path: string
+  roles?: string[]
 }
 
 const navItems: NavItem[] = [
@@ -27,6 +30,7 @@ const navItems: NavItem[] = [
   { icon: HeadphonesIcon, label: 'Suporte', path: '/suporte' },
   { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
   { icon: MessageSquare, label: 'Chat IA', path: '/chat-ia' },
+  { icon: ShieldCheck, label: 'Operadores', path: '/operadores', roles: ['admin', 'super_admin'] },
 ]
 
 const bottomNavItems: NavItem[] = [
@@ -34,18 +38,24 @@ const bottomNavItems: NavItem[] = [
 ]
 
 export function Sidebar() {
-  const [isHovered, setIsHovered] = useState(false); // State to track hover
+  const [isHovered, setIsHovered] = useState(false)
   const navigate = useNavigate()
+  const { logout, hasRole } = useAuth()
 
   const handleLogout = () => {
-    navigate('/login')
+    logout()
+    navigate('/login', { replace: true })
   }
+
+  const visibleNavItems = navItems.filter(item =>
+    !item.roles || hasRole(...item.roles)
+  )
 
   return (
     <aside
       className={cn(
-        "min-h-screen flex flex-col items-center py-6 fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out",
-        isHovered ? "w-64" : "w-20" // Dynamic width based on hover
+        'min-h-screen flex flex-col items-center py-6 fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out',
+        isHovered ? 'w-64' : 'w-20'
       )}
       style={{
         backgroundColor: isHovered ? 'var(--sidebar-glass-hover)' : 'var(--sidebar-glass-default)',
@@ -65,32 +75,32 @@ export function Sidebar() {
 
       {/* Main Navigation */}
       <nav className={cn(
-        "flex-1 flex flex-col items-center gap-2 w-full transition-all duration-300",
-        isHovered ? "px-3" : ""
+        'flex-1 flex flex-col items-center gap-2 w-full transition-all duration-300',
+        isHovered ? 'px-3' : ''
       )}>
-        {navItems.map((item) => (
+        {visibleNavItems.map(item => (
           <NavButton key={item.label} item={item} isSidebarHovered={isHovered} />
         ))}
       </nav>
 
       {/* Bottom Navigation */}
       <div className={cn(
-        "flex flex-col items-center gap-2 mt-auto w-full transition-all duration-300",
-        isHovered ? "px-3" : ""
+        'flex flex-col items-center gap-2 mt-auto w-full transition-all duration-300',
+        isHovered ? 'px-3' : ''
       )}>
-        {bottomNavItems.map((item) => (
+        {bottomNavItems.map(item => (
           <NavButton key={item.label} item={item} isSidebarHovered={isHovered} />
         ))}
         <button
           onClick={handleLogout}
           className={cn(
-            "h-12 rounded-xl flex items-center transition-all duration-200 group",
-            isHovered ? "w-full px-4 justify-start" : "w-12 justify-center",
-            "hover:bg-[#ADE9FF] bg-transparent"
+            'h-12 rounded-xl flex items-center transition-all duration-200 group',
+            isHovered ? 'w-full px-4 justify-start' : 'w-12 justify-center',
+            'hover:bg-[#ADE9FF] bg-transparent'
           )}
           title="Sair"
         >
-          <LogOut className={cn("w-5 h-5", isHovered && "mr-3", "group-hover:text-[#020854]")} style={{ color: '#0070DB' }} />
+          <LogOut className={cn('w-5 h-5', isHovered && 'mr-3', 'group-hover:text-[#020854]')} style={{ color: '#0070DB' }} />
           {isHovered && <span className="text-sm font-medium group-hover:text-[#020854]" style={{ color: '#0070DB' }}>Sair</span>}
         </button>
       </div>
@@ -98,17 +108,16 @@ export function Sidebar() {
   )
 }
 
-// Updated NavButton to accept isSidebarHovered prop
-function NavButton({ item, isSidebarHovered }: { item: NavItem, isSidebarHovered: boolean }) {
+function NavButton({ item, isSidebarHovered }: { item: NavItem; isSidebarHovered: boolean }) {
   const Icon = item.icon
   return (
     <NavLink
       to={item.path}
       className={({ isActive }) => cn(
-        "h-12 rounded-xl flex items-center transition-all duration-200 group", // Added group for hover state
-        isSidebarHovered ? "w-full px-4 justify-start" : "w-12 justify-center", // Dynamic width, padding, and alignment
-        "hover:bg-[#ADE9FF]", // Changed hover background color to #ADE9FF
-        isActive ? "bg-[#0070DB]" : "bg-transparent" // Active background color
+        'h-12 rounded-xl flex items-center transition-all duration-200 group',
+        isSidebarHovered ? 'w-full px-4 justify-start' : 'w-12 justify-center',
+        'hover:bg-[#ADE9FF]',
+        isActive ? 'bg-[#0070DB]' : 'bg-transparent'
       )}
       title={item.label}
     >
@@ -116,19 +125,19 @@ function NavButton({ item, isSidebarHovered }: { item: NavItem, isSidebarHovered
         <>
           <Icon
             className={cn(
-              "w-5 h-5",
-              isSidebarHovered && "mr-3",
-              isActive ? "text-white" : "text-[#0070DB] group-hover:text-[#020854]" // Conditional icon color using classes instead of inline style
+              'w-5 h-5',
+              isSidebarHovered && 'mr-3',
+              isActive ? 'text-white' : 'text-[#0070DB] group-hover:text-[#020854]'
             )}
-            style={isActive ? undefined : { color: '#0070DB' }} // Fallback inline style if classes don't override correctly, but disabled when active
+            style={isActive ? undefined : { color: '#0070DB' }}
           />
           {isSidebarHovered && (
             <span
               className={cn(
-                "text-sm font-medium",
-                isActive ? "text-white" : "text-[#0070DB] group-hover:text-[#020854]" // Conditional text color using classes
+                'text-sm font-medium',
+                isActive ? 'text-white' : 'text-[#0070DB] group-hover:text-[#020854]'
               )}
-              style={isActive ? undefined : { color: '#0070DB' }} // Fallback inline style, disabled when active
+              style={isActive ? undefined : { color: '#0070DB' }}
             >
               {item.label}
             </span>

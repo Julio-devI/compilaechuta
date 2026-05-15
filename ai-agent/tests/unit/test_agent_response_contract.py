@@ -2,7 +2,7 @@
 
 import pytest
 
-from vcommerce_ai_agent.agent import VCommerceAgent, _default_source_label
+from vcommerce_ai_agent.agent import VCommerceAgent
 from vcommerce_ai_agent.core import config
 from vcommerce_ai_agent.core.exceptions import (
     ErrorCode,
@@ -432,12 +432,7 @@ def test_extract_sources_filters_cte_names():
     assert not hasattr(sources[0], "description")
 
 
-def test_default_source_label_infers_business_aliases():
-    assert _default_source_label("dim_cliente_vip") == "clientes vip"
-    assert _default_source_label("fato_pedidos_atrasados") == "pedidos atrasados"
-    assert _default_source_label("gold_receita_mensal") == "receita mensal"
-    assert _default_source_label("vw_satisfacao_agente") == "satisfação agente"
-    assert _default_source_label("fato_avaliacoes_pedido") == "avaliações pedidos"
+
 
 
 def test_internal_presentation_sanitizes_physical_table_names():

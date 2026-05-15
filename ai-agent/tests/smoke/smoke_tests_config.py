@@ -16,7 +16,7 @@ MAX_API_CALLS_PER_DAY = 20
 MAX_API_CALLS_PER_MINUTE = 5
 """Limite por minuto da chave Gemini no free tier."""
 
-DELAY_BETWEEN_LLM_INTERACTIONS_SECONDS = 75
+DELAY_BETWEEN_LLM_INTERACTIONS_SECONDS = 15
 """Pausa segura entre interacoes que consomem LLM."""
 
 MAX_DURATION_SECONDS = 1200

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.integration.smoke_test_db import create_test_db
+from tests.smoke.smoke_test_db import create_test_db
 from vcommerce_ai_agent.agent import VCommerceAgent
 from vcommerce_ai_agent.core import config
 from vcommerce_ai_agent.core.exceptions import ErrorCode
@@ -393,3 +393,109 @@ async def test_initial_suggestions_avoids_repeats(agent, monkeypatch):
 
     for s in suggestions:
         assert s not in previous
+
+
+# ---------------------------------------------------------------------------
+# Loop de autocorrecao
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+async def test_sql_correction_loop_succeeds(agent, monkeypatch):
+    """Camada 2 rejeita SQL inicial; correcao recupera e fluxo termina em sucesso."""
+    bad_sql = "SELECT * FROM tabela_inexistente LIMIT 5"
+    good_sql = "SELECT id_cliente FROM dim_cliente LIMIT 2"
+
+    async def fake_generate_sql(*args, **kwargs):
+        return bad_sql, 0
+
+    async def fake_generate_sql_correction(*args, **kwargs):
+        return good_sql, 0
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(), 0
+
+    monkeypatch.setattr(
+        "vcommerce_ai_agent.agent.generate_sql", fake_generate_sql
+    )
+    monkeypatch.setattr(
+        "vcommerce_ai_agent.agent.generate_sql_correction",
+        fake_generate_sql_correction,
+    )
+    monkeypatch.setattr(
+        "vcommerce_ai_agent.agent.generate_insight", fake_generate_insight
+    )
+
+    async def no_sleep(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("vcommerce_ai_agent.agent.asyncio.sleep", no_sleep)
+
+    response = await agent.ask("Quais clientes?")
+
+    assert response.status == "success"
+    assert response.developer_debug.sql == good_sql
+    assert response.user_response.data is not None
+
+
+# ---------------------------------------------------------------------------
+# Memoria injetada nos prompts
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+async def test_history_injected_into_prompts_on_follow_up(agent, monkeypatch):
+    """Segunda chamada a ask() propaga historico para generate_sql e generate_insight."""
+    sql1 = "SELECT id_cliente FROM dim_cliente LIMIT 1"
+    _patch_sql_and_insight(monkeypatch, sql1, _fake_insight())
+
+    await agent.ask("Primeira pergunta")
+
+    captured_sql_kwargs = {}
+    captured_insight_kwargs = {}
+
+    async def fake_generate_sql(*args, **kwargs):
+        captured_sql_kwargs.update(kwargs)
+        return sql1, 0
+
+    async def fake_generate_insight(*args, **kwargs):
+        captured_insight_kwargs.update(kwargs)
+        return _fake_insight(), 0
+
+    monkeypatch.setattr(
+        "vcommerce_ai_agent.agent.generate_sql", fake_generate_sql
+    )
+    monkeypatch.setattr(
+        "vcommerce_ai_agent.agent.generate_insight", fake_generate_insight
+    )
+
+    await agent.ask("Segunda pergunta")
+
+    assert "history" in captured_sql_kwargs
+    assert len(captured_sql_kwargs["history"]) == 4
+    assert captured_sql_kwargs["history"][0]["role"] == "user"
+    assert captured_sql_kwargs["history"][0]["content"] == "Primeira pergunta"
+    assert captured_sql_kwargs["history"][1]["role"] == "assistant"
+
+    assert "history" in captured_insight_kwargs
+    assert len(captured_insight_kwargs["history"]) == 4
+
+
+# ---------------------------------------------------------------------------
+# excluded_tables propagado
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+async def test_excluded_tables_blocks_query_and_omits_from_schema(db_path, monkeypatch):
+    """Tabelas excluidas no construtor sao removidas do allowlist e bloqueadas."""
+    agent = VCommerceAgent(db_path=db_path, excluded_tables={"dim_cliente"})
+
+    sql = "SELECT id_cliente FROM dim_cliente LIMIT 2"
+    _patch_sql_and_insight(monkeypatch, sql, _fake_insight())
+
+    response = await agent.ask("Quais clientes?")
+
+    assert response.status == "error"
+    assert response.developer_debug.error.code == ErrorCode.SCHEMA_VIOLATION_ALLOWLIST
+    assert response.developer_debug.error.stage == "sql_validation"

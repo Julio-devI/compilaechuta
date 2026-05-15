@@ -34,7 +34,7 @@ class ClientFilters:
 
 async def listar_clientes(
     db: AsyncSession,
-    filtros: ClientFilters,
+    filters: ClientFilters,
     cidade: Optional[str] = None,
     status_ticket: Optional[str] = None,
     frequencia_minima: Optional[int] = None,
@@ -44,7 +44,7 @@ async def listar_clientes(
 ) -> ClienteListOut:
     total, data = await crud.get_clients(
         db=db,
-        filtros=filtros,
+        filters=filters,
         cidade=cidade,
         frequencia_minima=frequencia_minima,
         status_ticket=status_ticket,
@@ -69,12 +69,12 @@ async def listar_tickets_cliente(db: AsyncSession, cliente_id: str, status: str)
 
 async def exportar_clientes_csv(
         db: AsyncSession,
-        filtros: ClientFilters
+        filters: ClientFilters
     ) -> io.StringIO:
     
-    clientes = await crud.get_all_clients_for_export(
+    clients = await crud.get_all_clients_for_export(
         db=db,
-        filtros=filtros
+        filters=filters
     )
     output = io.StringIO()
     writer = csv.writer(output)
@@ -83,11 +83,19 @@ async def exportar_clientes_csv(
         "qtd_pedidos_realizados", "total_gasto_brl", "qtd_tickets_suporte",
         "data_ultima_compra", "media_estrelas_dadas", "segmento_rfm",
     ])
-    for c in clientes:
+    for c in clients:
         writer.writerow([
-            c.id_cliente, c.nome_cliente, c.cidade, c.estado, c.regiao,
-            c.qtd_pedidos_realizados, c.total_gasto_brl, c.qtd_tickets_suporte,
-            c.data_ultima_compra, c.media_estrelas_dadas, c.segmento_rfm,
+            c.id_cliente,
+            c.nome_cliente,
+            c.cidade,
+            c.estado,
+            c.regiao,
+            c.qtd_pedidos_realizados,
+            c.total_gasto_brl,
+            c.qtd_tickets_suporte,
+            c.data_ultima_compra,
+            c.media_estrelas_dadas,
+            c.segmento_rfm,
         ])
     output.seek(0)
     return output

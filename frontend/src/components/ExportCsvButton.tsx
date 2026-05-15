@@ -13,12 +13,12 @@ export interface ClientFilters {
 }
 
 export interface OrderFilters {
-  clientType?: string;
+  orderStatus?: string;
+  orderIdDisplay?: string;
   orderDateFloor?: string;
   orderDateCeil?: string;
-  ticketStatus?: string;
   productName?: string;
-  productIdDisplay?: string;
+  ticketStatus?: string;
 }
 
 type FiltersType = ClientFilters | OrderFilters;
@@ -60,8 +60,12 @@ export function ExportCsvButton<T extends FiltersType = FiltersType>({
 
       const orderFilters = rawFilters as OrderFilters;
       return {
+        status: orderFilters.orderStatus,
+        id_pedido_display: orderFilters.orderIdDisplay,
         data_inicio: orderFilters.orderDateFloor,
         data_fim: orderFilters.orderDateCeil,
+        nome_produto: orderFilters.productName,
+        status_ticket: orderFilters.ticketStatus?.toLowerCase(),
       };
     }
 
@@ -75,7 +79,7 @@ export function ExportCsvButton<T extends FiltersType = FiltersType>({
       const mappedBody = formatPayload(filters);
       const query = new URLSearchParams(
         Object.entries(mappedBody)
-          .filter(([, value]) => value !== undefined && value !== null)
+          .filter(([, value]) => value !== undefined && value !== null && value !== '')
           .map(([key, value]) => [key, String(value)])
       ).toString();
 

@@ -27,43 +27,43 @@ class client_filters:
         self.regiao = regiao
         self.status = status
 
-def filters_query (query, filtros: client_filters):
+def filters_query (query, filters: client_filters):
     query = select(Cliente)
 
     # Convert to float to avoid integer division issues in SQLite/Postgres depending on the driver
     ticket_medio_exp = cast(Cliente.total_gasto_brl, Float) / func.nullif(cast(Cliente.qtd_pedidos_realizados, Float), 0)
 
-    if filtros.ticket_min is not None:
-        query = query.where(ticket_medio_exp >= filtros.ticket_min)
+    if filters.ticket_min is not None:
+        query = query.where(ticket_medio_exp >= filters.ticket_min)
 
-    if filtros.ticket_max is not None:
-        query = query.where(ticket_medio_exp <= filtros.ticket_max)
+    if filters.ticket_max is not None:
+        query = query.where(ticket_medio_exp <= filters.ticket_max)
 
-    if filtros.lvt_min is not None:
-        query = query.where(Cliente.total_gasto_brl >= filtros.lvt_min)
+    if filters.lvt_min is not None:
+        query = query.where(Cliente.total_gasto_brl >= filters.lvt_min)
 
-    if filtros.lvt_max is not None:
-        query = query.where(Cliente.total_gasto_brl <= filtros.lvt_max)
+    if filters.lvt_max is not None:
+        query = query.where(Cliente.total_gasto_brl <= filters.lvt_max)
         
-    if filtros.data_inicio is not None:
-        query = query.where(Cliente.data_ultima_compra >= filtros.data_inicio)
+    if filters.data_inicio is not None:
+        query = query.where(Cliente.data_ultima_compra >= filters.data_inicio)
         
-    if filtros.data_fim is not None:
-        query = query.where(Cliente.data_ultima_compra <= filtros.data_fim)
+    if filters.data_fim is not None:
+        query = query.where(Cliente.data_ultima_compra <= filters.data_fim)
         
-    if filtros.regiao:
-        query = query.where(Cliente.regiao.ilike(f"%{filtros.regiao}%"))
+    if filters.regiao:
+        query = query.where(Cliente.regiao.ilike(f"%{filters.regiao}%"))
 
     # Segmento RFM
-    if filtros.status:
+    if filters.status:
         # Como o banco já retorna o segmento_rfm, o filtro busca diretamente nele
-        query = query.where(Cliente.segmento_rfm.ilike(f"%{filtros.status}%"))
+        query = query.where(Cliente.segmento_rfm.ilike(f"%{filters.status}%"))
 
     return query
 
 async def get_clients(
         db: AsyncSession,
-        filtros: client_filters,
+        filters: client_filters,
         frequencia_minima: Optional[int] = None,
         status_ticket: Optional[str] = None,
         skip: int = 0,
@@ -74,7 +74,7 @@ async def get_clients(
     
     query = select(Cliente)
 
-    query = filters_query(query, filtros)
+    query = filters_query(query, filters)
 
     if search:
         # Busca parcial por nome (ignore case)
@@ -122,11 +122,11 @@ async def get_tickets_by_status(db: AsyncSession, cliente_id: str, status: str) 
 
 async def get_all_clients_for_export(
         db: AsyncSession,
-        filtros: client_filters
+        filters: client_filters
     ) -> list[Cliente]:
 
     query = select(Cliente)
-    query = filters_query(query, filtros)
+    query = filters_query(query, filters)
 
     result = await db.execute(query)
     return result.scalars().all()

@@ -48,7 +48,7 @@ router = APIRouter()
 async def listar(
 
     db: AsyncSession = Depends(get_db),
-    filtros: ClientFilters = Depends(),
+    filters: ClientFilters = Depends(),
     search:            Optional[str]   = Query(None, description="Busca por nome ou email"), # NOVO
     frequencia_minima: Optional[int]   = Query(None, ge=0, description="Frequência mínima de compras"),
     status_ticket:     Optional[StatusTicket] = Query(None, description="Filtrar por status de ticket"),
@@ -57,7 +57,7 @@ async def listar(
 ):
     return await service.listar_clientes(
         db=db,
-        filtros=filtros,
+        filters=filters,
         search=search,
         frequencia_minima=frequencia_minima,
         status_ticket=status_ticket,
@@ -70,12 +70,12 @@ async def listar(
 async def exportar(
 
     db: AsyncSession = Depends(get_db),
-    filtros: ClientFilters = Depends()   
+    filters: ClientFilters = Depends()   
 ):
     
     output = await service.exportar_clientes_csv(
         db=db,
-        filtros=filtros
+        filters=filters
     )
 
     return StreamingResponse(

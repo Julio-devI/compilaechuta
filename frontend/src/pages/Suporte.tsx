@@ -138,6 +138,124 @@ export function Suporte() {
       Math.abs(page - currentPage) <= 1
     ))
 
+  const renderTicketRows = () => {
+    if (isLoading) {
+      return Array.from({ length: 5 }, (_, index) => (
+        <tr key={`skeleton-${index}`} className="bg-card animate-pulse border-b border-border">
+          <td className="py-4 px-6 rounded-l-2xl border-0">
+            <div className="h-4 w-24 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-40 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-52 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-28 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-24 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-14 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 rounded-r-2xl border-0">
+            <div className="h-4 w-16 rounded-full bg-slate-200" />
+          </td>
+        </tr>
+      ))
+    }
+
+    return tickets.map((ticket) => (
+      <tr
+        key={ticket.ticketId}
+        className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
+        onClick={() => setSelectedTicket(ticket)}
+      >
+        <td className="py-4 px-6 rounded-l-2xl border-0">
+          <div className="flex flex-col gap-1">
+            <span className="font-black text-[#020854] dark:text-foreground text-lg">{ticket.ticketDisplayId}</span>
+            {ticket.supportAgent ? (
+              <span className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-1">
+                <User className="w-3 h-3" /> {ticket.supportAgent}
+              </span>
+            ) : (
+              <span className="text-amber-500 text-[10px] font-bold uppercase italic flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Aguardando Agente
+              </span>
+            )}
+          </div>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-black text-sm border border-sky-200">
+              {getInitials(ticket.customerName)}
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-foreground">{ticket.customerName}</span>
+              <span className="text-muted-foreground text-xs font-medium">{ticket.customerId}</span>
+            </div>
+          </div>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-foreground">{ticket.problemType}</span>
+            <div className="flex gap-2">
+              {ticket.orderId && (
+                <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Ped: {ticket.orderId}</span>
+              )}
+              {ticket.productId && (
+                <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Prod: {ticket.productId}</span>
+              )}
+            </div>
+          </div>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          <span className="text-muted-foreground font-medium text-sm">
+            {new Date(ticket.openedAt).toLocaleDateString('pt-BR')} <br/>
+            <span className="text-xs text-muted-foreground">{new Date(ticket.openedAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+          </span>
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          {ticket.resolvedAt ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-emerald-600 font-bold text-sm">
+                {new Date(ticket.resolvedAt).toLocaleDateString('pt-BR')}
+              </span>
+              <span className="text-xs font-bold text-muted-foreground bg-background px-2 py-0.5 rounded w-fit">
+                {ticket.resolutionTimeHours}h
+              </span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground italic text-sm">-</span>
+          )}
+        </td>
+
+        <td className="py-4 px-6 border-0">
+          {ticket.rating ? (
+            <div className="flex items-center gap-1">
+              <span className="font-black text-foreground">{ticket.rating.toFixed(1)}</span>
+              <span className="text-[#FFD700] text-lg leading-none">★</span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground italic text-sm">-</span>
+          )}
+        </td>
+
+        <td className="py-4 px-6 rounded-r-2xl border-0">
+          <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap border ${ticket.status === 'resolvido' ? 'border-[#BBF7D0]' : 'border-[#FEF08A]'} ${getStatusColor(ticket.status)}`}>
+            {ticket.status}
+          </span>
+        </td>
+      </tr>
+    ))
+  }
+
   return (
     <div className="min-h-screen bg-background p-8 font-sans text-foreground">
       <div className="flex items-center justify-between mb-8">
@@ -361,103 +479,10 @@ export function Suporte() {
             </tr>
           </thead>
           <tbody>
-            {tickets.map((ticket) => (
-              <tr
-                key={ticket.ticketId}
-                className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
-                onClick={() => setSelectedTicket(ticket)}
-              >
-                <td className="py-4 px-6 rounded-l-2xl border-0">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-black text-[#020854] dark:text-foreground text-lg">{ticket.ticketDisplayId}</span>
-                    {ticket.supportAgent ? (
-                      <span className="text-muted-foreground text-[10px] font-bold uppercase flex items-center gap-1">
-                        <User className="w-3 h-3" /> {ticket.supportAgent}
-                      </span>
-                    ) : (
-                      <span className="text-amber-500 text-[10px] font-bold uppercase italic flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Aguardando Agente
-                      </span>
-                    )}
-                  </div>
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-black text-sm border border-sky-200">
-                      {getInitials(ticket.customerName)}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-foreground">{ticket.customerName}</span>
-                      <span className="text-muted-foreground text-xs font-medium">{ticket.customerId}</span>
-                    </div>
-                  </div>
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-bold text-foreground">{ticket.problemType}</span>
-                    <div className="flex gap-2">
-                      {ticket.orderId && (
-                        <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Ped: {ticket.orderId}</span>
-                      )}
-                      {ticket.productId && (
-                        <span className="text-[9px] bg-background text-muted-foreground px-2 py-0.5 rounded font-bold uppercase">Prod: {ticket.productId}</span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  <span className="text-muted-foreground font-medium text-sm">
-                    {new Date(ticket.openedAt).toLocaleDateString('pt-BR')} <br/>
-                    <span className="text-xs text-muted-foreground">{new Date(ticket.openedAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
-                  </span>
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  {ticket.resolvedAt ? (
-                    <div className="flex flex-col gap-1">
-                       <span className="text-emerald-600 font-bold text-sm">
-                         {new Date(ticket.resolvedAt).toLocaleDateString('pt-BR')}
-                       </span>
-                       <span className="text-xs font-bold text-muted-foreground bg-background px-2 py-0.5 rounded w-fit">
-                         {ticket.resolutionTimeHours}h
-                       </span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground italic text-sm">-</span>
-                  )}
-                </td>
-
-                <td className="py-4 px-6 border-0">
-                  {ticket.rating ? (
-                    <div className="flex items-center gap-1">
-                      <span className="font-black text-foreground">{ticket.rating.toFixed(1)}</span>
-                      <span className="text-[#FFD700] text-lg leading-none">★</span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground italic text-sm">-</span>
-                  )}
-                </td>
-
-                <td className="py-4 px-6 rounded-r-2xl border-0">
-                  <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap border ${ticket.status === 'resolvido' ? 'border-[#BBF7D0]' : 'border-[#FEF08A]'} ${getStatusColor(ticket.status)}`}>
-                    {ticket.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {renderTicketRows()}
           </tbody>
         </table>
         
-        {isLoading && (
-          <div className="w-full py-12 flex flex-col items-center justify-center text-muted-foreground">
-             <Clock className="w-12 h-12 mb-4 opacity-50" />
-             <p className="font-bold text-lg">Carregando tickets...</p>
-          </div>
-        )}
-
         {!isLoading && errorMessage && (
           <div className="w-full py-12 flex flex-col items-center justify-center text-red-500">
              <AlertCircle className="w-12 h-12 mb-4 opacity-50" />

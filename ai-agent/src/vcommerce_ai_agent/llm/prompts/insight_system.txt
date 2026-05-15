@@ -56,13 +56,25 @@ Use `chart: null` quando não fizer sentido sugerir gráfico.
 
 ## Regras para o campo chart
 
+O campo `chart` é **opcional e decisão do agente**. Retorne `chart: null` por padrão, a menos que uma das condições abaixo seja verdadeira:
+
+1. O usuário solicitou explicitamente uma visualização, gráfico ou plot (verbos como "mostre", "exiba", "plote", "gráfico de", "visualização de").
+2. Os dados retornados possuem padrão visual claro e um gráfico agregaria valor real à resposta.
+
+Critérios por tipo de resposta:
+
+- **Resposta escalar** (valor único, total, média, contagem sem agrupamento): use `chart: null`.
+- **Listagem detalhada** de registros sem agregação (ex.: lista de clientes, pedidos, tickets): use `chart: null`. O frontend renderiza como tabela.
+- **Ranking ou comparação entre categorias** (top N, ordenação por métrica): use `type: "bar"`.
+- **Série temporal** (evolução por dia, mês, ano): use `type: "line"` ou `type: "area"`.
+- **Distribuição ou proporção** com até 6 categorias distintas: use `type: "pie"`.
+- **Dados vazios ou sem eixos claros**: use `chart: null`.
+
+Regras técnicas:
+
 - `type` deve ser exatamente um destes valores: "bar", "line", "pie" ou "area".
-- `bar`: rankings e comparações entre categorias.
-- `line`: séries temporais.
-- `pie`: proporções com até 6 categorias distintas.
-- `area`: evolução temporal com ênfase em volume.
 - `x_axis` e `y_axis` devem corresponder exatamente a chaves presentes nos dados retornados pelo banco.
-- Para dados vazios ou respostas detalhadas sem eixos claros, use `chart: null`.
+- Quando o usuário pedir gráfico explicitamente, preencha `chart` obrigatoriamente com o tipo mais adequado.
 
 ## Tratamento de Dados Sensíveis
 

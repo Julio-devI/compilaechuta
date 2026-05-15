@@ -3,17 +3,51 @@ from datetime import date, datetime
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, or_, func, cast, Date
+from sqlalchemy import select, or_, func, cast, Date, Table, MetaData, Column, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import Cliente
 from app.models.tickets import Ticket as TicketModel
 from app.schemas.tickets import TicketCreate, TicketUpdate
 
+vendas_table = Table(
+    "fato_vendas",
+    MetaData(),
+    Column("id_pedido", String),
+    Column("id_pedido_display", String),
+)
 
-async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> Optional[TicketModel]:
-    result = await db.execute(select(TicketModel).where(TicketModel.id_ticket == ticket_id))
-    return result.scalar_one_or_none()
+
+def _map_ticket_to_dict(ticket: TicketModel, id_pedido_display: Optional[str] = None) -> dict:
+    data = ticket.__dict__.copy()
+    data.pop("_sa_instance_state", None)
+    data["id_pedido_display"] = id_pedido_display
+    return data
+
+
+async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> Optional[dict]:
+    subquery = (
+        select(
+            vendas_table.c.id_pedido,
+            func.max(vendas_table.c.id_pedido_display).label("id_pedido_display"),
+        )
+        .group_by(vendas_table.c.id_pedido)
+        .subquery()
+    )
+
+    query = (
+        select(TicketModel, subquery.c.id_pedido_display)
+        .outerjoin(subquery, TicketModel.id_pedido == subquery.c.id_pedido)
+        .where(TicketModel.id_ticket == ticket_id)
+    )
+
+    result = await db.execute(query)
+    record = result.one_or_none()
+    if record is None:
+        return None
+
+    ticket, id_pedido_display = record
+    return _map_ticket_to_dict(ticket, id_pedido_display)
 
 
 async def get_all_tickets(
@@ -27,7 +61,18 @@ async def get_all_tickets(
     tipo: Optional[str] = None,
     search: Optional[str] = None,
 ) -> list[TicketModel]:
-    query = select(TicketModel)
+    subquery = (
+        select(
+            vendas_table.c.id_pedido,
+            func.max(vendas_table.c.id_pedido_display).label("id_pedido_display"),
+        )
+        .group_by(vendas_table.c.id_pedido)
+        .subquery()
+    )
+
+    query = select(TicketModel, subquery.c.id_pedido_display).outerjoin(
+        subquery, TicketModel.id_pedido == subquery.c.id_pedido
+    )
 
     # Convertemos a coluna datetime do banco para Date na hora de comparar
     if start_date:
@@ -54,7 +99,12 @@ async def get_all_tickets(
         )
 
     result = await db.execute(query.offset(skip).limit(limit))
-    return list(result.scalars().all())
+    records = result.all()
+
+    return [
+        _map_ticket_to_dict(ticket, id_pedido_display)
+        for ticket, id_pedido_display in records
+    ]
 
 
 async def get_ticket_count(

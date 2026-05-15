@@ -52,7 +52,7 @@ export function EditarProduto() {
             preco: precoLimpo,
             estoque: produtoData.estoque.toString(),
             status: produtoData.status === 'inativo' ? 'Inativo' : 'Ativo',
-            descricao: 'Produto carregado da base de dados real.'
+            descricao: produtoData.descricao || ''
           })
         } else {
           alert('Produto não encontrado!')
@@ -91,7 +91,9 @@ export function EditarProduto() {
       categoria: formData.categoria,
       preco: precoNumerico,
       estoque_disponivel: parseInt(formData.estoque) || 0,
-      ativo: formData.status === 'Ativo' ? 'Sim' : 'Não'
+      ativo: formData.status === 'Ativo' ? 'Sim' : 'Não',
+      descricao: formData.descricao
+
     }
 
     const sucesso = await atualizarProduto(id, payload)

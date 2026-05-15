@@ -24,6 +24,7 @@ export interface ProdutoDaAPI {
   total_tickets: number | null
   media_tempo_resolucao_horas: number | null
   media_nota_suporte: number | null
+  descricao?: string | null
 }
 
 // 2. Interface de como o dado vai para a TELA (Mantendo o padrão original do Front)
@@ -42,6 +43,7 @@ export interface Produto {
   // Campos extras úteis para os cards do dashboard
   ticketMedio?: string
   total_tickets?: number
+  descricao?: string;
 }
 
 export interface FiltrosProdutos {
@@ -94,7 +96,8 @@ function mapearProduto(p: ProdutoDaAPI): Produto {
     imagem: '📦', // Imagem padrão
     tendencia: 'stable', 
     ticketMedio: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.ticket_medio || 0),
-    total_tickets: p.total_tickets || 0
+    total_tickets: p.total_tickets || 0,
+    descricao: p.descricao || ''
   }
 }
 
@@ -155,6 +158,7 @@ export interface ProdutoPayload {
   estoque_disponivel: number;
   ativo: string | boolean; 
   precisa_revisao: string | boolean;
+  descricao?: string;
 }
 
 export async function criarProduto(produto: ProdutoPayload): Promise<boolean> {

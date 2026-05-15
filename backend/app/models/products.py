@@ -20,6 +20,7 @@ class Produto(Base):
     estoque_disponivel = Column(Integer, default=0)
     ativo = Column(String, default="Sim")
     precisa_revisao = Column(String, default="Não")
+    descricao = Column(String, nullable=True)
     data_cadastro_produto = Column(
         DateTime(timezone=True), 
         default=get_sp_time,
@@ -35,6 +36,7 @@ class Produto(Base):
     pct_recomendacoes_sim = Column(Float, nullable=True)
     media_tempo_resolucao_horas = Column(Float, nullable=True)
     media_nota_suporte = Column(Float, nullable=True)
+    timestamp_ingestion_gold = Column(String, nullable=True)
     total_tickets = Column(Integer, default=0)
 
     categoria = relationship("Categoria", back_populates="produto")

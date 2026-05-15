@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import {
   Search, Maximize2, Minimize2, ChevronDown, ChevronUp, Box, Calendar,
-  Filter, Table, Grid, Plus, Download
+  Filter, Table, Grid, Plus, Download, Trash2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
-import { getProdutos, Produto, exportarProdutosCSV } from '../services/productService'
+import { getProdutos, Produto, exportarProdutosCSV, deleteProduto } from '../services/productService'
 import { getCategorias } from '../services/categoryService'
 
 export function Produtos() {
@@ -25,6 +25,27 @@ export function Produtos() {
   const [filtroPreco, setFiltroPreco] = useState<string | null>(null)
 
   const [categoriasLista, setCategoriasLista] = useState<string[]>([])
+
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDeleteSelecionados = async () => {
+    setIsDeleting(true)
+    try {
+      // Cria um array com os IDs selecionados e deleta um por um
+      const idsParaDeletar = Array.from(selecionados)
+      await Promise.all(idsParaDeletar.map(id => deleteProduto(id)))
+
+      setIsConfirmingDelete(false)
+      setSelecionados(new Set()) // Limpa a seleção
+      window.location.reload() // Recarrega para atualizar a lista
+    } catch (error) {
+      console.error("Erro na exclusão em massa:", error)
+      alert("Erro ao excluir os produtos selecionados.")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   useEffect(() => {
     getCategorias().then(data => {
@@ -59,14 +80,6 @@ export function Produtos() {
 
     carregarDados()
   }, [filtroCategoria, filtroStatus, filtroPreco])
-
-  const toggleTodos = () => {
-    if (selecionados.size === produtosFiltrados.length) {
-      setSelecionados(new Set())
-    } else {
-      setSelecionados(new Set(produtosFiltrados.map(p => p.id)))
-    }
-  }
 
   const toggleProduto = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -255,9 +268,22 @@ export function Produtos() {
       </div>
 
       <div className="flex justify-between items-end mb-6">
-        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">
-          {produtosFiltrados.length} Produtos Encontrados
-        </h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">
+            {produtosFiltrados.length} Produtos Encontrados
+          </h2>
+
+          {/* Botão que só aparece se tiver item selecionado */}
+          {selecionados.size > 0 && (
+            <button
+              onClick={() => setIsConfirmingDelete(true)}
+              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-colors text-sm shadow-sm animate-in fade-in"
+            >
+              <Trash2 className="w-4 h-4" />
+              Excluir Selecionados ({selecionados.size})
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2 bg-slate-200 dark:bg-border p-1 rounded-xl">
           <button
             onClick={() => handleViewChange('tabela')}
@@ -289,12 +315,7 @@ export function Produtos() {
               <thead>
                 <tr className="bg-[#020854] text-white">
                   <th className="py-4 px-4 text-left rounded-l-xl">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]"
-                      checked={selecionados.size === produtosFiltrados.length && produtosFiltrados.length > 0}
-                      onChange={toggleTodos}
-                    />
+                    {/* Checkbox de Selecionar Todos removido */}
                   </th>
                   <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Produto</th>
                   <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Categoria</th>
@@ -402,6 +423,38 @@ export function Produtos() {
           </div>
         )}
       </div>
+
+      {/* 👇 MINI POPUP DE CONFIRMAÇÃO DE EXCLUSÃO EM MASSA 👇 */}
+      {isConfirmingDelete && (
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-2xl border border-border w-full max-w-[320px] text-center animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-[#020854] dark:text-white mb-2">Excluir produtos?</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Tem certeza que deseja remover <strong>{selecionados.size}</strong> {selecionados.size === 1 ? 'produto selecionado' : 'produtos selecionados'} permanentemente?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsConfirmingDelete(false)}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-slate-100 dark:bg-slate-800 text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
+              >
+                Não
+              </button>
+              <button
+                onClick={handleDeleteSelecionados}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? '...' : 'Sim'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 👆 FIM DO MODAL 👆 */}
 
       <ModalDetalhesProduto
         isOpen={!!produtoSelecionado}

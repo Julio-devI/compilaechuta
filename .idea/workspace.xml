@@ -6,8 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="58482bf3-993b-4a64-93f4-dd797d2d882b" name="Changes" comment="fix: Fixing delay latency in tickets queries">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/ModalDetalhesPedido.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ModalDetalhesPedido.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Pedidos.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Pedidos.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/alembic/versions/893f161905a7_create_clients_and_tickets_v2.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/alembic/versions/893f161905a7_create_clients_and_tickets_v2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/crud/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/crud/orders.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/tickets.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/tickets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/clients.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/clients.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/check_db.py" beforeDir="false" afterPath="$PROJECT_DIR$/check_db.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,7 +44,7 @@
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feat/integration-orders-entity&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;fix/fix-tickets-queries-status&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/Lenovo LOQ-e/PycharmProjects/compilaechuta&quot;,
@@ -130,6 +133,7 @@
       <workItem from="1778683926497" duration="18905000" />
       <workItem from="1778758546049" duration="5406000" />
       <workItem from="1778774298490" duration="11150000" />
+      <workItem from="1778868547023" duration="888000" />
     </task>
     <task id="LOCAL-00001" summary="feat: update dependencies">
       <option name="closed" value="true" />

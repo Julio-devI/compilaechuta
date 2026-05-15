@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,8 +25,7 @@ async def get_orders(
 ) -> tuple[int, list[Pedido]]:
     query = select(Pedido)
 
-    need_distinct = False
-
+    # Base filtering
     if status:
         status_str = status.value if hasattr(status, "value") else status
         query = query.where(Pedido.status == status_str)
@@ -41,34 +40,42 @@ async def get_orders(
         query = query.where(Pedido.id_data <= data_fim)
 
     if tipo_cliente:
-        tipo_str = tipo_cliente.value if hasattr(
-            tipo_cliente, "value") else tipo_cliente
-        query = query.join(Pedido.cliente).where(
-            Cliente.segmento_rfm == tipo_str)
-
-    if status_ticket:
-        status_str = status_ticket.value if hasattr(
-            status_ticket, "value") else status_ticket
-        query = query.join(Pedido.tickets).where(Ticket.status == status_str)
-        need_distinct = True
+        tipo_str = tipo_cliente.value if hasattr(tipo_cliente, "value") else tipo_cliente
+        query = query.join(Pedido.cliente).where(Cliente.segmento_rfm == tipo_str)
 
     if nome_produto:
-        query = query.join(Pedido.produto).where(
-            Produto.nome_produto.ilike(f"%{nome_produto}%"))
+        query = query.join(Pedido.produto).where(Produto.nome_produto.ilike(f"%{nome_produto}%"))
 
-    # Sempre usa subquery para garantir contagem correta, especialmente com joins 1:N
-    if need_distinct:
-        count_subq = query.order_by(None).distinct(Pedido.id_pedido)
-    else:
-        count_subq = query.order_by(None)
-    total = (await db.execute(
-        select(func.count()).select_from(count_subq.subquery())
-    )).scalar_one()
+    # If filtering by status_ticket, we need to filter the orders. 
+    # EXISTS is usually faster than JOIN+DISTINCT for this scenario.
+    if status_ticket:
+        status_str = status_ticket.value if hasattr(status_ticket, "value") else status_ticket
+        # using EXISTS with a correlated subquery
+        query = query.where(
+            select(Ticket.id_ticket)
+            .where((Ticket.id_pedido == Pedido.id_pedido) & (Ticket.status == status_str))
+            .exists()
+        )
 
-    # Só aplicamos DISTINCT nos dados a serem exibidos se fizermos joins de "1 para N"
-    if need_distinct:
-        query = query.distinct()
+    # --- Optimizing the count ---
+    # We do a fast count instead of a subquery if possible.
+    # Because we've removed the JOIN+DISTINCT logic and replaced it with EXISTS/direct filters,
+    # the count of `id_pedido` on the main query is now straightforward.
+    
+    # However, because we have `.join(Pedido.cliente)` and `.join(Pedido.produto)` potentially,
+    # and they are N-1 or 1-1 relationships from the Order perspective (an order has one client, one product),
+    # there is NO row duplication happening! Thus, `func.count()` works perfectly without distinct subqueries.
+    
+    count_query = query.with_only_columns(func.count(Pedido.id_pedido))
+    # Reset order_by to avoid overhead during counting
+    count_query = count_query.order_by(None)
+    
+    total = (await db.execute(count_query)).scalar_one()
 
+    # --- Fetching data ---
+    # We eager load the relationships that are needed
+    query = query.options(selectinload(Pedido.produto), selectinload(Pedido.cliente))
+    
     result = await db.execute(query.offset(skip).limit(limit))
     data = result.scalars().all()
 

@@ -21,6 +21,19 @@ async def get_operator_by_email_or_username(db: AsyncSession, identifier: str) -
     return result.scalar_one_or_none()
 
 
+async def get_operator_by_email(db: AsyncSession, email: str) -> Optional[Operador]:
+    result = await db.execute(select(Operador).where(Operador.email == email))
+    return result.scalar_one_or_none()
+
+
+async def update_operator_password(db: AsyncSession, operador: Operador, new_password_hash: str) -> Operador:
+    operador.senha_hash = new_password_hash
+    db.add(operador)
+    await db.commit()
+    await db.refresh(operador)
+    return operador
+
+
 async def get_multi_operators(
     db: AsyncSession,
     *,

@@ -1,8 +1,5 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime, event, text
-from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean
 from app.core.database import Base
-from zoneinfo import ZoneInfo
 
 class Tempo(Base):
     __tablename__ = "dim_tempo"

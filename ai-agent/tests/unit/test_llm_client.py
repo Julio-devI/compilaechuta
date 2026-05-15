@@ -111,6 +111,7 @@ async def test_httpx_connect_timeout_maps_to_llm_timeout(monkeypatch):
     ("status_code", "body", "expected_error"),
     [
         (400, None, LLMInvalidRequestError),
+        (400, '{"error": {"details": [{"reason": "API_KEY_INVALID"}]}}', LLMAuthenticationError),
         (401, None, LLMAuthenticationError),
         (403, None, LLMAuthenticationError),
         (404, None, LLMInvalidRequestError),

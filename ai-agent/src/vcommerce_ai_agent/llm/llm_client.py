@@ -95,6 +95,13 @@ def _map_http_error(exc: ModelHTTPError) -> LLMError:
         )
 
     if status == 400:
+        body_str = str(exc.body) if exc.body else ""
+        if "API_KEY_INVALID" in body_str:
+            return LLMAuthenticationError(
+                "A chave de API fornecida é inválida ou expirou. "
+                "Verifique a variável de ambiente GEMINI_API_KEY.",
+                original_error=exc,
+            )
         return LLMInvalidRequestError(
             "A requisição enviada à API Gemini é inválida. "
             "Verifique se o prompt está dentro dos limites permitidos.",

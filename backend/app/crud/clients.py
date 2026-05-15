@@ -1,29 +1,93 @@
 from typing import Optional
-
-from sqlalchemy import select, func
+from datetime import date
+from sqlalchemy import select, func, or_, cast, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import Cliente
 from app.schemas.clients import ClienteCreate
 
+class client_filters:
+    def __init__(
+        self,
+        ticket_min: Optional[float] = None,
+        ticket_max: Optional[float] = None,
+        lvt_min: Optional[float] = None,
+        lvt_max: Optional[float] = None,
+        data_inicio: Optional[date] = None,
+        data_fim: Optional[date] = None,
+        regiao: Optional[str] = None,
+        status: Optional[str] = None,
+    ):
+        self.ticket_min = ticket_min
+        self.ticket_max = ticket_max
+        self.lvt_min = lvt_min
+        self.lvt_max = lvt_max
+        self.data_inicio = data_inicio
+        self.data_fim = data_fim
+        self.regiao = regiao
+        self.status = status
+
+def filters_query (query, filters: client_filters):
+    query = select(Cliente)
+
+    # Convert to float to avoid integer division issues in SQLite/Postgres depending on the driver
+    ticket_medio_exp = cast(Cliente.total_gasto_brl, Float) / func.nullif(cast(Cliente.qtd_pedidos_realizados, Float), 0)
+
+    if filters.ticket_min is not None:
+        query = query.where(ticket_medio_exp >= filters.ticket_min)
+
+    if filters.ticket_max is not None:
+        query = query.where(ticket_medio_exp <= filters.ticket_max)
+
+    if filters.lvt_min is not None:
+        query = query.where(Cliente.total_gasto_brl >= filters.lvt_min)
+
+    if filters.lvt_max is not None:
+        query = query.where(Cliente.total_gasto_brl <= filters.lvt_max)
+        
+    if filters.data_inicio is not None:
+        query = query.where(Cliente.data_ultima_compra >= filters.data_inicio)
+        
+    if filters.data_fim is not None:
+        query = query.where(Cliente.data_ultima_compra <= filters.data_fim)
+        
+    if filters.regiao:
+        query = query.where(Cliente.regiao.ilike(f"%{filters.regiao}%"))
+
+    # Segmento RFM
+    if filters.status:
+        # Como o banco já retorna o segmento_rfm, o filtro busca diretamente nele
+        query = query.where(Cliente.segmento_rfm.ilike(f"%{filters.status}%"))
+
+    return query
 
 async def get_clients(
-    db: AsyncSession,
-    cidade: Optional[str] = None,
-    valor_minimo: Optional[float] = None,
-    frequencia_minima: Optional[int] = None,
-    status_ticket: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 100,
+        db: AsyncSession,
+        filters: client_filters,
+        frequencia_minima: Optional[int] = None,
+        status_ticket: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None,
+        cidade: Optional[str] = None,
 ) -> tuple[int, list[Cliente]]:
+    
     query = select(Cliente)
+
+    query = filters_query(query, filters)
+
+    if search:
+        # Busca parcial por nome (ignore case)
+        query = query.where(
+            Cliente.nome_cliente.ilike(f"%{search}%")
+        )
 
     if cidade:
         query = query.where(Cliente.cidade == cidade)
-    if valor_minimo is not None:
-        query = query.where(Cliente.total_gasto_brl >= valor_minimo)
+    
     if frequencia_minima is not None:
         query = query.where(Cliente.qtd_pedidos_realizados >= frequencia_minima)
+
     if status_ticket:
         from app.models.tickets import Ticket
         query = (
@@ -32,6 +96,7 @@ async def get_clients(
             .distinct()
         )
 
+    # É vital que o count_query venha APÓS os filtros de busca para a paginação funcionar
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar_one()
 
@@ -55,8 +120,15 @@ async def get_tickets_by_status(db: AsyncSession, cliente_id: str, status: str) 
     return result.scalars().all()
 
 
-async def get_all_clients_for_export(db: AsyncSession) -> list[Cliente]:
-    result = await db.execute(select(Cliente))
+async def get_all_clients_for_export(
+        db: AsyncSession,
+        filters: client_filters
+    ) -> list[Cliente]:
+
+    query = select(Cliente)
+    query = filters_query(query, filters)
+
+    result = await db.execute(query)
     return result.scalars().all()
 
 

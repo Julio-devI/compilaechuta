@@ -3,7 +3,7 @@ from datetime import date
 
 from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, contains_eager
 
 from app.models.orders import Pedido
 from app.models.tickets import Ticket
@@ -55,10 +55,6 @@ def filters_query(query, filters: OrderFilters):
         query = query.join(Pedido.tickets).where(Ticket.status == status_str)
         need_distinct = True
 
-    if filters.nome_produto:
-        query = query.join(Pedido.produto).where(
-            Produto.nome_produto.ilike(f"%{filters.nome_produto}%"))
-
     return query, need_distinct
 
 
@@ -95,8 +91,12 @@ async def get_orders(
             Cliente.segmento_rfm == tipo_str)
 
     if filters.nome_produto:
-        query = query.join(Pedido.produto).where(
-            Produto.nome_produto.ilike(f"%{filters.nome_produto}%"))
+        subquery = (
+            select(Produto.id_produto)
+            .where(Produto.nome_produto.ilike(f"{filters.nome_produto}%"))
+        )
+
+        query = query.where(Pedido.id_produto.in_(subquery))
 
     # If filtering by status_ticket, we need to filter the orders.
     # EXISTS is usually faster than JOIN+DISTINCT for this scenario.

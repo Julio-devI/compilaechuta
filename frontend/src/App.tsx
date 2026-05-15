@@ -11,6 +11,7 @@ import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
 import { EsqueciSenha } from './pages/EsqueciSenha'
+import { RedefinirSenha } from './pages/RedefinirSenha'
 import { Operadores } from './pages/Operadores'
 import { CadastroProduto } from './pages/CadastroProduto'
 import { EditarProduto } from './pages/EditarProduto'
@@ -46,6 +47,7 @@ function App() {
             {/* Rotas públicas */}
             <Route path="/login" element={<Login />} />
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
             {/* Rotas protegidas — qualquer usuário autenticado */}
             <Route element={<ProtectedRoute />}>

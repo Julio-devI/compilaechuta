@@ -150,7 +150,7 @@ export function Pedidos() {
     setIsLoading(true);
     try {
       const filtros: FiltrosPedidos = {
-        id_produto: searchTerm || undefined,
+        id_pedido_display: searchTerm || undefined,
         status: statusFilter || undefined,
         tipo_cliente: tipoClienteFilter || undefined,
         data_inicio: dataInicioFilter || undefined,

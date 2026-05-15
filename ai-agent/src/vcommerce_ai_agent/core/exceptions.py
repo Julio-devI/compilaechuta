@@ -122,12 +122,12 @@ class GuardrailError(RuntimeError):
         self.error_code = error_code
 
 
-def is_rate_limit_per_minute_from_body(body: str) -> bool:
+def is_rate_limit_per_minute_from_body(body: str | dict | bytes | bytearray) -> bool:
     """
     Parseia o body JSON do erro 429 para detectar rate limit por minuto.
 
     Args:
-        body: Corpo bruto da resposta de erro (pode estar vazio).
+        body: Corpo bruto da resposta de erro (pode ser dict, string ou vazio).
 
     Returns:
         True se o erro for de rate limit por minuto (recuperável).
@@ -139,7 +139,11 @@ def is_rate_limit_per_minute_from_body(body: str) -> bool:
         return True  # fallback seguro: prefere retry a desistir prematuramente
 
     try:
-        payload = json.loads(body)
+        if isinstance(body, dict):
+            payload = body
+        else:
+            payload = json.loads(body)
+            
         details = payload.get("error", {}).get("details", [])
         for detail in details:
             if detail.get("@type", "").endswith("QuotaFailure"):
@@ -149,7 +153,7 @@ def is_rate_limit_per_minute_from_body(body: str) -> bool:
                         return True
                     if "PerDay" in quota_id:
                         return False
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError):
         pass
 
     return True

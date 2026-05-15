@@ -192,7 +192,6 @@ def format_schema(
         fks = table_info.get("foreign_keys", [])
         meta = tables_meta.get(table_name, {})
 
-        # CREATE TABLE reconstruído
         output_lines.append(f"CREATE TABLE {table_name} (")
         col_defs: list[str] = []
         for col in cols:
@@ -217,12 +216,10 @@ def format_schema(
         output_lines.append(");")
         output_lines.append("")
 
-        # Descrição da tabela
         table_desc = meta.get("description")
         if table_desc:
             output_lines.append(f"-- Descrição: {table_desc}")
 
-        # Descrição e exemplos por coluna
         col_meta = meta.get("columns", {})
         for col in cols:
             col_name = col["name"]

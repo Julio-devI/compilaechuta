@@ -1,0 +1,35 @@
+const API_BASE = 'http://localhost:8000'
+
+export type UserRole = 'super_admin' | 'admin' | 'user'
+
+export interface UserInfo {
+  id_operador: string
+  nome: string
+  username: string
+  email: string
+  role: UserRole
+}
+
+export interface LoginResponse {
+  access_token: string
+  token_type: string
+  user: UserInfo
+}
+
+export async function loginRequest(username: string, password: string): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Erro ao fazer login' }))
+    throw new Error(err.detail || 'Erro ao fazer login')
+  }
+  return res.json()
+}
+
+export function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('access_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}

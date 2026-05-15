@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search, Maximize2, Minimize2, ChevronDown, ChevronUp, History,
-  AlertCircle, CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp, 
+  AlertCircle, CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp,
   Filter, Ticket, Table, Grid
 } from 'lucide-react'
 import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
+import { ExportCsvButton, OrderFilters } from '../components/ExportCsvButton'
+import { Toaster, toast } from 'react-hot-toast'
 import { getPedidos, FiltrosPedidos } from '../services/orderService'
 
 // --- Interfaces ---
@@ -35,28 +37,6 @@ type SortConfig = {
   key: string | null;
   direction: "ascending" | "descending";
 };
-
-// --- Mock de Dados ---
-const pedidosMock: Pedido[] = Array(5).fill({
-  id: 'VC-308422',
-  idReal: 'mock-uuid',
-  cliente: 'Marina Albuquerque',
-  cidade: 'São Paulo',
-  estado: 'SP',
-  produtos: 2,
-  valor: 'R$ 4.289,90',
-  data: '22 de abr. de 2026',
-  status: 'Atrasado',
-  recorrente: true,
-  ticket: 1,
-  tempoAberto: '3d aberto',
-  progresso: 4,
-  mediaEstrelas: 5.0,
-  totalPedidosCliente: 38,
-  nomeProduto: 'Smart TV 55" QLED 4K Vivara',
-  valorUnitario: 'R$ 2.144,95',
-  skuProduto: 'ELE-9921'
-}).map((pedido, index) => ({ ...pedido, id: `VC-30842${index}` }));
 
 const getStatusStyle = (status: string) => {
   const normalizedStatus = status.toLowerCase();
@@ -138,7 +118,7 @@ export function Pedidos() {
   const SortIcon = ({ columnKey, sortConfig }: { columnKey: string, sortConfig: SortConfig }) => {
     if (sortConfig.key !== columnKey)
       return <ArrowUp className="w-4 h-4 text-white ml-auto opacity-30" />;
-      
+
     return sortConfig.direction === "ascending" ? (
       <ArrowUp className="w-4 h-4 text-white ml-auto" />
     ) : (
@@ -337,6 +317,21 @@ export function Pedidos() {
       {/* 1. Database Search Card */}
       <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6">
         <div className="flex justify-between items-center mb-4">
+          <ExportCsvButton<OrderFilters>
+            type="order"
+            filters={{
+              orderStatus: statusFilter,
+              orderIdDisplay: searchTerm,
+              orderDateFloor: dataInicioFilter,
+              orderDateCeil: dataFimFilter,
+              productName: productNameFilter,
+              ticketStatus: ticketFilter,
+            }}
+            endpoint="http://localhost:8000/api/v1/orders/exportar"
+            onSuccess={(msg) => toast.success(msg)}
+            onError={(err) => toast.error(err)}
+          />
+          <Toaster position="top-right" />
           <div className="flex items-center gap-2 text-foreground font-bold">
             <span className="p-1.5 bg-background rounded-lg flex items-center justify-center">
               <Database className="w-5 h-5 text-muted-foreground" />
@@ -764,11 +759,10 @@ export function Pedidos() {
                                   {/* Linha Conectora */}
                                   {index < pipelineSteps.length - 1 && (
                                     <div
-                                      className={`w-3 h-0.5 transition-colors duration-300 ${
-                                        index < currentStepIndex
-                                          ? "bg-slate-700"
-                                          : "bg-border"
-                                      }`}
+                                      className={`w-3 h-0.5 transition-colors duration-300 ${index < currentStepIndex
+                                        ? "bg-slate-700"
+                                        : "bg-border"
+                                        }`}
                                     />
                                   )}
                                 </div>
@@ -846,13 +840,12 @@ export function Pedidos() {
                       <div key={step} className="flex items-center">
                         <div
                           className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 
-                          ${
-                            step < pedido.progresso
+                          ${step < pedido.progresso
                               ? "bg-blue-900 border-blue-900 text-white"
                               : step === pedido.progresso
                                 ? "bg-red-400 border-red-400 text-white"
                                 : "bg-background border-border text-muted-foreground"
-                          }`}
+                            }`}
                         >
                           {step < pedido.progresso ? (
                             <CheckCircle2 className="w-3 h-3" />
@@ -922,7 +915,7 @@ export function Pedidos() {
 
 function StatusChip({ label, color, dot, isActive, onClick }: { label: string, color: string, dot: string, isActive?: boolean, onClick?: () => void }) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={`${color} px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 border-none hover:opacity-80 transition-transform ${isActive ? 'scale-105 ring-2 ring-current ring-offset-2' : ''}`}
     >

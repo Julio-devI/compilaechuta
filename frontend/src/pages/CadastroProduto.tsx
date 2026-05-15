@@ -49,7 +49,8 @@ export function CadastroProduto() {
       peso_kg: 0, // Campo não tem no form, mandando padrão
       estoque_disponivel: parseInt(formData.estoque) || 0,
       ativo: formData.status === 'Ativo' ? 'Sim' : 'Não',
-      precisa_revisao: 'Não'
+      precisa_revisao: 'Não',
+      descricao: formData.descricao,
     }
 
     const sucesso = await criarProduto(payload)

@@ -5,7 +5,7 @@ from datetime import date
 
 from app.api.deps import get_db
 from app.services import tickets as service
-from app.schemas.tickets import TicketCreate, TicketUpdate, TicketOut
+from app.schemas.tickets import TicketUpdate, TicketOut
 
 router = APIRouter()
 
@@ -47,11 +47,6 @@ async def get_tickets_summary(db: AsyncSession = Depends(get_db)):
 @router.get("/{ticket_id}", response_model=TicketOut)
 async def get_ticket_by_id(ticket_id: str, db: AsyncSession = Depends(get_db)):
     return await service.get_ticket_by_id(db, ticket_id)
-
-
-@router.post("/", response_model=TicketOut, status_code=201)
-async def create_ticket(ticket: TicketCreate, db: AsyncSession = Depends(get_db)):
-    return await service.create_ticket(db, ticket)
 
 
 @router.patch("/{ticket_id}", response_model=TicketOut)

@@ -18,10 +18,15 @@ vendas_table = Table(
 )
 
 
-def _map_ticket_to_dict(ticket: TicketModel, id_pedido_display: Optional[str] = None) -> dict:
+def _map_ticket_to_dict(
+    ticket: TicketModel,
+    id_pedido_display: Optional[str] = None,
+    nome_cliente: Optional[str] = None,
+) -> dict:
     data = ticket.__dict__.copy()
     data.pop("_sa_instance_state", None)
     data["id_pedido_display"] = id_pedido_display
+    data["nome_cliente"] = nome_cliente
     return data
 
 
@@ -36,8 +41,9 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> Optional[dict]:
     )
 
     query = (
-        select(TicketModel, subquery.c.id_pedido_display)
+        select(TicketModel, subquery.c.id_pedido_display, Cliente.nome_cliente)
         .outerjoin(subquery, TicketModel.id_pedido == subquery.c.id_pedido)
+        .outerjoin(Cliente, TicketModel.id_cliente == Cliente.id_cliente)
         .where(TicketModel.id_ticket == ticket_id)
     )
 
@@ -46,8 +52,8 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> Optional[dict]:
     if record is None:
         return None
 
-    ticket, id_pedido_display = record
-    return _map_ticket_to_dict(ticket, id_pedido_display)
+    ticket, id_pedido_display, nome_cliente = record
+    return _map_ticket_to_dict(ticket, id_pedido_display, nome_cliente)
 
 
 async def get_all_tickets(
@@ -70,8 +76,10 @@ async def get_all_tickets(
         .subquery()
     )
 
-    query = select(TicketModel, subquery.c.id_pedido_display).outerjoin(
+    query = select(TicketModel, subquery.c.id_pedido_display, Cliente.nome_cliente).outerjoin(
         subquery, TicketModel.id_pedido == subquery.c.id_pedido
+    ).outerjoin(
+        Cliente, TicketModel.id_cliente == Cliente.id_cliente
     )
 
     # Convertemos a coluna datetime do banco para Date na hora de comparar
@@ -90,7 +98,6 @@ async def get_all_tickets(
 
     # Busca Global (ID ou Nome do Cliente)
     if search:
-        query = query.join(TicketModel.cliente)
         query = query.where(
             or_(
                 TicketModel.id_ticket.ilike(f"%{search}%"),
@@ -102,8 +109,8 @@ async def get_all_tickets(
     records = result.all()
 
     return [
-        _map_ticket_to_dict(ticket, id_pedido_display)
-        for ticket, id_pedido_display in records
+        _map_ticket_to_dict(ticket, id_pedido_display, nome_cliente)
+        for ticket, id_pedido_display, nome_cliente in records
     ]
 
 

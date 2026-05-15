@@ -59,22 +59,10 @@ interface SupportTicketSummaryApiResponse {
   problem_types: string[];
 }
 
-interface CustomerApiResponse {
-  id_cliente: string;
-  nome_cliente: string;
-}
-
 const API_URL = "http://localhost:8000/tickets";
-const CUSTOMERS_API_URL = "http://localhost:8000/clientes";
 
-function mapSupportTicket(
-  ticket: SupportTicketApiResponse,
-  customerNames: Map<string, string>,
-): SupportTicket {
-  const customerName =
-    ticket.nome_cliente ||
-    customerNames.get(ticket.id_cliente) ||
-    ticket.id_cliente;
+function mapSupportTicket(ticket: SupportTicketApiResponse): SupportTicket {
+  const customerName = ticket.nome_cliente || ticket.id_cliente;
 
   return {
     ticketId: ticket.id_ticket,
@@ -116,10 +104,7 @@ export async function getSupportTickets(
   }
 
   const result: SupportTicketApiResponse[] = await response.json();
-  const customerNames = await getCustomerNamesById(
-    result.map((ticket) => ticket.id_cliente),
-  );
-  return result.map((ticket) => mapSupportTicket(ticket, customerNames));
+  return result.map(mapSupportTicket);
 }
 
 export async function getSupportTicketsCount(
@@ -181,29 +166,4 @@ function buildTicketParams(
   return params;
 }
 
-async function getCustomerNamesById(customerIds: string[]) {
-  const uniqueCustomerIds = Array.from(new Set(customerIds.filter(Boolean)));
-  const customers = await Promise.all(
-    uniqueCustomerIds.map(async (customerId) => {
-      try {
-        const response = await fetch(
-          `${CUSTOMERS_API_URL}/${encodeURIComponent(customerId)}`,
-        );
-
-        if (!response.ok) return null;
-
-        const customer: CustomerApiResponse = await response.json();
-        return [customer.id_cliente, customer.nome_cliente] as const;
-      } catch (error) {
-        console.error(`Erro ao buscar cliente ${customerId}:`, error);
-        return null;
-      }
-    }),
-  );
-
-  return new Map(
-    customers.filter(
-      (customer): customer is readonly [string, string] => customer !== null,
-    ),
-  );
-}
+// The API already returns nome_cliente for each ticket, so no extra customer fetch is needed.

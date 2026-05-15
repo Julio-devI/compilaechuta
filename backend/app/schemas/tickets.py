@@ -30,6 +30,7 @@ class TicketUpdate(BaseModel):
 class TicketOut(TicketBase):
     id_ticket:          str
     id_pedido_display:  Optional[str] = None
+    nome_cliente:       Optional[str] = None
     data_abertura:      Optional[datetime] = None
     data_resolucao:     Optional[datetime] = None
     nota_avaliacao:     Optional[float] = None

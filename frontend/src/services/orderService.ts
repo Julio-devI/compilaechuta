@@ -1,48 +1,132 @@
+export interface PedidoBackend {
+  id_pedido_display: string;
+  id_pedido: string;
+  id_cliente: string;
+  id_produto: string;
+  nome_produto: string;
+  id_data?: string;
+  quantidade_vendas?: number;
+  valor_unitario?: number;
+  valor_total_venda?: number;
+  status?: string;
+  metodo_pagamento?: string;
+}
+
 export interface Pedido {
   id: string
+  idReal: string
   cliente: string
+  cidade: string
+  estado: string
   produtos: number
   valor: string
   data: string
-  status: 'pendente' | 'processando' | 'enviado' | 'entregue' | 'cancelado'
-  pagamento: 'pix' | 'cartao' | 'boleto'
-  avatar: string
+  status: 'Atrasado' | 'No prazo' | string
+  recorrente: boolean
+  ticket: number
+  tempoAberto: string
+  progresso: number
+  mediaEstrelas: number
+  totalPedidosCliente: number
+  nomeProduto: string
+  valorUnitario: string
+  skuProduto: string
+  metodo_pagamento: string
 }
 
-export type PedidoStatus = Pedido['status']
-export type PedidoPagamento = Pedido['pagamento']
-
-export interface StatusConfigItem {
-  color: string
-  iconName: string
-  label: string
+export interface FiltrosPedidos {
+  status?: string;
+  id_produto?: string;
+  data_inicio?: string;
+  data_fim?: string;
+  tipo_cliente?: string;
+  nome_produto?: string;
+  status_ticket?: string;
 }
 
-export const pedidoStatusConfig: Record<PedidoStatus, StatusConfigItem> = {
-  pendente:    { color: 'bg-[#FFD60A]/10 text-[#B8860B]', iconName: 'Clock',       label: 'Pendente' },
-  processando: { color: 'bg-[#1E5EFF]/10 text-[#1E5EFF]', iconName: 'Package',     label: 'Processando' },
-  enviado:     { color: 'bg-[#8B5CF6]/10 text-[#8B5CF6]', iconName: 'Truck',       label: 'Enviado' },
-  entregue:    { color: 'bg-[#00C48C]/10 text-[#00C48C]', iconName: 'CheckCircle', label: 'Entregue' },
-  cancelado:   { color: 'bg-[#FF4757]/10 text-[#FF4757]', iconName: 'XCircle',     label: 'Cancelado' },
+const API_URL = 'http://localhost:8000/api/v1/orders'
+const CLIENT_API_URL = 'http://localhost:8000/api/v1/clients'
+
+// Cache local simples para evitar múltiplas chamadas à API pelo mesmo cliente
+const clientCache = new Map<string, any>();
+
+async function getClientData(id_cliente: string) {
+  if (clientCache.has(id_cliente)) {
+    return clientCache.get(id_cliente);
+  }
+  
+  try {
+    const response = await fetch(`${CLIENT_API_URL}/${id_cliente}`);
+    if (response.ok) {
+      const data = await response.json();
+      clientCache.set(id_cliente, data);
+      return data;
+    }
+  } catch (error) {
+    console.error(`Erro ao buscar dados do cliente ${id_cliente}:`, error);
+  }
+  
+  return null;
 }
 
-export const pagamentoLabels: Record<PedidoPagamento, string> = {
-  pix:    'PIX',
-  cartao: 'Cartão',
-  boleto: 'Boleto',
-}
+export async function getPedidos(
+  skip: number = 0,
+  limit: number = 20,
+  filtros?: FiltrosPedidos
+): Promise<{ data: Pedido[], total: number }> {
+  try {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
 
-const mockPedidos: Pedido[] = [
-  { id: '#PED-001234', cliente: 'Maria Silva',     produtos: 3, valor: 'R$ 459,90',   data: '18/01/2024 14:32', status: 'entregue',    pagamento: 'pix',    avatar: 'MS' },
-  { id: '#PED-001235', cliente: 'João Santos',     produtos: 1, valor: 'R$ 189,00',   data: '18/01/2024 13:15', status: 'enviado',     pagamento: 'cartao', avatar: 'JS' },
-  { id: '#PED-001236', cliente: 'Ana Oliveira',    produtos: 5, valor: 'R$ 892,50',   data: '18/01/2024 11:45', status: 'processando', pagamento: 'cartao', avatar: 'AO' },
-  { id: '#PED-001237', cliente: 'Carlos Ferreira', produtos: 2, valor: 'R$ 328,00',   data: '18/01/2024 10:20', status: 'pendente',    pagamento: 'boleto', avatar: 'CF' },
-  { id: '#PED-001238', cliente: 'Beatriz Lima',    produtos: 4, valor: 'R$ 1.245,00', data: '17/01/2024 18:50', status: 'entregue',    pagamento: 'pix',    avatar: 'BL' },
-  { id: '#PED-001239', cliente: 'Roberto Costa',   produtos: 1, valor: 'R$ 99,90',    data: '17/01/2024 16:30', status: 'cancelado',   pagamento: 'cartao', avatar: 'RC' },
-  { id: '#PED-001240', cliente: 'Fernanda Alves',  produtos: 6, valor: 'R$ 1.567,80', data: '17/01/2024 14:15', status: 'enviado',     pagamento: 'pix',    avatar: 'FA' },
-  { id: '#PED-001241', cliente: 'Pedro Mendes',    produtos: 2, valor: 'R$ 445,00',   data: '17/01/2024 11:00', status: 'entregue',    pagamento: 'cartao', avatar: 'PM' },
-]
+    if (filtros?.status) params.append('status', filtros.status);
+    if (filtros?.id_produto) params.append('id_produto', filtros.id_produto);
+    if (filtros?.data_inicio) params.append('data_inicio', filtros.data_inicio);
+    if (filtros?.data_fim) params.append('data_fim', filtros.data_fim);
+    if (filtros?.tipo_cliente) params.append('tipo_cliente', filtros.tipo_cliente);
+    if (filtros?.nome_produto) params.append('nome_produto', filtros.nome_produto);
+    if (filtros?.status_ticket) params.append('status_ticket', filtros.status_ticket);
 
-export async function getPedidos(): Promise<Pedido[]> {
-  return mockPedidos
+    const response = await fetch(`${API_URL}/?${params.toString()}`);
+
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+    const result = await response.json();
+
+    // Como getClientData é assíncrono, usaremos Promise.all
+    const mappedData: Pedido[] = await Promise.all(
+      result.data.map(async (p: any) => {
+        
+        // Busca os dados adicionais do cliente para exibir na interface
+        const clientData = await getClientData(p.id_cliente);
+        
+        return {
+          id: p.id_pedido_display,
+          idReal: p.id_pedido, // ID real do banco (necessário para buscar o ticket)
+          cliente: clientData?.nome_cliente || p.id_cliente, // Agora usa o nome do cliente se existir
+          cidade: clientData?.cidade || 'N/A',
+          estado: clientData?.estado || 'N/A',
+          produtos: p.quantidade_vendas || 1,
+          valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_total_venda || 0),
+          data: p.id_data ? new Date(p.id_data).toLocaleDateString('pt-BR') : 'N/A',
+          status: p.status || 'No prazo',
+          recorrente: clientData?.segmento_rfm?.toLowerCase().includes('recorrente') || false,
+          ticket: clientData?.qtd_tickets_suporte || 0,
+          tempoAberto: 'N/A',
+          progresso: p.status === 'Aprovado' ? 2 : p.status === 'Processando' ? 3 : p.status === 'Reembolsado' ? 1 : 5,
+          mediaEstrelas: clientData?.media_estrelas_dadas || 0,
+          totalPedidosCliente: clientData?.qtd_pedidos_realizados || 1,
+          nomeProduto: p.nome_produto || 'Produto Principal',
+          valorUnitario: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_unitario || 0),
+          skuProduto: p.id_produto || 'SKU-001',
+          metodo_pagamento: p.metodo_pagamento || 'N/A'
+        }
+      })
+    );
+
+    return { data: mappedData, total: result.total };
+  } catch (error) {
+    console.error("Erro ao buscar pedidos:", error);
+    return { data: [], total: 0 };
+  }
 }

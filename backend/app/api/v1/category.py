@@ -14,7 +14,7 @@ async def read_categories(
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
-    categories = await crud_category.get_multi(db, skip=skip, limit=limit)
+    categories = await crud_category.get_multi_categories(db, skip=skip, limit=limit)
     return categories
 
 
@@ -24,7 +24,7 @@ async def create_category(
     db: AsyncSession = Depends(deps.get_db),
     category_in: CategoryCreate,
 ) -> Any:
-    category = await crud_category.create(db=db, obj_in=category_in)
+    category = await crud_category.create_category(db=db, obj_in=category_in)
     return category
 
 
@@ -34,7 +34,7 @@ async def read_category(
     db: AsyncSession = Depends(deps.get_db),
     id_categoria: str,
 ) -> Any:
-    category = await crud_category.get(db=db, id=id_categoria)
+    category = await crud_category.get_category(db=db, id_categoria=id_categoria)
     if not category:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     return category
@@ -46,10 +46,10 @@ async def update_category(
     id_categoria: str,
     category_in: CategoryUpdate,
 ) -> Any:
-    category = await crud_category.get(db=db, id=id_categoria)
+    category = await crud_category.get_category(db=db, id_categoria=id_categoria)
     if not category:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    category = await crud_category.update(db=db, db_obj=category, obj_in=category_in)
+    category = await crud_category.update_category(db=db, db_obj=category, obj_in=category_in)
     return category
 
 @router.delete("/{id_categoria}", response_model=CategoryResponse)
@@ -58,8 +58,8 @@ async def delete_category(
     db: AsyncSession = Depends(deps.get_db),
     id_categoria: str,
 ) -> Any:
-    category = await crud_category.get(db=db, id=id_categoria)
+    category = await crud_category.get_category(db=db, id_categoria=id_categoria)
     if not category:
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    category = await crud_category.remove(db=db, id=id_categoria)
+    category = await crud_category.remove_category(db=db, id_categoria=id_categoria)
     return category

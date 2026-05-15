@@ -17,7 +17,7 @@ class Cliente(Base):
     qtd_tickets_suporte    = Column(Integer, default=0)
     data_ultima_compra     = Column(DateTime, nullable=True)
     media_estrelas_dadas   = Column(Float, nullable=True)
-    segmento_rfm           = Column(String, nullable=True)
+    segmento_rfm           = Column(String, nullable=True, index=True)
 
-    tickets = relationship("Ticket", back_populates="cliente", lazy="selectin")
-    pedidos = relationship("Pedido", back_populates="cliente", lazy="selectin")
+    tickets = relationship("Ticket", back_populates="cliente", lazy="select")
+    pedidos = relationship("Pedido", back_populates="cliente", lazy="select")

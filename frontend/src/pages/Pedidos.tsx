@@ -247,6 +247,11 @@ export function Pedidos() {
     return () => clearTimeout(handler)
   }, [fetchPedidosData])
 
+  // Reset pagination when filters or search changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, productNameFilter, periodoFilter, ticketFilter, dataInicioFilter, dataFimFilter])
+
   const handleViewChange = (mode: 'tabela' | 'grade') => {
     if (viewMode === mode) return;
 
@@ -532,6 +537,35 @@ export function Pedidos() {
         </div>
       </div>
 
+      <div className="flex items-center justify-between mt-6 bg-card p-4 rounded-2xl shadow-sm">
+        <p className="text-sm text-muted-foreground font-medium">
+          Mostrando página {page} de {Math.ceil(totalItems / pageSize) || 1}
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm text-muted-foreground hover:bg-slate-50 disabled:opacity-50 font-bold transition-all"
+          >
+            Anterior
+          </button>
+          <span className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm">
+            {page}
+          </span>
+          <button
+            disabled={page >= Math.ceil(totalItems / pageSize)}
+            onClick={() =>
+              setPage((prev) =>
+                Math.min(Math.ceil(totalItems / pageSize), prev + 1),
+              )
+            }
+            className="px-4 py-2 bg-background border border-border rounded-xl text-sm text-muted-foreground hover:bg-slate-50 disabled:opacity-50 font-bold transition-all"
+          >
+            Próximo
+          </button>
+        </div>
+      </div>
+
       {/* 4. Tabela de Conteúdo / Grid / Skeleton */}
       <div className="w-full overflow-hidden">
         {isLoading ? (
@@ -555,7 +589,7 @@ export function Pedidos() {
               <thead>
                 <tr className="bg-[#020854] text-white">
                   <th
-                    className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
                     onClick={() => handleSort("id")}
                   >
                     <div className="flex items-center gap-2">
@@ -599,7 +633,7 @@ export function Pedidos() {
                     </div>
                   </th>
                   <th
-                    className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
+                    className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none cursor-pointer select-none hover:bg-blue-900 transition-colors"
                     onClick={() => handleSort("status")}
                   >
                     <div className="flex items-center gap-2">

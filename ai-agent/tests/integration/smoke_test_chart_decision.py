@@ -71,7 +71,7 @@ async def _run_smoke_test(db_path: str) -> None:
             "expected_type": "bar",
         },
         {
-            "question": "Exiba a distribuicao de pedidos por status",
+            "question": "Mostre um grafico de pizza com a distribuicao de pedidos por status",
             "planned_calls": 2,
             "expects_chart": True,
             "expected_type": "pie",

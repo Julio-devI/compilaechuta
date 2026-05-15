@@ -447,8 +447,10 @@ Regras:
 
 - `type` mapeia diretamente para Recharts: `bar`, `line`, `pie`, `area`.
 - `x_axis` e `y_axis`, quando presentes, correspondem a chaves existentes em `data`.
+- O campo `chart` é **opcional e decisão do agente**. O agente retorna `chart=None` por padrão, preenchendo apenas quando o usuário solicita explicitamente uma visualização (verbos como "mostre", "exiba", "plote", "gráfico de") ou quando os dados possuem padrão visual claro (ranking, série temporal, proporção limitada).
+- Respostas escalares (valor único, total, média) e listagens detalhadas sem agregação retornam `chart=None`.
 - Se o tipo ou eixos forem inválidos, o agente retorna `chart=None`.
-- O frontend decide se renderiza gráfico ou tabela.
+- O frontend deve sempre tratar `chart` como opcional; quando `chart=None` e `data` existe, renderiza como tabela.
 
 ### `DeveloperDebug`
 

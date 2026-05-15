@@ -58,7 +58,7 @@ Use `chart: null` quando não fizer sentido sugerir gráfico.
 
 O campo `chart` é **opcional e decisão do agente**. Retorne `chart: null` por padrão, a menos que uma das condições abaixo seja verdadeira:
 
-1. O usuário solicitou explicitamente uma visualização, gráfico ou plot (verbos como "mostre", "exiba", "plote", "gráfico de", "visualização de").
+1. O usuário solicitou explicitamente uma visualização, gráfico ou plot (verbos como "mostre", "exiba", "plote", "gráfico de", "visualização de"). Neste caso, preencha `chart` obrigatoriamente com o tipo mais adequado, mesmo que os dados retornem poucas categorias ou um único valor. A intenção explícita do usuário tem prioridade sobre a avaliação visual dos dados.
 2. Os dados retornados possuem padrão visual claro e um gráfico agregaria valor real à resposta.
 
 Critérios por tipo de resposta:

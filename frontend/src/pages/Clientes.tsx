@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Search, Download, Table, Grid, ArrowUp,
+  Search, Table, Grid, ArrowUp,
   ArrowDown, Box, Calendar, ChevronDown, ChevronUp, Maximize2, Crown, RotateCcw, Sparkles, X, Flame,
   Loader2, Star, Ticket, UserMinus, Trophy, Activity, Heart, AlertTriangle
 } from 'lucide-react'
 
 import type { Cliente, FiltrosClientes } from '../services/customerService'
 import { getClientes, getClienteStatusStyle } from '../services/customerService'
+
+import { ExportCsvButton, ClientFilters } from '../components/ExportCsvButton'
+import { Toaster, toast } from 'react-hot-toast'
 
 type SortConfig = {
   key: string | null;
@@ -23,11 +26,11 @@ export function Clientes() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [selectedSegmento] = useState<string | undefined>()
-  const [ticketRange, setTicketRange] = useState<{min?: number, max?: number}>({})
-  const [lvtRange, setLvtRange] = useState<{min?: number, max?: number}>({})
-  const [dateRange, setDateRange] = useState<{inicio?: string, fim?: string}>({})
+  const [ticketRange, setTicketRange] = useState<{ min?: number, max?: number }>({})
+  const [lvtRange, setLvtRange] = useState<{ min?: number, max?: number }>({})
+  const [dateRange, setDateRange] = useState<{ inicio?: string, fim?: string }>({})
   const [regiaoSelecionada, setRegiaoSelecionada] = useState<string>('')
-  
+
   const [viewMode, setViewMode] = useState<string>('tabela')
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'ascending' });
   const [showFilters, setShowFilters] = useState(false);
@@ -36,17 +39,17 @@ export function Clientes() {
   const [isTransitioningView, setIsTransitioningView] = useState(false);
 
   const handleTicketFilter = (min?: number, max?: number) => {
-    setTicketRange({min, max});
+    setTicketRange({ min, max });
     setPage(1);
   };
 
   const handleLvtFilter = (min?: number, max?: number) => {
-    setLvtRange({min, max});
+    setLvtRange({ min, max });
     setPage(1);
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDateRange(prev => ({...prev, [e.target.name]: e.target.value}));
+    setDateRange(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setPage(1);
   }
 
@@ -224,9 +227,23 @@ export function Clientes() {
           </div>
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-background border border-border rounded-4xl text-[#6B7588] font-medium hover:bg-card shadow-sm transition-all">
-          <Download className="w-4 h-4" /> Exportar CSV
-        </button>
+        <ExportCsvButton<ClientFilters>
+          type="client"
+          filters={{
+            averageTicketFloor: ticketRange.min,
+            averageTicketCeil: ticketRange.max,
+            ltvFloor: lvtRange.min,
+            ltvCeil: lvtRange.max,
+            lastOrderDateFloor: dateRange.inicio,
+            lastOrderDateCeil: dateRange.fim,
+            region: regiaoSelecionada,
+            rfmSegment: filterStatus !== 'todos' ? filterStatus : undefined,
+          }}
+          endpoint="http://localhost:8000/api/v1/clients/exportar"
+          onSuccess={(msg) => toast.success(msg)}
+          onError={(err) => toast.error(err)}
+        />
+        <Toaster position="top-right" />
       </div>
 
       {/* PAINEL DE FILTROS EXPANSÍVEL */}
@@ -258,11 +275,10 @@ export function Clientes() {
                   <button
                     key={status}
                     onClick={() => handleFilterStatus(filterStatus === status ? 'todos' : status)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all ${
-                      filterStatus === status 
-                      ? 'ring-2 ring-[#1E5EFF] ring-offset-2 scale-105 shadow-md' 
+                    className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all ${filterStatus === status
+                      ? 'ring-2 ring-[#1E5EFF] ring-offset-2 scale-105 shadow-md'
                       : 'opacity-70 hover:opacity-100'
-                    } ${getStyleFallback(status)}`}
+                      } ${getStyleFallback(status)}`}
                   >
                     <StatusIcon status={status} />
                     {status}
@@ -467,7 +483,7 @@ export function Clientes() {
                 ))}
               </tbody>
             </table>
-            
+
             {sortedClientes.length === 0 && (
               <div className="w-full py-12 flex flex-col items-center justify-center text-slate-400">
                 <Box className="w-12 h-12 mb-4 opacity-50" />

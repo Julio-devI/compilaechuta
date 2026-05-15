@@ -15,49 +15,69 @@ class StatusTicket(str, Enum):
     RESOLVIDO = "resolvido"
 
 
+from fastapi import Query
+from typing import Optional
+from datetime import date
+
+class ClientFilters:
+    def __init__(
+        self,
+        ticket_min: Optional[float] = Query(None, description="Filtra por ticket medio minimo"),
+        ticket_max: Optional[float] = Query(None, description="Filtra por ticket medio maximo"),
+        lvt_min: Optional[float] = Query(None, description="Filtra por LVT mínimo"),
+        lvt_max: Optional[float] = Query(None, description="Filtra por LVT máximo"),
+        data_inicio: Optional[date] = Query(None, description="Data inicial"),
+        data_fim: Optional[date] = Query(None, description="Data final"),
+        regiao: Optional[str] = Query(None, description="Filtro de região"),
+        status: Optional[str] = Query(None, description="Status VIP/Recorrente"),
+    ):
+        self.ticket_min = ticket_min
+        self.ticket_max = ticket_max
+        self.lvt_min = lvt_min
+        self.lvt_max = lvt_max
+        self.data_inicio = data_inicio
+        self.data_fim = data_fim
+        self.regiao = regiao
+        self.status = status
+
+
 router = APIRouter()
 
 
 @router.get("/", response_model=ClienteListOut)
 async def listar(
-    ticket_min:        Optional[float] = Query(None, description="Filtra por ticket medio minimo"),
-    ticket_max:        Optional[float] = Query(None, description="Filtra por ticket medio maximo"),
-    lvt_min:           Optional[float] = Query(None, description="Filtra por LVT mínimo"),
-    lvt_max:           Optional[float] = Query(None, description="Filtra por LVT máximo"),
-    data_inicio:       Optional[date]  = Query(None, description="Data do último pedido inicial"),
-    data_fim:          Optional[date]  = Query(None, description="Data do último pedido final"),
-    regiao:            Optional[str]   = Query(None, description="Filtro de região"),
+
+    db: AsyncSession = Depends(get_db),
+    filters: ClientFilters = Depends(),
     search:            Optional[str]   = Query(None, description="Busca por nome ou email"), # NOVO
-    status:            Optional[str]   = Query(None, description="Filtrar por status VIP/Recorrente"), # NOVO
-    cidade:            Optional[str]   = Query(None, description="Filtrar por cidade"),
     frequencia_minima: Optional[int]   = Query(None, ge=0, description="Frequência mínima de compras"),
     status_ticket:     Optional[StatusTicket] = Query(None, description="Filtrar por status de ticket"),
     skip:              int             = Query(0,   ge=0),
     limit:             int             = Query(100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
 ):
     return await service.listar_clientes(
-        db=db, 
-        cidade=cidade, 
-        frequencia_minima=frequencia_minima, 
-        status_ticket=status_ticket, 
-        skip=skip, 
-        limit=limit, 
-        search=search, 
-        status=status, 
-        ticket_min=ticket_min, 
-        ticket_max=ticket_max,
-        lvt_min=lvt_min,
-        lvt_max=lvt_max,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-        regiao=regiao
+        db=db,
+        filters=filters,
+        search=search,
+        frequencia_minima=frequencia_minima,
+        status_ticket=status_ticket,
+        skip=skip,
+        limit=limit
     )
 
 
 @router.get("/exportar")
-async def exportar(db: AsyncSession = Depends(get_db)):
-    output = await service.exportar_clientes_csv(db)
+async def exportar(
+
+    db: AsyncSession = Depends(get_db),
+    filters: ClientFilters = Depends()   
+):
+    
+    output = await service.exportar_clientes_csv(
+        db=db,
+        filters=filters
+    )
+
     return StreamingResponse(
         output,
         media_type="text/csv",

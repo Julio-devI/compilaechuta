@@ -7,7 +7,9 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import clients as crud
+from app.crud import products as crud_products
 from app.schemas.clients import ClienteCreate, ClienteListOut, ClienteOut
+from app.schemas.products import ProductListOut
 
 
 class ClientFilters:
@@ -76,6 +78,16 @@ async def exportar_clientes_csv(
         db=db,
         filters=filters
     )
+async def listar_produtos_cliente(
+    db: AsyncSession, cliente_id: str, skip: int = 0, limit: int = 100
+) -> ProductListOut:
+    await buscar_cliente(db, cliente_id)  # valida existência
+    total, data = await crud_products.get_products_by_cliente(db, cliente_id, skip=skip, limit=limit)
+    return ProductListOut(total=total, skip=skip, limit=limit, data=data)
+
+
+async def exportar_clientes_csv(db: AsyncSession) -> io.StringIO:
+    clientes = await crud.get_all_clients_for_export(db)
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([

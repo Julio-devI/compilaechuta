@@ -43,3 +43,10 @@ class ProductResponse(ProductBase):
     timestamp_ingestion_gold: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProductListOut(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    data: list[ProductResponse]

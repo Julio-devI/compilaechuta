@@ -45,8 +45,8 @@ export interface FiltrosPedidos {
   status_ticket?: string;
 }
 
-const API_URL = 'http://localhost:8000/api/v1/orders'
-const CLIENT_API_URL = 'http://localhost:8000/api/v1/clients'
+const API_URL = 'http://localhost:8000/pedidos'
+const CLIENT_API_URL = 'http://localhost:8000/clientes'
 
 // Cache local simples para evitar múltiplas chamadas à API pelo mesmo cliente
 const clientCache = new Map<string, any>();

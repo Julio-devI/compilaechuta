@@ -33,3 +33,27 @@ export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('access_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
+
+export async function forgotPasswordRequest(email: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/esqueci-senha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Erro ao enviar email' }))
+    throw new Error(err.detail || 'Erro ao enviar email')
+  }
+}
+
+export async function resetPasswordRequest(token: string, new_password: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/redefinir-senha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Erro ao redefinir senha' }))
+    throw new Error(err.detail || 'Erro ao redefinir senha')
+  }
+}

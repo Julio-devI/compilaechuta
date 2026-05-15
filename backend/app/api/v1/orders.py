@@ -8,33 +8,70 @@ from app.api.deps import get_db
 from app.services import orders as service
 from app.schemas.orders import PedidoListOut
 
+
 class StatusPedido(str, Enum):
-    APROVADO    = "Aprovado"
+    APROVADO = "Aprovado"
     PROCESSANDO = "Processando"
-    RECUSADO    = "Recusado"
+    RECUSADO = "Recusado"
     REEMBOLSADO = "Reembolsado"
+
+class TipoCliente(str, Enum):
+    CAMPEAO = "Campeão"
+    CLIENTE_VIP = "Cliente VIP"
+    CLIENTE_FIEL = "Cliente fiel"
+    CLIENTE_REGULAR = "Cliente regular"
+    NOVO_CLIENTE = "Novo cliente"
+    EM_RISCO = "Em risco"
+    INATIVO = "Inativo"
+
+class StatusTicket(str, Enum):
+    RESOLVIDO = "resolvido"
+    ABERTO = "aberto"
+
 
 router = APIRouter()
 
 
 @router.get("/", response_model=PedidoListOut)
 async def listar(
-    status:      Optional[StatusPedido] = Query(None, description="Filtrar por status"),
-    id_produto:  Optional[str] = Query(None, description="Filtrar por produto"),
-    data_inicio: Optional[str] = Query(None, description="Filtrar por data início (YYYY-MM-DD)"),
-    data_fim:    Optional[str] = Query(None, description="Filtrar por data fim (YYYY-MM-DD)"),
-    skip:        int           = Query(0,    ge=0),
-    limit:       int           = Query(100,  ge=1, le=500),
+    status:        Optional[StatusPedido] = Query(
+        None, description="Filtrar por status"),
+    id_produto:    Optional[str] = Query(
+        None, description="Filtrar por produto"),
+    data_inicio:   Optional[str] = Query(
+        None, description="Filtrar por data início (YYYY-MM-DD)"),
+    data_fim:      Optional[str] = Query(
+        None, description="Filtrar por data fim (YYYY-MM-DD)"),
+    tipo_cliente:  Optional[TipoCliente] = Query(
+        None, description="Filtrar por tipo do cliente (ex. Novo cliente)"),
+    nome_produto:   Optional[str] = Query(
+        None, description="Filtrar pelo nome do produto"),
+    status_ticket: Optional[StatusTicket] = Query(
+        None, description="Filtrar por status do ticket (resolvido, aberto)"),
+    skip:        int = Query(0,    ge=0),
+    limit:       int = Query(100,  ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.listar_pedidos(db, status, id_produto, data_inicio, data_fim, skip, limit)
+    return await service.listar_pedidos(
+        db=db, 
+        status=status, 
+        id_produto=id_produto, 
+        data_inicio=data_inicio, 
+        data_fim=data_fim, 
+        tipo_cliente=tipo_cliente, 
+        status_ticket=status_ticket, 
+        nome_produto=nome_produto, 
+        skip=skip, 
+        limit=limit
+        
+    )
 
 
 @router.get("/exportar")
-async def exportar(db: AsyncSession = Depends(get_db)):
-    output = await service.exportar_pedidos_csv(db)
+async def exportar(
+    db: AsyncSession = Depends(get_db)):
     return StreamingResponse(
-        output,
+        service.exportar_pedidos_csv(db),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=pedidos.csv"},
     )

@@ -146,7 +146,6 @@ class Database:
                     # Escapa aspas duplas no nome da tabela para uso nos PRAGMAs
                     escaped_name = table_name.replace('"', '""')
 
-                    # PRAGMA table_info
                     async with conn.execute(f'PRAGMA table_info("{escaped_name}")') as cursor:
                         async for row in cursor:
                             col = {
@@ -160,7 +159,6 @@ class Database:
                             if row[5]:
                                 table_info["primary_keys"].append(row[1])
 
-                    # PRAGMA foreign_key_list
                     async with conn.execute(
                         f'PRAGMA foreign_key_list("{escaped_name}")'
                     ) as cursor:

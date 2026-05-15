@@ -121,6 +121,9 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> TicketOut:
         raise HTTPException(status_code=404, detail="Ticket não encontrado")
     return ticket
 
+async def buscar_ticket_por_pedido(db: AsyncSession, id_pedido: str) -> Optional[TicketOut]:
+    ticket = await crud.get_ticket_by_pedido(db, id_pedido)
+    return ticket
 
 async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketOut:
     return await crud.create_ticket(db, ticket)

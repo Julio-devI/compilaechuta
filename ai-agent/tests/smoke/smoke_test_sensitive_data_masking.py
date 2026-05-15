@@ -32,7 +32,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from tests.integration.smoke_test_db import create_test_db
+from tests.smoke.smoke_test_db import create_test_db
 
 
 DEFAULT_RUNS = 2
@@ -475,7 +475,7 @@ def _print_exception(exc: BaseException) -> None:
 
 async def _run_smoke_test(db_path: str) -> None:
     from vcommerce_ai_agent.core.exceptions import LLMQuotaError
-    from tests.integration.smoke_tests_config import (
+    from tests.smoke.smoke_tests_config import (
         MAX_API_CALLS_PER_DAY,
         MAX_DURATION_SECONDS,
         configure_llm_retries_for_smoke_tests,
@@ -608,7 +608,7 @@ async def _run_smoke_test(db_path: str) -> None:
 
 
 def main() -> None:
-    from tests.integration.smoke_tests_config import resolve_api_key
+    from tests.smoke.smoke_tests_config import resolve_api_key
 
     api_key = resolve_api_key(sys.argv[1:])
     if not api_key:
@@ -618,9 +618,11 @@ def main() -> None:
         )
         raise SystemExit(1)
 
+    import os
     from vcommerce_ai_agent.core import config
 
     config.GEMINI_API_KEY = api_key
+    os.environ['GEMINI_API_KEY'] = api_key
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name

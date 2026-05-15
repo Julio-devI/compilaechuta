@@ -15,7 +15,8 @@ import httpx
 from google.api_core import exceptions as google_exceptions
 from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelHTTPError
-from pydantic_ai.models.gemini import GeminiModel
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
 from vcommerce_ai_agent.core import config
@@ -94,6 +95,13 @@ def _map_http_error(exc: ModelHTTPError) -> LLMError:
         )
 
     if status == 400:
+        body_str = str(exc.body) if exc.body else ""
+        if "API_KEY_INVALID" in body_str:
+            return LLMAuthenticationError(
+                "A chave de API fornecida é inválida ou expirou. "
+                "Verifique a variável de ambiente GEMINI_API_KEY.",
+                original_error=exc,
+            )
         return LLMInvalidRequestError(
             "A requisição enviada à API Gemini é inválida. "
             "Verifique se o prompt está dentro dos limites permitidos.",
@@ -167,7 +175,8 @@ class LLMAgent:
             )
 
         model_name = model if model is not None else config.LLM_MODEL
-        gemini_model = GeminiModel(model_name)
+        provider = GoogleProvider(api_key=config.GEMINI_API_KEY)
+        google_model = GoogleModel(model_name, provider=provider)
 
         settings_kwargs: dict[str, Any] = {"temperature": temperature}
         if max_tokens is not None:
@@ -175,7 +184,7 @@ class LLMAgent:
         settings = ModelSettings(**settings_kwargs)
 
         self._agent = Agent(
-            gemini_model,
+            google_model,
             system_prompt=system_prompt,
             model_settings=settings,
         )

@@ -22,15 +22,43 @@ async def get_all_products(
     db: AsyncSession, 
     skip: int = 0, 
     limit: int = 100,
-    categoria: Optional[str] = None
+    categoria: Optional[str] = None,
+    status: Optional[str] = None,
+    preco_min: Optional[float] = None,
+    preco_max: Optional[float] = None
 ) -> List[Produto]:
     
     query = select(Produto)
     
-    if categoria:
+    # 1. Filtro de Categoria
+    if categoria and categoria != 'Todas as Categorias':
         query = query.filter(Produto.categoria == categoria)
         
-    # query and pagination
+    # 2. Filtro de Status (AGORA À PROVA DE BALAS 🛡️)
+    if status:
+        if status == 'ativo':
+            # Busca qualquer variação que signifique "Ativo" no seu banco
+            query = query.filter(Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True]))
+            
+        elif status == 'inativo':
+            # Busca qualquer variação que signifique "Inativo"
+            query = query.filter(Produto.ativo.in_(['Não', 'não', 'Nao', 'nao', 'False', 'false', '0', False]))
+            
+        elif status == 'baixo_estoque':
+            # Busca quem tem pouco estoque E está ativo
+            query = query.filter(
+                Produto.estoque_disponivel < 10, 
+                Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True])
+            )
+            
+    # 3. Filtro de Preço
+    if preco_min is not None:
+        query = query.filter(Produto.preco >= preco_min)
+        
+    if preco_max is not None:
+        query = query.filter(Produto.preco <= preco_max)
+        
+    # Executa a query
     result = await db.execute(query.offset(skip).limit(limit))
     return list(result.scalars().all())
 

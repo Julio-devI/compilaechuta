@@ -2,20 +2,30 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 
 from app.core.config import settings
 
-_mail_config = ConnectionConfig(
-    MAIL_USERNAME=settings.MAIL_USERNAME,
-    MAIL_PASSWORD=settings.MAIL_PASSWORD,
-    MAIL_FROM=settings.MAIL_FROM,
-    MAIL_PORT=settings.MAIL_PORT,
-    MAIL_SERVER=settings.MAIL_SERVER,
-    MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True,
-)
+_fast_mail: FastMail | None = None
 
-_fast_mail = FastMail(_mail_config)
+
+def _get_fast_mail() -> FastMail:
+    global _fast_mail
+    if _fast_mail is None:
+        if not settings.MAIL_FROM:
+            raise RuntimeError(
+                "Email não configurado. Defina MAIL_FROM (e demais variáveis MAIL_*) no arquivo .env."
+            )
+        config = ConnectionConfig(
+            MAIL_USERNAME=settings.MAIL_USERNAME,
+            MAIL_PASSWORD=settings.MAIL_PASSWORD,
+            MAIL_FROM=settings.MAIL_FROM,
+            MAIL_PORT=settings.MAIL_PORT,
+            MAIL_SERVER=settings.MAIL_SERVER,
+            MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
+            MAIL_STARTTLS=True,
+            MAIL_SSL_TLS=False,
+            USE_CREDENTIALS=True,
+            VALIDATE_CERTS=True,
+        )
+        _fast_mail = FastMail(config)
+    return _fast_mail
 
 
 async def send_reset_password_email(email: str, nome: str, token: str) -> None:
@@ -147,4 +157,4 @@ async def send_reset_password_email(email: str, nome: str, token: str) -> None:
         subtype=MessageType.html,
     )
 
-    await _fast_mail.send_message(message)
+    await _get_fast_mail().send_message(message)

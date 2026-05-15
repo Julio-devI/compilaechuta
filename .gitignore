@@ -1,6 +1,14 @@
-﻿.venv/
+﻿.gitignore
+.venv/
 banco_local.db
 .env
 __pycache__/
 seed.py
 alembic/versions/
+*.db
+backend/vcommerce.db
+
+data/
+vcommerce.db
+data/
+.idea

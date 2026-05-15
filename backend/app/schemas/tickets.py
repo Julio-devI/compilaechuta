@@ -28,10 +28,12 @@ class TicketUpdate(BaseModel):
 
 
 class TicketOut(TicketBase):
-    id_ticket:      str
-    data_abertura:  Optional[datetime] = None
-    data_resolucao: Optional[datetime] = None
-    nota_avaliacao: Optional[float] = None
+    id_ticket:          str
+    id_pedido_display:  Optional[str] = None
+    nome_cliente:       Optional[str] = None
+    data_abertura:      Optional[datetime] = None
+    data_resolucao:     Optional[datetime] = None
+    nota_avaliacao:     Optional[float] = None
 
     @field_validator("nota_avaliacao", mode="before")
     @classmethod
@@ -42,3 +44,6 @@ class TicketOut(TicketBase):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.strftime("%Y-%m-%d %H:%M:%S") if v is not None else None
+        }

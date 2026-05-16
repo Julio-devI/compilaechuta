@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal, Optional, Any
 
@@ -155,4 +156,44 @@ class SuggestionsResponse(BaseModel):
     suggestions: list[str] = Field(
         ...,
         description="Lista de 5 perguntas sugeridas em PT-BR, baseadas no schema real do banco.",
+    )
+
+
+class SessionSummary(BaseModel):
+    """Resumo de uma sessão do agente para listagem na sidebar do frontend."""
+
+    session_id: str = Field(..., description="Identificador da sessão.")
+    title: str = Field(
+        ...,
+        description=(
+            "Título derivado da primeira pergunta do usuário no histórico, "
+            "truncado em 60 caracteres. Fallback para 'Sessão sem título' "
+            "quando o histórico está vazio ou corrompido."
+        ),
+    )
+    updated_at: datetime = Field(
+        ...,
+        description="Timestamp da última atualização da sessão (ISO 8601).",
+    )
+
+
+class SessionsListResponse(BaseModel):
+    """Resposta de GET /ai-agent/sessions."""
+
+    sessions: list[SessionSummary] = Field(
+        ...,
+        description="Sessões do usuário autenticado, ordenadas por updated_at decrescente.",
+    )
+
+
+class SessionDetailResponse(BaseModel):
+    """Resposta de GET /ai-agent/sessions/{session_id}."""
+
+    session_id: str = Field(..., description="Identificador da sessão.")
+    history: list[dict[str, Optional[str]]] = Field(
+        ...,
+        description=(
+            "Histórico alternado user/assistant no formato exportado pelo agente: "
+            "lista de dicts com chaves role, content e sql."
+        ),
     )

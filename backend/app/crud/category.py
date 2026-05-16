@@ -2,8 +2,9 @@ import re
 import unicodedata
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func
 from sqlalchemy.future import select
+from sqlalchemy import func, case
+from app.models.products import Produto
 
 from app.models.category import Categoria
 from app.schemas.category import CategoryCreate, CategoryUpdate
@@ -46,14 +47,39 @@ async def get_category_by_id(db: AsyncSession, id_categoria: str) -> Optional[Ca
 async def get_all_categories(
     db: AsyncSession, *, skip: int = 0, limit: int = 100, name: Optional[str] = None
 ) -> List[Categoria]:
-    query = select(Categoria)
+# Cria uma query agregada que calcula os totais baseando-se nos produtos existentes
+    stmt = (
+        select(
+            Categoria,
+            func.count(Produto.id_produto).label("total_prod"),
+            func.coalesce(func.sum(Produto.estoque_disponivel), 0).label("estoque_total"),
+            func.coalesce(func.avg(Produto.preco), 0.0).label("prc_medio"),
+            func.sum(case((Produto.precisa_revisao == "Sim", 1), else_=0)).label("total_rev")
+        )
+        .outerjoin(Produto, Categoria.id_categoria == Produto.id_categoria)
+        .group_by(Categoria.id_categoria)
+    )
     
     if name:
-        query = query.filter(Categoria.name.ilike(f"%{name}%"))
+        # Se houver filtro de nome no CRUD
+        stmt = stmt.filter(Categoria.nome_categoria.ilike(f"%{name}%"))
         
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    return list(result.scalars().all())
+    stmt = stmt.offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    
+    lista_categorias = []
+    for row in result.all():
+        categoria_obj = row.Categoria
+        
+        # Injeta os valores calculados dinamicamente nos atributos que o Frontend espera ler
+        categoria_obj.total_produtos = row.total_prod
+        categoria_obj.total_com_estoque = row.estoque_total
+        categoria_obj.preco_medio = row.prc_medio
+        categoria_obj.total_precisa_revisao = row.total_rev
+        
+        lista_categorias.append(categoria_obj)
+        
+    return lista_categorias
 
 
 async def create_category(db: AsyncSession, *, obj_in: CategoryCreate, slug_categoria: str,) -> Categoria:

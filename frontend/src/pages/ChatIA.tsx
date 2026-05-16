@@ -108,8 +108,10 @@ export function ChatIA() {
     try {
       const sessions = await listSessions()
       setConversasHistorico(sessions.map(summaryToHistorico))
+      return sessions
     } catch (err) {
       toast.error((err as Error).message)
+      return []
     }
   }
 
@@ -123,8 +125,21 @@ export function ChatIA() {
   }
 
   useEffect(() => {
-    refreshSessions()
-    loadInitialSuggestions()
+    const initChat = async () => {
+      const sessions = await refreshSessions()
+      const lastSessionId = sessionStorage.getItem('ai_agent_last_session')
+
+      if (lastSessionId && sessions && sessions.length > 0) {
+        const sessionExists = sessions.find(s => s.session_id === lastSessionId)
+        if (sessionExists) {
+          handleConversaHistorico(lastSessionId)
+          return
+        }
+      }
+
+      loadInitialSuggestions()
+    }
+    initChat()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -171,6 +186,7 @@ export function ChatIA() {
       if (response.status === 'success') {
         refreshSessions()
         setConversaAtiva(sessionId)
+        sessionStorage.setItem('ai_agent_last_session', sessionId)
       }
     } catch (err) {
       const message = (err as Error).message
@@ -255,6 +271,7 @@ export function ChatIA() {
     setSlashMenuOpen(false)
     setSessionId(crypto.randomUUID())
     loadInitialSuggestions()
+    sessionStorage.removeItem('ai_agent_last_session')
   }
 
   const handleConversaHistorico = async (id: string) => {
@@ -262,6 +279,7 @@ export function ChatIA() {
     setSessionId(id)
     setInputValue('')
     setSlashMenuOpen(false)
+    sessionStorage.setItem('ai_agent_last_session', id)
     try {
       const detail = await getSessionDetail(id)
       const mapped: Message[] = detail.history.map(entry => ({

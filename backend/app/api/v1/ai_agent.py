@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from dataclasses import asdict
+from datetime import timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -383,7 +384,7 @@ async def list_user_sessions(
         SessionSummary(
             session_id=row.session_id,
             title=_derive_title(row.history_json),
-            updated_at=row.updated_at,
+            updated_at=row.updated_at.replace(tzinfo=timezone.utc) if row.updated_at else None,
         )
         for row in rows
     ]

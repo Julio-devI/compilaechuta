@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app.models.ai_agent import AIAgentSession
 
@@ -11,7 +10,7 @@ async def get_session_by_session_id(
     result = await db.execute(
         select(AIAgentSession).where(AIAgentSession.session_id == session_id)
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def create_or_update_session(

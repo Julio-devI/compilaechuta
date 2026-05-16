@@ -7,7 +7,9 @@ from app.api.v1 import (
   category,
   dashboard,
   orders,
-  orders_evaluation
+  orders_evaluation,
+  operator,
+  auth
 )
 
 api_router = APIRouter()
@@ -20,3 +22,5 @@ api_router.include_router(products.router, prefix="/products", tags=["Products"]
 api_router.include_router(category.router, prefix="/categories", tags=["categories"])
 api_router.include_router(orders.router, prefix="/orders", tags=["Orders"])
 api_router.include_router(orders_evaluation.router, prefix="/orders-evaluation", tags=["Orders Evaluation"])
+api_router.include_router(operator.router, prefix="/operators", tags=["Operators"])
+api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])

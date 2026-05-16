@@ -20,3 +20,6 @@ uvicorn.out.log
 
 # Artefatos de build do setuptools
 *.egg-info/
+.ai
+.idea/workspace.xml
+

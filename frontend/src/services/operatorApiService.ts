@@ -1,6 +1,6 @@
 import { getAuthHeaders } from './authService'
 
-const API_BASE = 'http://127.0.0.1:8000'
+const API_BASE = 'http://127.0.0.1:8000/api/v1'
 
 export type OperatorRole = 'super_admin' | 'admin' | 'user'
 
@@ -64,17 +64,17 @@ export async function listOperators(params?: {
   if (params?.search) qs.set('search', params.search)
   if (params?.role) qs.set('role', params.role)
   if (params?.active !== undefined) qs.set('active', String(params.active))
-  return request(`/operadores/?${qs}`)
+  return request(`/operators/?${qs}`)
 }
 
 export async function createOperator(data: OperatorCreate): Promise<Operator> {
-  return request('/operadores/', { method: 'POST', body: JSON.stringify(data) })
+  return request('/operators/', { method: 'POST', body: JSON.stringify(data) })
 }
 
 export async function updateOperator(id: string, data: OperatorUpdate): Promise<Operator> {
-  return request(`/operadores/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+  return request(`/operators/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 }
 
 export async function deleteOperator(id: string): Promise<Operator> {
-  return request(`/operadores/${id}`, { method: 'DELETE' })
+  return request(`/operators/${id}`, { method: 'DELETE' })
 }

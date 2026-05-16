@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer, Index
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -23,3 +23,8 @@ class Ticket(Base):
     # Alterado para lazy="select" para evitar LEFT OUTER JOIN massivos nas listagens
     pedido = relationship("Pedido", back_populates="tickets", lazy="select")
     cliente = relationship("Cliente", back_populates="tickets", lazy="select")
+    
+    # Índice composto para buscas rápidas de tickets por pedido + status
+    __table_args__ = (
+        Index("ix_fato_suporte_ticket_id_pedido_status", "id_pedido", "status"),
+    )

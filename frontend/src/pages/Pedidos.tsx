@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Search, Maximize2, Minimize2, ChevronDown, ChevronUp, History,
-  AlertCircle, CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp,
+  Search, ChevronDown, ChevronUp, History,
+  CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp,
   Filter, Ticket, Table, Grid
 } from 'lucide-react'
 import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
@@ -130,7 +130,7 @@ export function Pedidos() {
     setIsLoading(true);
     try {
       const filtros: FiltrosPedidos = {
-        id_produto: searchTerm || undefined,
+        id_pedido_display: searchTerm || undefined,
         status: statusFilter || undefined,
         tipo_cliente: tipoClienteFilter || undefined,
         data_inicio: dataInicioFilter || undefined,

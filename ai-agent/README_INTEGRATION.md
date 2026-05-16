@@ -495,7 +495,7 @@ class ResponseError:
     retryable: bool
 ```
 
-`message` é destinada ao backend/logs. Para o frontend, use `user_response.answer_text`, que permanece genérica em falhas técnicas.
+`message` é destinada ao backend/logs. Para o frontend, use `user_response.answer_text`. O backend mapeia alguns códigos específicos (como `EMPTY_INPUT`, `LLM_RATE_LIMIT_ERROR`) para mensagens amigáveis no `answer_text` antes de enviar ao frontend, enquanto os demais permanecem com uma mensagem genérica de falha técnica.
 
 ## Códigos de Erro
 
@@ -532,7 +532,7 @@ Use `status` para decidir o fluxo HTTP:
 
 - `success`: retornar `200`.
 - `out_of_scope`: retornar `200` com mensagem de fora de escopo para o frontend.
-- `error`: retornar `200` se a UI deve mostrar a mensagem genérica do agente, ou mapear para `4xx/5xx` interno conforme a política do backend.
+- `error`: retornar `200` para que a UI exiba o `user_response.answer_text` (que agora contém uma mensagem amigável mapeada no backend a partir do código de erro), ou mapear para `4xx/5xx` interno conforme a política do backend.
 
 Use `developer_debug.error.retryable` para decidir se a UI pode sugerir nova tentativa automática/manual.
 

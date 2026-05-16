@@ -138,9 +138,9 @@ async def ask_agent(
     Erros técnicos (falhas no processamento da pergunta, timeout, validações
     de segurança etc.) chegam como HTTP 200 com `status == 'error'` e
     `user_response.answer_text` preenchido com uma mensagem amigável
-    mapeada do código de erro. Quando a pergunta está fora do escopo do
-    agente, `status` é `'out_of_scope'` e `user_response.answer_text` traz
-    a explicação devolvida pelo próprio agente, sem mapeamento adicional.
+    agente, `status` é `'out_of_scope'` e `user_response.answer_text` é
+    substituído por uma mensagem padrão, garantindo que não haja
+    vazamento de detalhes de implementação.
 
     Os detalhes técnicos da execução ficam restritos ao backend, registrados
     nos logs internos, e não são enviados ao frontend.
@@ -198,6 +198,8 @@ async def ask_agent(
                     code,
                     "Ocorreu uma falha no processamento. Tente novamente ou contate o suporte."
                 )
+            elif response.status == "out_of_scope":
+                response.user_response.answer_text = "Desculpe, não consigo responder essa pergunta com os dados disponíveis no momento."
 
     return {
         "status": response.status,

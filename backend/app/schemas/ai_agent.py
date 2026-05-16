@@ -63,9 +63,8 @@ class UserResponseSchema(BaseModel):
 class AgentResponseSchema(BaseModel):
     """Resposta pública do agente para um POST /ai-agent/ask.
 
-    Os dados técnicos do agente (SQL gerado, tempos de execução, tokens,
-    detalhes de erro) ficam restritos ao backend e são registrados nos logs
-    do logger `vcommerce_ai_agent`. Eles não trafegam para o frontend.
+    Os dados técnicos da execução do agente ficam restritos ao backend e
+    são registrados nos logs internos. Eles não trafegam para o frontend.
     """
 
     status: Literal["success", "error", "out_of_scope"] = Field(
@@ -129,8 +128,8 @@ class AskRequest(BaseModel):
         description=(
             "Identificador da conversa. Use o mesmo valor entre requisições "
             "para encadear follow-ups (o backend recupera o histórico salvo). "
-            "Requisições simultâneas na mesma `session_id` são serializadas "
-            "por lock em memória."
+            "Requisições simultâneas na mesma `session_id` são processadas "
+            "em ordem."
         ),
         examples=["sessao-usuario-123"],
     )
@@ -143,8 +142,8 @@ class SuggestionsRequest(BaseModel):
         default="",
         description=(
             "Identificador da conversa. Quando informado, o backend recupera "
-            "o histórico da sessão e gera sugestões contextuais de follow-up "
-            "via LLM. Quando vazio ou ausente, retorna a lista fixa inicial."
+            "o histórico da sessão e gera sugestões contextuais de follow-up. "
+            "Quando vazio ou ausente, retorna a lista fixa inicial."
         ),
         examples=["sessao-usuario-123"],
     )
@@ -156,29 +155,4 @@ class SuggestionsResponse(BaseModel):
     suggestions: list[str] = Field(
         ...,
         description="Lista de 5 perguntas sugeridas em PT-BR, baseadas no schema real do banco.",
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "suggestions": [
-                        "Qual é a receita total agrupada por região do país?",
-                        "Quais são os principais clientes do segmento 'Campeões' que mais gastaram na loja?",
-                        "Qual é o tempo médio de resolução de tickets por tipo de problema?",
-                        "Quais são os 10 produtos com a melhor média de avaliação dos clientes?",
-                        "Quais canais de aquisição geram o maior número de compras e adições ao carrinho?",
-                    ]
-                },
-                {
-                    "suggestions": [
-                        "Qual região teve o maior crescimento de receita no último trimestre?",
-                        "Quais produtos da região Sudeste têm a maior margem de lucro?",
-                        "Como a receita por região se compara ao mesmo período do ano anterior?",
-                        "Quais são os 5 estados com maior ticket médio de compra?",
-                        "Existe correlação entre a região do cliente e o canal de aquisição preferido?",
-                    ]
-                },
-            ]
-        }
     )

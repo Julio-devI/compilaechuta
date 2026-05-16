@@ -130,18 +130,20 @@ async def ask_agent(
     devolve também os dados brutos em `user_response.data` e uma sugestão
     de gráfico em `user_response.chart`.
 
-    O histórico da conversa é persistido automaticamente em `ai_agent_sessions`
-    apenas quando `status == 'success'`, permitindo follow-ups na mesma
-    `session_id`. Requisições simultâneas para a mesma sessão são serializadas
-    por lock em memória.
+    O histórico da conversa é persistido automaticamente no backend apenas
+    quando `status == 'success'`, permitindo follow-ups na mesma
+    `session_id`. Requisições simultâneas para a mesma sessão são
+    processadas em ordem.
 
-    Erros de domínio (pergunta fora de escopo, falha na geração de SQL,
-    timeout etc.) chegam sempre como HTTP 200 com `status` != 'success',
-    e a propriedade `user_response.answer_text` trará uma mensagem
-    amigável mapeada a partir do código de erro.
-    Os detalhes técnicos (SQL gerado, tempos, código de erro, tokens) ficam
-    restritos ao backend, registrados via logger `vcommerce_ai_agent`, e não
-    são enviados ao frontend.
+    Erros técnicos (falhas no processamento da pergunta, timeout, validações
+    de segurança etc.) chegam como HTTP 200 com `status == 'error'` e
+    `user_response.answer_text` preenchido com uma mensagem amigável
+    mapeada do código de erro. Quando a pergunta está fora do escopo do
+    agente, `status` é `'out_of_scope'` e `user_response.answer_text` traz
+    a explicação devolvida pelo próprio agente, sem mapeamento adicional.
+
+    Os detalhes técnicos da execução ficam restritos ao backend, registrados
+    nos logs internos, e não são enviados ao frontend.
     """
     lock = _get_lock(payload.session_id)
     async with lock:
@@ -250,7 +252,11 @@ async def ask_agent(
             },
         },
         422: {
-            "description": "Payload inválido."
+            "description": (
+                "Payload inválido. Como `session_id` é opcional e tem default "
+                "vazio, este código só ocorre se o campo for enviado com tipo "
+                "diferente de string."
+            )
         },
     },
 )

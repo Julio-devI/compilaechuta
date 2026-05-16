@@ -196,6 +196,88 @@
         }
       }
     },
+    "fato_avaliacoes_pedido": {
+      "display_name": "avaliacoes de pedidos",
+      "description": "Tabela fato com avaliacoes de produtos e NPS por pedido. Cada linha representa uma avaliacao feita por um cliente apos a compra.",
+      "columns": {
+        "id_avaliacao": {
+          "description": "Identificador unico da avaliacao.",
+          "examples": ["00000000-0000-0000-0002-3464279cec87"]
+        },
+        "id_pedido": {
+          "description": "Chave estrangeira para fato_vendas.id_pedido.",
+          "examples": ["1d6c8826-0aaa-4674-880f-0c752cbd3dea"]
+        },
+        "id_cliente": {
+          "description": "Chave estrangeira para dim_cliente.id_cliente.",
+          "examples": ["dc6a2b8b-7b15-49aa-a366-b9ebe14a9b3d"]
+        },
+        "id_produto": {
+          "description": "Chave estrangeira para dim_produto.id_produto.",
+          "examples": ["PROD-0459", "PROD-0022"]
+        },
+        "nome_produto": {
+          "description": "Nome do produto avaliado (denormalizado de dim_produto).",
+          "examples": ["Painel Com Lareira", "Monitor 24 Polegadas"]
+        },
+        "id_categoria": {
+          "description": "Chave estrangeira para gold_categoria.id_categoria.",
+          "examples": ["CATEG-0007", "CATEG-0005"]
+        },
+        "preco": {
+          "description": "Preco unitario do produto no momento da venda em reais. Valor -1 indica preco nao informado.",
+          "examples": [1676.0, 305.36, -1.0]
+        },
+        "valor_pedido": {
+          "description": "Valor total do pedido em reais.",
+          "examples": [6931.83, 305.36]
+        },
+        "quantidade": {
+          "description": "Quantidade de unidades no pedido.",
+          "examples": [1, 4, 2]
+        },
+        "metodo_pagamento": {
+          "description": "Metodo de pagamento utilizado.",
+          "examples": ["PIX", "Cartao", "Boleto"]
+        },
+        "status": {
+          "description": "Status do pedido associado a avaliacao.",
+          "examples": ["Aprovado", "Cancelado", "Pendente"]
+        },
+        "data_pedido": {
+          "description": "Data em que o pedido foi realizado.",
+          "examples": ["2025-07-24", "2024-11-06"]
+        },
+        "nota_produto": {
+          "description": "Nota dada ao produto pelo cliente (1 a 5).",
+          "examples": [4, 5, 3]
+        },
+        "nota_nps": {
+          "description": "Nota NPS atribuida pelo cliente (0 a 10).",
+          "examples": [7, 9, 5]
+        },
+        "recomenda": {
+          "description": "Indica se o cliente recomendaria o produto. Valores Sim ou Nao.",
+          "examples": ["Sim", "Nao"]
+        },
+        "comentario": {
+          "description": "Comentario textual da avaliacao escrito pelo cliente.",
+          "examples": ["O produto e muito confortavel e pratico.", "Estou muito satisfeito com essa compra."]
+        },
+        "data_avaliacao": {
+          "description": "Data em que a avaliacao foi registrada.",
+          "examples": ["2025-07-31", "2024-12-31"]
+        },
+        "categoria_nps": {
+          "description": "Classificacao NPS derivada da nota_nps. Valores Promotor (9-10), Neutro (7-8) ou Detrator (0-6).",
+          "examples": ["Promotor", "Neutro", "Detrator"]
+        },
+        "pct_recomendacoes_sim": {
+          "description": "Percentual de avaliacoes do produto que recomendaram (0 a 100).",
+          "examples": [75.71, 71.22]
+        }
+      }
+    },
     "fato_suporte_ticket": {
       "display_name": "tickets de suporte",
       "description": "Tabela fato com historico de tickets de suporte ao cliente.",

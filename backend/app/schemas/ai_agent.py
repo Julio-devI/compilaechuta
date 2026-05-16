@@ -77,6 +77,10 @@ class AgentResponseSchema(BaseModel):
             "verificar este campo."
         ),
     )
+    session_id: str = Field(
+        ...,
+        description="Identificador da sessão atrelado a esta resposta.",
+    )
     user_response: UserResponseSchema
 
     model_config = ConfigDict(
@@ -131,38 +135,10 @@ class AskRequest(BaseModel):
     )
 
 
-class SuggestionsRequest(BaseModel):
-    """Payload para POST /ai-agent/suggestions."""
-
-    previous_suggestions: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Perguntas já exibidas ao usuário nesta sessão. O agente filtra "
-            "essas opções para evitar repetição entre cliques do botão de "
-            "'mais sugestões'."
-        ),
-        examples=[
-            [
-                "Qual o ticket médio dos pedidos?",
-                "Quais regiões mais compram?",
-            ]
-        ],
-    )
-
-
 class SuggestionsResponse(BaseModel):
-    """Resposta de POST /ai-agent/suggestions."""
+    """Resposta de GET /ai-agent/suggestions."""
 
     suggestions: list[str] = Field(
         ...,
         description="Lista de 5 perguntas sugeridas em PT-BR, baseadas no schema real do banco.",
-        examples=[
-            [
-                "Quais os 10 produtos mais vendidos?",
-                "Qual o ticket médio dos pedidos por região?",
-                "Quantos clientes novos entraram no último mês?",
-                "Qual a taxa de NPS atual?",
-                "Quais categorias têm maior margem?",
-            ]
-        ],
     )

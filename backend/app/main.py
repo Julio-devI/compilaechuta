@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,10 +35,22 @@ if not vcommerce_ai_logger.handlers:
     handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
     vcommerce_ai_logger.addHandler(handler)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Preaquece as sugestões do agente no startup (dispara a primeira geração de IA)
+    try:
+        from app.api.v1.ai_agent import get_suggestions
+        await get_suggestions()
+        vcommerce_ai_logger.info("Sugestões preaquecidas com sucesso no startup.")
+    except Exception as e:
+        vcommerce_ai_logger.error(f"Falha ao preaquecer sugestões no startup: {e}")
+    yield
+
 app = FastAPI(
     title="V-Commerce CRM 360",
     description="API do CRM 360 da V-Commerce",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

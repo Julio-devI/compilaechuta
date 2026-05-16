@@ -14,7 +14,6 @@ from app.crud.ai_agent import create_or_update_session, get_session_by_session_i
 from app.schemas.ai_agent import (
     AgentResponseSchema,
     AskRequest,
-    SuggestionsRequest,
     SuggestionsResponse,
 )
 
@@ -27,6 +26,9 @@ _EXCLUDED_TABLES: set[str] = {"ai_agent_sessions", "alembic_version"}
 
 # Lock por session_id para serializar perguntas simultaneas na mesma conversa
 _session_locks: dict[str, asyncio.Lock] = {}
+
+# Historico em memoria das sugestoes ja apresentadas (max 25)
+_excluded_suggestions: list[str] = []
 
 
 def _get_lock(session_id: str) -> asyncio.Lock:
@@ -161,26 +163,27 @@ async def ask_agent(
 
     return {
         "status": response.status,
+        "session_id": payload.session_id,
         "user_response": asdict(response.user_response),
     }
 
 
-@router.post(
+@router.get(
     "/suggestions",
     response_model=SuggestionsResponse,
     summary="Lista sugestões iniciais de perguntas",
     response_description="Lista de 5 perguntas em PT-BR baseadas no schema real do banco.",
 )
-async def get_suggestions(
-    payload: SuggestionsRequest,
-) -> SuggestionsResponse:
+async def get_suggestions() -> SuggestionsResponse:
     """
     Retorna 5 sugestões de perguntas que o usuário pode fazer ao agente.
 
-    As sugestões são geradas pelo LLM a partir do schema do banco. Para evitar
-    repetição entre cliques do botão de 'mais sugestões', envie em
-    `previous_suggestions` as perguntas que já foram apresentadas nesta sessão.
+    As sugestões são geradas pelo LLM a partir do schema do banco. O histórico
+    das perguntas geradas é armazenado em memória (máximo de 25), sendo
+    atualizado a cada chamada para garantir variedade contínua nas sugestões.
     """
+    global _excluded_suggestions
+
     agent = VCommerceAgent(
         db_path=settings.DB_PATH,
         schema_descriptions_path=settings.SCHEMA_DESCRIPTIONS_PATH,
@@ -188,7 +191,11 @@ async def get_suggestions(
     )
 
     suggestions = await agent.initial_suggestions(
-        previous_suggestions=payload.previous_suggestions or None
+        previous_suggestions=_excluded_suggestions or None
     )
+
+    _excluded_suggestions.extend(suggestions)
+    if len(_excluded_suggestions) > 25:
+        _excluded_suggestions = _excluded_suggestions[-25:]
 
     return SuggestionsResponse(suggestions=suggestions)

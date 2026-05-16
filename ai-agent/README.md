@@ -48,15 +48,14 @@ agent.import_history(history)
 # Inicia nova conversa
 agent.clear_history()
 
-# Sugestões dinâmicas de perguntas para o botão inicial do chat
+# Sugestões de perguntas para o início do chat (lista fixa, sem LLM)
 suggestions = await agent.initial_suggestions()
 print(suggestions)
-# Exemplo: ['Qual é a receita total agrupada por região do país?', 'Quais são os principais clientes do segmento "Campeões" que mais gastaram na loja?', ...]
+# Exemplo: ['Qual é a receita total agrupada por região do país?', 'Quais são os principais clientes do segmento Campeões que mais gastaram na loja?', ...]
 
-# Ao clicar novamente no botão, envie as perguntas já exibidas para evitar repetição
-next_suggestions = await agent.initial_suggestions(
-    previous_suggestions=suggestions
-)
+# Sugestões contextuais durante a conversa (gera follow-ups via LLM)
+history = agent.export_history()
+next_suggestions = await agent.initial_suggestions(history=history)
 print(next_suggestions)
 ```
 

@@ -1,8 +1,9 @@
 """
-Módulo de geração de sugestões iniciais de perguntas.
+Módulo de geração de sugestões contextuais de perguntas.
 
-Responsável por montar o prompt com o schema do banco, invocar o LLM
-(Gemini via PydanticAI) e extrair/validar as perguntas sugeridas.
+Responsável por montar o prompt com o schema do banco e o histórico
+da conversa, invocar o LLM (Gemini via PydanticAI) e extrair/validar
+as perguntas sugeridas.
 """
 
 import json
@@ -16,7 +17,7 @@ from vcommerce_ai_agent.llm.llm_client import LLMAgent
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "suggestions_system.txt"
 
 SUGGESTIONS_COUNT = 5
-FALLBACK_SUGGESTIONS = (
+INITIAL_SUGGESTIONS: tuple[str, ...] = (
     "Qual é a receita total agrupada por região do país?",
     "Quais são os principais clientes do segmento 'Campeões' que mais gastaram na loja?",
     "Qual é o tempo médio de resolução de tickets por tipo de problema?",
@@ -37,102 +38,45 @@ _TECHNICAL_PREFIXES = (
 )
 
 
-FALLBACK_SUGGESTION_POOL = (
-    *FALLBACK_SUGGESTIONS,
-    "Quais foram os 10 produtos com maior receita total gerada?",
-    "Qual foi o método de pagamento mais utilizado nas vendas?",
-    "Qual é o ticket médio das vendas separadas por categoria de produto?",
-    "Quantos pedidos foram cancelados ou estão pendentes?",
-    "Quais produtos estão com estoque zerado e precisam de revisão?",
-    "Quais são os 5 fornecedores com a maior quantidade de unidades vendidas?",
-    "Quantos pedidos em média um cliente da região Nordeste realiza?",
-    "Qual a distribuição percentual de clientes por segmento RFM?",
-    "Quais agentes de suporte possuem a melhor nota média de satisfação?",
-    "Quais clientes possuem o maior número de tickets de suporte?",
-    "Qual é a proporção de avaliações NPS classificadas como 'Promotores'?",
-    "Quais os comentários das avaliações de pedidos com nota baixa (1 ou 2)?",
-    "Qual é o dispositivo de navegação mais utilizado pelos clientes?",
-    "Qual é a taxa de abandono de carrinho média por canal de aquisição?",
-    "Como as notas de avaliação do suporte variam de acordo com o tempo de resolução do ticket?",
-)
+def _format_history_for_suggestions(
+    history: list[dict[str, str | None]] | None,
+) -> str:
+    """Formata o histórico de conversa para injeção no prompt de sugestões."""
+    if not history:
+        return "Nenhuma interação anterior nesta conversa."
 
+    lines: list[str] = []
+    turn = 0
+    for i in range(0, len(history), 2):
+        if i + 1 >= len(history):
+            break
+        turn += 1
+        user_msg = history[i]
+        assistant_msg = history[i + 1]
+        lines.append(f"Interação {turn}:")
+        lines.append(f"Pergunta: {user_msg['content']}")
+        lines.append(f"Resposta: {assistant_msg['content']}")
+        lines.append("")
 
-def _normalize_suggestion(text: str) -> str:
-    """Normaliza pergunta para comparação de repetição."""
-    return " ".join(text.strip().lower().split())
-
-
-def _normalize_previous_suggestions(
-    previous_suggestions: list[str] | None,
-) -> list[str]:
-    """Normaliza lista opcional de perguntas já sugeridas."""
-    if previous_suggestions is None:
-        return []
-    if not isinstance(previous_suggestions, list):
-        raise ValueError("previous_suggestions deve ser uma lista de strings.")
-
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for item in previous_suggestions:
-        if not isinstance(item, str):
-            continue
-        suggestion = item.strip()
-        if not suggestion:
-            continue
-        key = _normalize_suggestion(suggestion)
-        if key in seen:
-            continue
-        seen.add(key)
-        normalized.append(suggestion)
-    return normalized
-
-
-def _format_previous_suggestions(previous_suggestions: list[str] | None) -> str:
-    """Formata perguntas anteriores para o prompt de sugestões."""
-    normalized = _normalize_previous_suggestions(previous_suggestions)
-    if not normalized:
-        return "Nenhuma pergunta anterior foi informada."
-    lines = [
-        "As perguntas abaixo já foram sugeridas ao usuário. "
-        "Não repita nenhuma delas, nem variações quase idênticas:"
-    ]
-    lines.extend(f"- {suggestion}" for suggestion in normalized)
+    lines.append(
+        "Gere perguntas de follow-up que aprofundem ou complementem "
+        "os temas já discutidos acima. Não repita perguntas já feitas."
+    )
     return "\n".join(lines)
-
-
-def select_fallback_suggestions(
-    previous_suggestions: list[str] | None = None,
-) -> list[str]:
-    """Seleciona 5 perguntas de fallback evitando perguntas anteriores."""
-    previous = {
-        _normalize_suggestion(suggestion)
-        for suggestion in _normalize_previous_suggestions(previous_suggestions)
-    }
-    selected = [
-        suggestion
-        for suggestion in FALLBACK_SUGGESTION_POOL
-        if _normalize_suggestion(suggestion) not in previous
-    ]
-    if len(selected) >= SUGGESTIONS_COUNT:
-        return selected[:SUGGESTIONS_COUNT]
-    return list(FALLBACK_SUGGESTIONS)
 
 
 def _load_system_prompt(
     schema: str,
-    previous_suggestions: list[str] | None = None,
+    history: list[dict[str, str | None]] | None = None,
 ) -> str:
-    """Carrega o template do system prompt e injeta o schema dinâmico."""
+    """Carrega o template do system prompt e injeta o schema e o histórico."""
     if not _PROMPT_PATH.exists():
         raise FileNotFoundError(f"Prompt não encontrado: {_PROMPT_PATH}")
     template = _PROMPT_PATH.read_text(encoding="utf-8")
     return (
         template
         .replace("{schema}", schema)
-        .replace(
-            "{previous_suggestions}",
-            _format_previous_suggestions(previous_suggestions),
-        )
+        .replace("{history}", _format_history_for_suggestions(history))
     )
 
 
@@ -173,10 +117,14 @@ def _contains_physical_table_name(text: str, table_names: set[str]) -> bool:
     return False
 
 
+def _normalize_suggestion(text: str) -> str:
+    """Normaliza pergunta para comparação de duplicatas."""
+    return " ".join(text.strip().lower().split())
+
+
 def _parse_suggestions(
     raw: str,
     table_names: set[str],
-    previous_suggestions: list[str] | None = None,
 ) -> list[str]:
     """
     Faz o parse e a validação da resposta JSON do LLM.
@@ -209,10 +157,6 @@ def _parse_suggestions(
     if not isinstance(suggestions, list):
         raise LLMParseError("O campo 'suggestions' deve ser uma lista.")
 
-    previous = {
-        _normalize_suggestion(suggestion)
-        for suggestion in _normalize_previous_suggestions(previous_suggestions)
-    }
     valid: list[str] = []
     seen: set[str] = set()
 
@@ -233,8 +177,6 @@ def _parse_suggestions(
         if _contains_physical_table_name(item, table_names):
             continue
         lower_item = _normalize_suggestion(item)
-        if lower_item in previous:
-            continue
         if lower_item in seen:
             continue
         seen.add(lower_item)
@@ -251,15 +193,15 @@ def _parse_suggestions(
 
 async def generate_suggestions(
     schema: str,
-    previous_suggestions: list[str] | None = None,
+    history: list[dict[str, str | None]] | None = None,
     model: str | None = None,
 ) -> tuple[list[str], int | None]:
     """
-    Gera 5 perguntas de exemplo dinâmicas a partir do schema do banco.
+    Gera 5 perguntas contextuais a partir do schema e do histórico da conversa.
 
     Args:
         schema: Schema completo do banco formatado como texto.
-        previous_suggestions: Perguntas já sugeridas ao usuário nesta sessão.
+        history: Histórico da conversa para contextualizar as sugestões.
         model: Identificador do modelo Gemini. Se None, usa o padrão.
 
     Returns:
@@ -271,7 +213,7 @@ async def generate_suggestions(
         LLMParseError: Se a resposta do LLM não puder ser parseada ou validada.
         LLMError: Se a chamada ao LLM falhar.
     """
-    system_prompt = _load_system_prompt(schema, previous_suggestions)
+    system_prompt = _load_system_prompt(schema, history)
     table_names = _extract_table_names(schema)
 
     agent = LLMAgent(
@@ -282,13 +224,9 @@ async def generate_suggestions(
     )
 
     result = await agent.run(
-        "Gere 5 perguntas de exemplo úteis para iniciar uma conversa.",
-        validator=lambda raw: _parse_suggestions(
-            raw, table_names, previous_suggestions
-        ),
+        "Gere 5 perguntas de follow-up úteis para continuar a conversa.",
+        validator=lambda raw: _parse_suggestions(raw, table_names),
     )
 
-    suggestions = _parse_suggestions(
-        result.output, table_names, previous_suggestions
-    )
+    suggestions = _parse_suggestions(result.output, table_names)
     return suggestions, result.tokens_used

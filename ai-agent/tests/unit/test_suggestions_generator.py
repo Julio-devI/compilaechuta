@@ -1,8 +1,8 @@
 """
-Testes unitários para o módulo de geração de sugestões iniciais.
+Testes unitários para o módulo de geração de sugestões contextuais.
 
-Cobrem o parser de JSON, validação das perguntas e integração
-com o cliente LLM.
+Cobrem o parser de JSON, validação das perguntas, formatação do
+histórico e integração com o cliente LLM.
 """
 
 import json
@@ -13,19 +13,23 @@ import pytest
 from vcommerce_ai_agent.core import config
 from vcommerce_ai_agent.core.exceptions import LLMParseError
 from vcommerce_ai_agent.llm.suggestions_generator import (
-    FALLBACK_SUGGESTIONS,
+    INITIAL_SUGGESTIONS,
     SUGGESTIONS_COUNT,
     _contains_markdown,
     _contains_physical_table_name,
     _contains_sql_keyword,
     _contains_technical_prefix,
     _extract_table_names,
-    _format_previous_suggestions,
-    _normalize_previous_suggestions,
+    _format_history_for_suggestions,
     _parse_suggestions,
     generate_suggestions,
-    select_fallback_suggestions,
 )
+
+
+_SAMPLE_HISTORY = [
+    {"role": "user", "content": "Quais os 10 produtos mais vendidos?", "sql": None},
+    {"role": "assistant", "content": "Os 10 produtos mais vendidos são...", "sql": "SELECT ..."},
+]
 
 
 # ---------------------------------------------------------------------------
@@ -65,35 +69,27 @@ def test_contains_physical_table_name_detects_names():
     assert _contains_physical_table_name("Qual a receita?", table_names) is False
 
 
-def test_normalize_previous_suggestions_removes_empty_and_duplicate_items():
-    previous = [
-        " Qual é a receita total agrupada por região do país? ",
-        "",
-        "qual é a receita total agrupada por região do país?",
-        "Quais produtos têm melhor avaliação?",
-        123,
-    ]
-
-    result = _normalize_previous_suggestions(previous)
-
-    assert result == [
-        "Qual é a receita total agrupada por região do país?",
-        "Quais produtos têm melhor avaliação?",
-    ]
+# ---------------------------------------------------------------------------
+# _format_history_for_suggestions
+# ---------------------------------------------------------------------------
 
 
-def test_format_previous_suggestions_returns_instruction_list():
-    result = _format_previous_suggestions(["Pergunta anterior?"])
-
-    assert "Pergunta anterior?" in result
-    assert "Não repita" in result
+def test_format_history_returns_placeholder_when_empty():
+    result = _format_history_for_suggestions(None)
+    assert "Nenhuma interação" in result
 
 
-def test_select_fallback_suggestions_avoids_previous_suggestions():
-    result = select_fallback_suggestions(list(FALLBACK_SUGGESTIONS))
+def test_format_history_returns_placeholder_when_empty_list():
+    result = _format_history_for_suggestions([])
+    assert "Nenhuma interação" in result
 
-    assert len(result) == SUGGESTIONS_COUNT
-    assert not set(result).intersection(FALLBACK_SUGGESTIONS)
+
+def test_format_history_formats_turns():
+    result = _format_history_for_suggestions(_SAMPLE_HISTORY)
+    assert "Interação 1:" in result
+    assert "Quais os 10 produtos mais vendidos?" in result
+    assert "Os 10 produtos mais vendidos são..." in result
+    assert "follow-up" in result
 
 
 # ---------------------------------------------------------------------------
@@ -253,45 +249,6 @@ def test_parse_suggestions_rejects_technical_prefix():
         _parse_suggestions(raw, set())
 
 
-def test_parse_suggestions_rejects_previous_suggestions():
-    previous = ["Pergunta um?"]
-    raw = json.dumps({
-        "suggestions": [
-            "Pergunta um?",
-            "Pergunta dois?",
-            "Pergunta três?",
-            "Pergunta quatro?",
-            "Pergunta cinco?",
-        ]
-    })
-
-    with pytest.raises(LLMParseError, match="Apenas 4"):
-        _parse_suggestions(raw, set(), previous_suggestions=previous)
-
-
-def test_parse_suggestions_accepts_replacements_for_previous_suggestions():
-    previous = ["Pergunta um?"]
-    raw = json.dumps({
-        "suggestions": [
-            "Pergunta dois?",
-            "Pergunta três?",
-            "Pergunta quatro?",
-            "Pergunta cinco?",
-            "Pergunta seis?",
-        ]
-    })
-
-    result = _parse_suggestions(raw, set(), previous_suggestions=previous)
-
-    assert result == [
-        "Pergunta dois?",
-        "Pergunta três?",
-        "Pergunta quatro?",
-        "Pergunta cinco?",
-        "Pergunta seis?",
-    ]
-
-
 # ---------------------------------------------------------------------------
 # generate_suggestions
 # ---------------------------------------------------------------------------
@@ -316,7 +273,11 @@ async def test_generate_suggestions_calls_llm_agent_with_correct_settings(monkey
         "vcommerce_ai_agent.llm.suggestions_generator.LLMAgent", FakeLLMAgent
     )
 
-    suggestions, tokens = await generate_suggestions("CREATE TABLE t (id INT);", model="gemini-test")
+    suggestions, tokens = await generate_suggestions(
+        "CREATE TABLE t (id INT);",
+        history=_SAMPLE_HISTORY,
+        model="gemini-test",
+    )
 
     assert captured["temperature"] == config.LLM_TEMPERATURE_SUGGESTIONS
     assert captured["max_tokens"] == config.MAX_TOKENS_SUGGESTIONS
@@ -326,9 +287,7 @@ async def test_generate_suggestions_calls_llm_agent_with_correct_settings(monkey
 
 
 @pytest.mark.asyncio
-async def test_generate_suggestions_injects_previous_suggestions_into_prompt(
-    monkeypatch,
-):
+async def test_generate_suggestions_injects_history_into_prompt(monkeypatch):
     captured: dict = {}
 
     class FakeLLMAgent:
@@ -347,10 +306,11 @@ async def test_generate_suggestions_injects_previous_suggestions_into_prompt(
 
     await generate_suggestions(
         "CREATE TABLE t (id INT);",
-        previous_suggestions=["Pergunta anterior?"],
+        history=_SAMPLE_HISTORY,
     )
 
-    assert "Pergunta anterior?" in captured["system_prompt"]
+    assert "Quais os 10 produtos mais vendidos?" in captured["system_prompt"]
+    assert "Os 10 produtos mais vendidos são..." in captured["system_prompt"]
 
 
 @pytest.mark.asyncio
@@ -371,3 +331,17 @@ async def test_generate_suggestions_returns_tokens_when_none(monkeypatch):
     suggestions, tokens = await generate_suggestions("CREATE TABLE t (id INT);")
     assert tokens is None
     assert len(suggestions) == SUGGESTIONS_COUNT
+
+
+# ---------------------------------------------------------------------------
+# INITIAL_SUGGESTIONS
+# ---------------------------------------------------------------------------
+
+
+def test_initial_suggestions_has_correct_count():
+    assert len(INITIAL_SUGGESTIONS) == SUGGESTIONS_COUNT
+
+
+def test_initial_suggestions_is_tuple():
+    """A lista fixa é uma tupla imutável."""
+    assert isinstance(INITIAL_SUGGESTIONS, tuple)

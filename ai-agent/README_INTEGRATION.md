@@ -194,28 +194,29 @@ logger.warning(
 return response.user_response
 ```
 
-### `async initial_suggestions(previous_suggestions: list[str] | None = None) -> list[str]`
+### `async initial_suggestions(history: list[dict[str, str | None]] | None = None) -> list[str]`
 
-Gera dinamicamente 5 perguntas de exemplo para o início da conversa, com base no schema real do banco. Em caso de falha esperada (LLM indisponível, schema inválido, resposta malformada), retorna uma lista de 5 perguntas de fallback.
+Retorna 5 sugestões de perguntas para o chat. Quando o histórico está vazio ou ausente, retorna uma lista fixa e imutável sem chamar o LLM. Quando o histórico da conversa é fornecido, gera 5 perguntas de follow-up contextuais via LLM. Em caso de falha esperada, retorna a lista fixa.
 
 ```python
+# Carregamento inicial do chat (sem histórico, sem chamada ao LLM)
 suggestions = await agent.initial_suggestions()
 
-next_suggestions = await agent.initial_suggestions(
-    previous_suggestions=suggestions
-)
+# Durante a conversa (com histórico, gera follow-ups via LLM)
+history = agent.export_history()
+suggestions = await agent.initial_suggestions(history=history)
 ```
 
 Comportamento:
 
-- O método é assíncrono e pode consumir 1 chamada ao LLM.
-- Não depende de histórico de conversa; não lê nem altera `self._history`.
+- Sem histórico: retorna lista fixa com latência zero, sem consumir chamadas ao LLM.
+- Com histórico: o método é assíncrono e consome 1 chamada ao LLM.
+- Não altera o histórico interno do agente (`self._history`).
 - Não executa queries no banco.
 - Retorna exatamente 5 perguntas em português brasileiro.
-- Aceita `previous_suggestions` para evitar repetir perguntas já exibidas quando o usuário clicar várias vezes no botão.
-- Falhas esperadas retornam fallback local sem quebrar o backend.
+- Falhas esperadas retornam a lista fixa sem quebrar o backend.
 
-Exemplo de uso em um endpoint FastAPI para o botão de perguntas de exemplo:
+Exemplo de uso em um endpoint FastAPI para sugestões contextuais:
 
 ```python
 from typing import Any
@@ -224,13 +225,13 @@ from pydantic import BaseModel, Field
 
 
 class SuggestionsRequest(BaseModel):
-    previous_suggestions: list[str] = Field(default_factory=list)
+    history: list[dict[str, str | None]] = Field(default_factory=list)
 
 
 @router.post("/ai-agent/suggestions")
 async def get_suggestions(payload: SuggestionsRequest) -> dict[str, Any]:
     suggestions = await agent.initial_suggestions(
-        previous_suggestions=payload.previous_suggestions
+        history=payload.history or None
     )
     return {"suggestions": suggestions}
 ```

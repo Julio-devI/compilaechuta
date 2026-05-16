@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import {
   Search, Maximize2, Minimize2, ChevronDown, ChevronUp, Box, Calendar,
-  Filter, Table, Grid, Plus, Download, Trash2
+  Filter, Table, Grid, Plus, Download, Trash2, Database, ShoppingCart,
+  Hash, DollarSign, Smile
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
@@ -32,13 +33,12 @@ export function Produtos() {
   const handleDeleteSelecionados = async () => {
     setIsDeleting(true)
     try {
-      // Cria um array com os IDs selecionados e deleta um por um
       const idsParaDeletar = Array.from(selecionados)
       await Promise.all(idsParaDeletar.map(id => deleteProduto(id)))
 
       setIsConfirmingDelete(false)
-      setSelecionados(new Set()) // Limpa a seleção
-      window.location.reload() // Recarrega para atualizar a lista
+      setSelecionados(new Set())
+      window.location.reload()
     } catch (error) {
       console.error("Erro na exclusão em massa:", error)
       alert("Erro ao excluir os produtos selecionados.")
@@ -139,40 +139,136 @@ export function Produtos() {
   );
 
   return (
-    <div className="min-h-screen bg-background p-8 font-sans text-foreground">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground">Produtos</h1>
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-background p-8 font-sans text-foreground">
+
+      {/* 🚀 FILEIRA DE CARDS DE MÉTRICAS COMPATÍVEL COM A IMAGEM */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Card 1 */}
+        <div className="bg-white dark:bg-card border border-[#E2E8F0] dark:border-border p-5 rounded-3xl flex flex-col justify-between relative shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#E0F2FE] flex items-center justify-center text-[#0284C7]">
+                <ShoppingCart className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">Total de</span>
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">produtos</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-[#16A34A] bg-[#DCFCE7] px-2 py-0.5 rounded-full flex items-center gap-0.5">
+              ↑ 12.6% mês
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">310.000</h3>
+        </div>
+
+        {/* Card 2 */}
+        <div className="bg-white dark:bg-card border border-[#E2E8F0] dark:border-border p-5 rounded-3xl flex flex-col justify-between relative shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#0F172A] flex items-center justify-center text-white">
+                <Hash className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">Produto</span>
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">Campeão (+vendido)</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-[#16A34A] bg-[#DCFCE7] px-2 py-0.5 rounded-full flex items-center gap-0.5">
+              ↑ 12.6% mês
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">8.590</h3>
+        </div>
+
+        {/* Card 3 */}
+        <div className="bg-white dark:bg-card border border-[#E2E8F0] dark:border-border p-5 rounded-3xl flex flex-col justify-between relative shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#2563EB] flex items-center justify-center text-white">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">Categoria mais</span>
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">vendida</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-[#16A34A] bg-[#DCFCE7] px-2 py-0.5 rounded-full flex items-center gap-0.5">
+              ↑ 12.6% mês
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">Eletrônicos</h3>
+        </div>
+
+        {/* Card 4 */}
+        <div className="bg-white dark:bg-card border border-[#E2E8F0] dark:border-border p-5 rounded-3xl flex flex-col justify-between relative shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#06B6D4] flex items-center justify-center text-white">
+                <Smile className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">Categoria menos</span>
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">vendida</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-[#16A34A] bg-[#DCFCE7] px-2 py-0.5 rounded-full flex items-center gap-0.5">
+              ↑ 12.6% mês
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">Moda</h3>
+        </div>
       </div>
 
-      <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6 flex items-center justify-between">
-        <div className="relative w-full max-w-2xl">
-          <Search className="w-5 h-5 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar por nome do produto ou SKU..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-background rounded-full border-none text-foreground focus:ring-2 focus:ring-blue-500 outline-none"
-          />
+      {/* 🔍 BLOCO CENTRAL: CONSULTAR NO BANCO DE DADOS + BUSCA + BOTÕES COMPACTOS */}
+      <div className="bg-white dark:bg-card rounded-3xl p-6 shadow-sm border border-[#E2E8F0] dark:border-none mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-[#0F172A] dark:text-foreground font-bold text-base">
+            <Database className="w-5 h-5" />
+            <span>Consultar no Banco de Dados</span>
+          </div>
+          <div className="text-sm font-medium text-muted-foreground">
+            Total <span className="bg-[#EFF6FF] text-[#1E5EFF] font-bold px-3 py-1 rounded-xl ml-1">300.000</span>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/produtos/novo')}
-            className="flex items-center gap-2 bg-[#1E5EFF] text-white px-6 py-4 rounded-full font-bold hover:bg-[#1E5EFF]/90 transition-colors shadow-sm"
-          >
-            <Plus className="w-5 h-5" />
-            Novo Produto
-          </button>
-          <button
-            onClick={exportarProdutosCSV}
-            className="flex items-center gap-2 px-6 py-4 bg-background rounded-full text-muted-foreground font-bold hover:bg-slate-200 dark:hover:bg-border transition-colors"
-          >
-            <Download className="w-5 h-5" /> Exportar CSV
-          </button>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="relative w-full max-w-2xl">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar por produto, categoria, valor, etc..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-[#F1F5F9] dark:bg-background rounded-full border-none text-sm text-foreground focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            {/* Botão Novo Produto Ajustado */}
+            <button
+              onClick={() => navigate('/produtos/novo')}
+              className="flex items-center gap-2 text-[#1E5EFF] hover:text-[#1E5EFF]/80 font-bold text-sm transition-colors"
+            >
+              Novo Produto
+              <span className="w-8 h-8 bg-[#1E5EFF] hover:bg-[#1E5EFF]/90 text-white rounded-lg flex items-center justify-center transition-colors shadow-sm">
+                <Plus className="w-4 h-4" />
+              </span>
+            </button>
+
+            {/* Botão Exportar CSV Ajustado */}
+            <button
+              onClick={exportarProdutosCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E2E8F0] dark:bg-border rounded-xl text-slate-700 dark:text-muted-foreground font-bold text-xs hover:opacity-90 transition-opacity border border-slate-300 dark:border-none"
+            >
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="bg-card rounded-3xl shadow-sm border-0 mb-8 overflow-hidden transition-all duration-300">
+      {/* 🧭 SEÇÃO DE FILTROS INTEGRAIS (PRESERVADA) */}
+      <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-[#E2E8F0] dark:border-none mb-8 overflow-hidden transition-all duration-300">
         <div className="p-6 flex justify-between items-center">
           <button
             onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
@@ -182,7 +278,6 @@ export function Produtos() {
             {isFiltrosOpen ? 'Esconder Filtros' : 'Mostrar Filtros'}
           </button>
 
-          {/* 👇 Transformamos o ícone num botão com a função de abrir/fechar 👇 */}
           <button
             onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
             className="border-none bg-transparent cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors flex items-center justify-center"
@@ -200,11 +295,10 @@ export function Produtos() {
                   <Box className="w-4 h-4" /> Categoria
                 </label>
                 <div className="relative">
-                  {/* SELECT AGORA FUNCIONA COM DADOS DA API */}
                   <select
                     value={filtroCategoria}
                     onChange={(e) => setFiltroCategoria(e.target.value)}
-                    className="w-full p-4 bg-background rounded-2xl border-none text-muted-foreground outline-none appearance-none cursor-pointer"
+                    className="w-full p-4 bg-[#F1F5F9] dark:bg-background rounded-2xl border-none text-muted-foreground outline-none appearance-none cursor-pointer"
                   >
                     <option value="Todas as Categorias">Todas as Categorias</option>
                     {categoriasLista.map(cat => (
@@ -219,7 +313,6 @@ export function Produtos() {
                   <Filter className="w-4 h-4" /> Status
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {/* BOTÕES COM LOGICA E TRANSPARÊNCIA CONDICIONAL */}
                   <button
                     onClick={() => setFiltroStatus(filtroStatus === 'ativo' ? null : 'ativo')}
                     className={`bg-[#DCFCE7] text-[#15803D] px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 border-none transition-opacity ${filtroStatus && filtroStatus !== 'ativo' ? 'opacity-40' : 'hover:opacity-80'}`}
@@ -247,14 +340,13 @@ export function Produtos() {
                   <Calendar className="w-4 h-4" /> Faixa de Preço
                 </label>
                 <div className="flex gap-2">
-                  {/* BOTÕES DE PREÇO MAPEADOS COM A MESMA CLASSE VISUAL */}
                   {['Todos', 'Até R$ 100', 'R$ 100 - R$ 500', 'Acima de R$ 500'].map(faixa => (
                     <button
                       key={faixa}
                       onClick={() => setFiltroPreco(faixa === 'Todos' ? null : faixa)}
                       className={`px-5 py-2.5 rounded-full text-xs font-bold transition-colors ${(filtroPreco === faixa || (faixa === 'Todos' && !filtroPreco))
                         ? 'bg-blue-600 text-white'
-                        : 'bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'
+                        : 'bg-[#F1F5F9] dark:bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border'
                         }`}
                     >
                       {faixa}
@@ -267,13 +359,13 @@ export function Produtos() {
         )}
       </div>
 
+      {/* 📊 ÁREA DE LISTAGEM DE PRODUTOS */}
       <div className="flex justify-between items-end mb-6">
         <div className="flex items-center gap-4">
           <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">
             {produtosFiltrados.length} Produtos Encontrados
           </h2>
 
-          {/* Botão que só aparece se tiver item selecionado */}
           {selecionados.size > 0 && (
             <button
               onClick={() => setIsConfirmingDelete(true)}
@@ -310,13 +402,11 @@ export function Produtos() {
             ))}
           </div>
         ) : viewMode === 'tabela' ? (
-          <div className="w-full overflow-x-auto bg-card rounded-3xl p-4 shadow-sm">
+          <div className="w-full overflow-x-auto bg-white dark:bg-card rounded-3xl p-4 shadow-sm border border-[#E2E8F0] dark:border-none">
             <table className="w-full border-separate border-spacing-y-2">
               <thead>
                 <tr className="bg-[#020854] text-white">
-                  <th className="py-4 px-4 text-left rounded-l-xl">
-                    {/* Checkbox de Selecionar Todos removido */}
-                  </th>
+                  <th className="py-4 px-4 text-left rounded-l-xl"></th>
                   <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Produto</th>
                   <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Categoria</th>
                   <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Estoque</th>
@@ -329,7 +419,7 @@ export function Produtos() {
                 {produtosFiltrados.map((produto) => (
                   <tr
                     key={produto.id}
-                    className="bg-card group cursor-pointer hover:bg-background transition-colors border-b border-border"
+                    className="bg-white dark:bg-card group cursor-pointer hover:bg-slate-50 dark:hover:bg-background transition-colors border-b border-border"
                     onClick={() => setProdutoSelecionado(produto)}
                   >
                     <td className="py-4 px-4 rounded-l-2xl border-0">
@@ -352,25 +442,20 @@ export function Produtos() {
                         </div>
                       </div>
                     </td>
-
                     <td className="py-4 px-6 border-0">
                       <span className="bg-sky-100 text-sky-700 border border-sky-200 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
                         {produto.categoria}
                       </span>
                     </td>
-
                     <td className="py-4 px-6 border-0">
                       <span className="font-bold text-muted-foreground">{produto.estoque} un</span>
                     </td>
-
                     <td className="py-4 px-6 border-0">
                       <span className="font-bold text-muted-foreground">{produto.vendidos}</span>
                     </td>
-
                     <td className="py-4 px-6 border-0">
                       <span className="text-blue-900 dark:text-blue-300 font-black text-lg whitespace-nowrap">{produto.preco}</span>
                     </td>
-
                     <td className="py-4 px-6 rounded-r-2xl border-0">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black whitespace-nowrap ${getStatusColor(produto.status)}`}>
                         {formatStatusLabel(produto.status)}
@@ -386,7 +471,7 @@ export function Produtos() {
             {produtosFiltrados.map((produto) => (
               <div
                 key={produto.id}
-                className="bg-card p-6 rounded-3xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow cursor-pointer h-full"
+                className="bg-white dark:bg-card p-6 rounded-3xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow cursor-pointer h-full"
                 onClick={() => setProdutoSelecionado(produto)}
               >
                 <div>
@@ -396,7 +481,6 @@ export function Produtos() {
                       {formatStatusLabel(produto.status)}
                     </span>
                   </div>
-
                   <div className="mb-4">
                     <h3 className="font-black text-[#020854] dark:text-foreground text-lg leading-tight mb-2">{produto.nome}</h3>
                     <div className="flex items-center gap-2">
@@ -406,7 +490,6 @@ export function Produtos() {
                       </span>
                     </div>
                   </div>
-
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground font-bold">Estoque</span>
@@ -424,7 +507,7 @@ export function Produtos() {
         )}
       </div>
 
-      {/* 👇 MINI POPUP DE CONFIRMAÇÃO DE EXCLUSÃO EM MASSA 👇 */}
+      {/* ⚠️ MODAL DE DELEÇÃO */}
       {isConfirmingDelete && (
         <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-2xl border border-border w-full max-w-[320px] text-center animate-in zoom-in-95 duration-200">
@@ -454,7 +537,6 @@ export function Produtos() {
           </div>
         </div>
       )}
-      {/* 👆 FIM DO MODAL 👆 */}
 
       <ModalDetalhesProduto
         isOpen={!!produtoSelecionado}

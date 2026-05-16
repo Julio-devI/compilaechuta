@@ -28,7 +28,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_ai_agent_sessions_session_id'), 'ai_agent_sessions', ['session_id'], unique=False)
+    op.create_index(op.f('ix_ai_agent_sessions_session_id'), 'ai_agent_sessions', ['session_id'], unique=True)
     # ### end Alembic commands ###
 
 

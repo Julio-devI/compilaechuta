@@ -124,12 +124,40 @@ export async function getProdutos(
     const response = await fetch(`${API_URL}?${params.toString()}`)
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
 
-    const data: ProdutoDaAPI[] = await response.json()
-    return data.map(mapearProduto)
+    const data = await response.json()
+    // Como a API agora retorna ProductListOut, os produtos estão em data.data
+    const produtosApi: ProdutoDaAPI[] = data.data || [];
+    return produtosApi.map(mapearProduto)
   } catch (error) {
     console.error('Erro ao buscar produtos:', error)
     return []
   }
+}
+
+// Buscar total de produtos
+export async function getTotalProdutos(): Promise<number> {
+  try {
+    const response = await fetch(`${API_URL}total`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+    const data = await response.json()
+    return data.total || 0
+  } catch (error) {
+    console.error('Erro ao buscar total de produtos:', error)
+    return 0
+  }
+}
+
+// Buscar produto mais vendido
+export async function getTopSellingProduct(): Promise<string> {
+    try {
+        const response = await fetch(`${API_URL}top-selling`)
+        if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+        const data = await response.json()
+        return data.top_selling || "Nenhum"
+    } catch (error) {
+        console.error('Erro ao buscar produto mais vendido:', error)
+        return "Nenhum"
+    }
 }
 
 // Buscar um único produto por ID

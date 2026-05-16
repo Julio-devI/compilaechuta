@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
-import { getProdutos, Produto, exportarProdutosCSV, deleteProduto } from '../services/productService'
+import { getProdutos, getTotalProdutos, getTopSellingProduct, Produto, exportarProdutosCSV, deleteProduto } from '../services/productService'
 import { getCategorias } from '../services/categoryService'
 
 export function Produtos() {
@@ -16,6 +16,8 @@ export function Produtos() {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
 
   const [produtos, setProdutos] = useState<Produto[]>([])
+  const [totalProdutos, setTotalProdutos] = useState<number>(0)
+  const [topSellingProduct, setTopSellingProduct] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -50,6 +52,12 @@ export function Produtos() {
   useEffect(() => {
     getCategorias().then(data => {
       setCategoriasLista(data.map((c: any) => c.nome_categoria))
+    })
+    getTotalProdutos().then(total => {
+        setTotalProdutos(total)
+    })
+    getTopSellingProduct().then(top => {
+        setTopSellingProduct(top)
     })
   }, [])
 
@@ -155,11 +163,8 @@ export function Produtos() {
                 <span className="text-xs font-semibold text-muted-foreground leading-tight">produtos</span>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-[#16A34A] bg-[#DCFCE7] px-2 py-0.5 rounded-full flex items-center gap-0.5">
-              ↑ 12.6% mês
-            </span>
           </div>
-          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">310.000</h3>
+          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">{totalProdutos.toLocaleString('pt-BR')}</h3>
         </div>
 
         {/* Card 2 */}
@@ -178,7 +183,7 @@ export function Produtos() {
               ↑ 12.6% mês
             </span>
           </div>
-          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">8.590</h3>
+          <h3 className="text-xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1 truncate max-w-full" title={topSellingProduct}>{topSellingProduct || "..."}</h3>
         </div>
 
         {/* Card 3 */}
@@ -228,7 +233,7 @@ export function Produtos() {
             <span>Consultar no Banco de Dados</span>
           </div>
           <div className="text-sm font-medium text-muted-foreground">
-            Total <span className="bg-[#EFF6FF] text-[#1E5EFF] font-bold px-3 py-1 rounded-xl ml-1">300.000</span>
+            Total <span className="bg-[#EFF6FF] text-[#1E5EFF] font-bold px-3 py-1 rounded-xl ml-1">{totalProdutos.toLocaleString('pt-BR')}</span>
           </div>
         </div>
 

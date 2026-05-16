@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
 from app.crud import products as crud_products
-from app.schemas.products import ProductCreate, ProductUpdate
+from app.schemas.products import ProductCreate, ProductUpdate, ProductListOut
 from app.models.products import Produto
 
 async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto:
@@ -35,12 +35,12 @@ async def get_all_products(
     skip: int = 0, 
     limit: int = 100, 
     categoria: Optional[str] = None,
-    status: Optional[str] = None,       # <-- Filtro novo
-    preco_min: Optional[float] = None,  # <-- Filtro novo
-    preco_max: Optional[float] = None   # <-- Filtro novo
-) -> List[Produto]:
+    status: Optional[str] = None,
+    preco_min: Optional[float] = None,
+    preco_max: Optional[float] = None
+) -> ProductListOut:
     
-    return await crud_products.get_all_products(
+    products = await crud_products.get_all_products(
         db=db, 
         skip=skip, 
         limit=limit, 
@@ -49,6 +49,14 @@ async def get_all_products(
         preco_min=preco_min,
         preco_max=preco_max
     )
+    total = await crud_products.get_total_products_count(db=db)
+    return ProductListOut(data=products, total=total, skip=skip, limit=limit)
+
+async def get_total_products_count(db: AsyncSession) -> int:
+    return await crud_products.get_total_products_count(db=db)
+
+async def get_top_selling_product(db: AsyncSession) -> Optional[str]:
+    return await crud_products.get_top_selling_product(db=db)
 
 async def update_product(db: AsyncSession, id_produto: str, product_in: ProductUpdate) -> Produto:
     updated_product = await crud_products.update_product(

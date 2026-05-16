@@ -1,5 +1,5 @@
 from typing import List, Optional
-from sqlalchemy import func
+from sqlalchemy import func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
@@ -62,6 +62,20 @@ async def get_all_products(
 
     result = await db.execute(query.offset(skip).limit(limit))
     return list(result.scalars().all())
+
+async def get_total_products_count(db: AsyncSession) -> int:
+    query = select(func.count(Produto.id_produto))
+    result = await db.execute(query)
+    return result.scalar_one()
+
+async def get_top_selling_product(db: AsyncSession) -> Optional[str]:
+    query = (
+        select(Produto.nome_produto)
+        .order_by(desc(Produto.total_unidades_vendidas))
+        .limit(1)
+    )
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
 
 async def update_product(db: AsyncSession, id_produto: str, product_in: ProductUpdate) -> Optional[Produto]:
     db_product = await get_productById(db, id_produto)

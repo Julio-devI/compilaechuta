@@ -63,9 +63,8 @@ class UserResponseSchema(BaseModel):
 class AgentResponseSchema(BaseModel):
     """Resposta pública do agente para um POST /ai-agent/ask.
 
-    Os dados técnicos do agente (SQL gerado, tempos de execução, tokens,
-    detalhes de erro) ficam restritos ao backend e são registrados nos logs
-    do logger `vcommerce_ai_agent`. Eles não trafegam para o frontend.
+    Os dados técnicos da execução do agente ficam restritos ao backend e
+    são registrados nos logs internos. Eles não trafegam para o frontend.
     """
 
     status: Literal["success", "error", "out_of_scope"] = Field(
@@ -87,6 +86,7 @@ class AgentResponseSchema(BaseModel):
         json_schema_extra={
             "example": {
                 "status": "success",
+                "session_id": "sessao-usuario-123",
                 "user_response": {
                     "answer_text": (
                         "Os 3 produtos mais vendidos foram Camiseta Básica, "
@@ -128,15 +128,29 @@ class AskRequest(BaseModel):
         description=(
             "Identificador da conversa. Use o mesmo valor entre requisições "
             "para encadear follow-ups (o backend recupera o histórico salvo). "
-            "Requisições simultâneas na mesma `session_id` são serializadas "
-            "por lock em memória."
+            "Requisições simultâneas na mesma `session_id` são processadas "
+            "em ordem."
+        ),
+        examples=["sessao-usuario-123"],
+    )
+
+
+class SuggestionsRequest(BaseModel):
+    """Payload para POST /ai-agent/suggestions."""
+
+    session_id: str = Field(
+        default="",
+        description=(
+            "Identificador da conversa. Quando informado, o backend recupera "
+            "o histórico da sessão e gera sugestões contextuais de follow-up. "
+            "Quando vazio ou ausente, retorna a lista fixa inicial."
         ),
         examples=["sessao-usuario-123"],
     )
 
 
 class SuggestionsResponse(BaseModel):
-    """Resposta de GET /ai-agent/suggestions."""
+    """Resposta de POST /ai-agent/suggestions."""
 
     suggestions: list[str] = Field(
         ...,

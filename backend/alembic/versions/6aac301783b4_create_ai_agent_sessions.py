@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '6aac301783b4'
-down_revision: Union[str, None] = '659790997f80'
+down_revision: Union[str, None] = '278c651643bc'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -28,7 +28,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_ai_agent_sessions_session_id'), 'ai_agent_sessions', ['session_id'], unique=False)
+    op.create_index(op.f('ix_ai_agent_sessions_session_id'), 'ai_agent_sessions', ['session_id'], unique=True)
     # ### end Alembic commands ###
 
 

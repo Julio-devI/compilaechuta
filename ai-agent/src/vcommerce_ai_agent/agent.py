@@ -45,8 +45,8 @@ from vcommerce_ai_agent.llm.insight_generator import generate_insight
 from vcommerce_ai_agent.database.schema import build_allowlist, format_schema, load_descriptions
 from vcommerce_ai_agent.llm.sql_generator import generate_sql, generate_sql_correction
 from vcommerce_ai_agent.llm.suggestions_generator import (
+    INITIAL_SUGGESTIONS,
     generate_suggestions,
-    select_fallback_suggestions,
 )
 
 
@@ -1161,25 +1161,32 @@ class VCommerceAgent:
         return response
 
     async def initial_suggestions(
-        self, previous_suggestions: list[str] | None = None
+        self, history: list[dict[str, str | None]] | None = None
     ) -> list[str]:
         """
-        Gera dinamicamente 5 perguntas de exemplo para o início da conversa.
+        Retorna 5 sugestões de perguntas para o chat.
 
-        As perguntas são geradas pelo LLM com base no schema real do banco.
-        Quando uma lista de perguntas anteriores é informada, o prompt pede
-        novas sugestões e o fallback também evita repetir as perguntas da lista.
-        Em caso de falha esperada, retorna uma lista fixa de 5 perguntas de fallback.
+        Quando o histórico está vazio ou ausente, retorna uma lista fixa
+        e imutável de perguntas iniciais sem chamar o LLM.
 
-        O backend pode chamar este método no carregamento do chat ou ao clicar
-        no botão de perguntas de exemplo.
+        Quando o histórico está preenchido, gera 5 perguntas contextuais
+        via LLM com base no schema real e no estado da conversa.
+        Em caso de falha esperada, retorna a lista fixa.
 
         Args:
-            previous_suggestions: Perguntas já exibidas ao usuário nesta sessão.
+            history: Histórico da conversa no formato exportado pelo agente.
+                Se vazio ou None, retorna a lista fixa sem chamar o LLM.
 
         Returns:
             Lista com exatamente 5 perguntas em português brasileiro.
         """
+        if not history:
+            logger.info(
+                "suggestions_finished",
+                extra={"event": "suggestions_finished", "status": "initial"},
+            )
+            return list(INITIAL_SUGGESTIONS)
+
         logger.info(
             "suggestions_started",
             extra={"event": "suggestions_started", "model": self._llm_model},
@@ -1188,7 +1195,7 @@ class VCommerceAgent:
             schema, _ = await self._load_schema()
             suggestions, tokens = await generate_suggestions(
                 schema,
-                previous_suggestions=previous_suggestions,
+                history=history,
                 model=self._llm_model,
             )
             logger.info(
@@ -1219,4 +1226,4 @@ class VCommerceAgent:
                 "suggestions_finished",
                 extra={"event": "suggestions_finished", "status": "fallback"},
             )
-            return select_fallback_suggestions(previous_suggestions)
+            return list(INITIAL_SUGGESTIONS)

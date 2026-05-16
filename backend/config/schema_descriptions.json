@@ -6,53 +6,97 @@
       "columns": {
         "id_cliente": {
           "description": "Identificador unico do cliente (UUID).",
-          "examples": ["0000900d-5512-4cdf-8ea5-eded823b2ff8", "da2a251e-e2dd-4885-b8a9-58be529035f2"]
+          "examples": [
+            "0000900d-5512-4cdf-8ea5-eded823b2ff8",
+            "da2a251e-e2dd-4885-b8a9-58be529035f2"
+          ]
         },
         "nome_cliente": {
           "description": "Nome completo ou razao social do cliente.",
-          "examples": ["Simone Cardoso", "Maria Silva", "Joao Pereira"],
+          "examples": [
+            "Simone Cardoso",
+            "Maria Silva",
+            "Joao Pereira"
+          ],
           "sensitive": true,
           "mask_label": "Cliente"
         },
         "cidade": {
           "description": "Cidade do endereco do cliente.",
-          "examples": ["Sao Paulo", "Rio de Janeiro", "Sao Miguel Do Oeste"]
+          "examples": [
+            "Sao Paulo",
+            "Rio de Janeiro",
+            "Sao Miguel Do Oeste"
+          ]
         },
         "estado": {
           "description": "Unidade federativa do cliente (sigla de 2 letras).",
-          "examples": ["SP", "SC", "RJ"]
+          "examples": [
+            "SP",
+            "SC",
+            "RJ"
+          ]
         },
         "regiao": {
           "description": "Regiao geografica do Brasil (Norte, Nordeste, Centro-Oeste, Sudeste, Sul).",
-          "examples": ["Sudeste", "Sul", "Nordeste"]
+          "examples": [
+            "Sudeste",
+            "Sul",
+            "Nordeste"
+          ]
         },
         "qtd_pedidos_realizados": {
           "description": "Quantidade total de pedidos realizados pelo cliente.",
-          "examples": [3, 12, 0]
+          "examples": [
+            3,
+            12,
+            0
+          ]
         },
         "total_gasto_brl": {
           "description": "Valor total gasto pelo cliente em todas as compras (em BRL).",
-          "examples": [725.12, 5400.0, 0.0]
+          "examples": [
+            725.12,
+            5400.0,
+            0.0
+          ]
         },
         "qtd_tickets_suporte": {
           "description": "Quantidade de tickets de suporte abertos pelo cliente.",
-          "examples": [0, 3, 10]
+          "examples": [
+            0,
+            3,
+            10
+          ]
         },
         "data_ultima_compra": {
           "description": "Data da ultima compra realizada pelo cliente.",
-          "examples": ["2025-04-28", "2024-12-01"]
+          "examples": [
+            "2025-04-28",
+            "2024-12-01"
+          ]
         },
         "media_estrelas_dadas": {
           "description": "Media das notas (estrelas) que o cliente atribuiu em avaliacoes de pedidos.",
-          "examples": [3.0, 4.5, 5.0]
+          "examples": [
+            3.0,
+            4.5,
+            5.0
+          ]
         },
         "segmento_rfm": {
           "description": "Segmento RFM do cliente (ex: Campeoes, Leais em Risco, Perdidos, Cliente regular).",
-          "examples": ["Cliente regular", "Campeoes", "Leais em Risco"]
+          "examples": [
+            "Cliente regular",
+            "Campeoes",
+            "Leais em Risco"
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:02:42.426230"]
+          "examples": [
+            "2026-05-13 23:02:42.426230"
+          ]
         }
       }
     },
@@ -62,95 +106,181 @@
       "columns": {
         "id_produto": {
           "description": "Identificador unico do produto.",
-          "examples": ["PROD-0024", "PROD-0459", "PROD-0001"]
+          "examples": [
+            "PROD-0024",
+            "PROD-0459",
+            "PROD-0001"
+          ]
         },
         "nome_produto": {
           "description": "Nome comercial do produto.",
-          "examples": ["Notebook Pro", "Painel Com Lareira", "Monitor 24 Polegadas"]
+          "examples": [
+            "Notebook Pro",
+            "Painel Com Lareira",
+            "Monitor 24 Polegadas"
+          ]
         },
         "sku": {
           "description": "Codigo SKU (Stock Keeping Unit) do produto.",
-          "examples": ["SKU-001", "SKU-002", "SKU-459"]
+          "examples": [
+            "SKU-001",
+            "SKU-002",
+            "SKU-459"
+          ]
         },
         "id_categoria": {
           "description": "Chave estrangeira para gold_categoria.id_categoria.",
-          "examples": ["CATEG-0007", "CATEG-0005", "CATEG-0001"]
+          "examples": [
+            "CATEG-0007",
+            "CATEG-0005",
+            "CATEG-0001"
+          ]
         },
         "fornecedor": {
           "description": "Nome do fornecedor do produto.",
-          "examples": ["Fornecedor A", "Fornecedor B"]
+          "examples": [
+            "Fornecedor A",
+            "Fornecedor B"
+          ]
         },
         "preco": {
           "description": "Preco de venda atual do produto (em BRL). Valor -1 indica preco nao informado.",
-          "examples": [325.0, 1676.0, 149.5]
+          "examples": [
+            325.0,
+            1676.0,
+            149.5
+          ]
         },
         "peso_kg": {
           "description": "Peso do produto em quilogramas.",
-          "examples": [0.3, 1.5, 15.0]
+          "examples": [
+            0.3,
+            1.5,
+            15.0
+          ]
         },
         "estoque_disponivel": {
           "description": "Quantidade atual em estoque disponivel para venda.",
-          "examples": [150, 0, 42]
+          "examples": [
+            150,
+            0,
+            42
+          ]
         },
         "ativo": {
           "description": "Indica se o produto esta ativo no catalogo (Sim/Nao).",
-          "examples": ["Sim", "Nao"]
+          "examples": [
+            "Sim",
+            "Nao"
+          ]
         },
         "precisa_revisao": {
           "description": "Indica se o produto precisa de revisao de descricao/preco (Sim/Nao).",
-          "examples": ["Sim", "Nao"]
+          "examples": [
+            "Sim",
+            "Nao"
+          ]
         },
         "data_cadastro_produto": {
           "description": "Data de cadastro do produto no sistema.",
-          "examples": ["2026-01-15T10:00:00", "2026-02-20T14:30:00"]
+          "examples": [
+            "2026-01-15T10:00:00",
+            "2026-02-20T14:30:00"
+          ]
         },
         "total_pedidos": {
           "description": "Quantidade total de pedidos que incluiram o produto.",
-          "examples": [150, 0, 45]
+          "examples": [
+            150,
+            0,
+            45
+          ]
         },
         "receita_total": {
           "description": "Receita total acumulada gerada pelo produto (em BRL).",
-          "examples": [450000.0, 0.0, 17955.0]
+          "examples": [
+            450000.0,
+            0.0,
+            17955.0
+          ]
         },
         "ticket_medio": {
           "description": "Ticket medio dos pedidos que incluiram o produto (em BRL).",
-          "examples": [3000.0, 149.5, 399.0]
+          "examples": [
+            3000.0,
+            149.5,
+            399.0
+          ]
         },
         "total_unidades_vendidas": {
           "description": "Quantidade total acumulada de unidades vendidas do produto.",
-          "examples": [150, 0, 45]
+          "examples": [
+            150,
+            0,
+            45
+          ]
         },
         "total_avaliacoes": {
           "description": "Quantidade total de avaliacoes recebidas pelo produto.",
-          "examples": [50, 0, 12]
+          "examples": [
+            50,
+            0,
+            12
+          ]
         },
         "media_nota_produto": {
           "description": "Nota media de avaliacao do produto em estrelas (0 a 5).",
-          "examples": [4.8, 0.0, 3.5]
+          "examples": [
+            4.8,
+            0.0,
+            3.5
+          ]
         },
         "media_nota_nps": {
           "description": "Media da nota NPS dos clientes que avaliaram o produto (0 a 10).",
-          "examples": [8.5, 7.0, 9.2]
+          "examples": [
+            8.5,
+            7.0,
+            9.2
+          ]
         },
         "pct_recomendacoes_sim": {
           "description": "Percentual de clientes que recomendariam o produto (0 a 100).",
-          "examples": [85.0, 0.0, 72.5]
+          "examples": [
+            85.0,
+            0.0,
+            72.5
+          ]
         },
         "total_tickets": {
           "description": "Quantidade total de tickets de suporte relacionados ao produto.",
-          "examples": [5, 0, 1]
+          "examples": [
+            5,
+            0,
+            1
+          ]
         },
         "media_tempo_resolucao_horas": {
           "description": "Tempo medio de resolucao dos tickets relacionados ao produto (em horas).",
-          "examples": [24.5, 0.0, 48.0]
+          "examples": [
+            24.5,
+            0.0,
+            48.0
+          ]
         },
         "media_nota_suporte": {
           "description": "Media de nota de satisfacao dos tickets relacionados ao produto.",
-          "examples": [4.5, 0.0, 3.8]
+          "examples": [
+            4.5,
+            0.0,
+            3.8
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:02:42.426230"]
+          "examples": [
+            "2026-05-13 23:02:42.426230"
+          ]
         }
       }
     },
@@ -160,59 +290,112 @@
       "columns": {
         "id_data": {
           "description": "Chave primaria da dimensao tempo no formato AAAA-MM-DD.",
-          "examples": ["2023-01-01", "2024-06-15", "2025-12-31"]
+          "examples": [
+            "2023-01-01",
+            "2024-06-15",
+            "2025-12-31"
+          ]
         },
         "ano": {
           "description": "Ano da data.",
-          "examples": [2023, 2024, 2025]
+          "examples": [
+            2023,
+            2024,
+            2025
+          ]
         },
         "mes": {
           "description": "Numero do mes (1 a 12).",
-          "examples": [1, 6, 12]
+          "examples": [
+            1,
+            6,
+            12
+          ]
         },
         "dia": {
           "description": "Dia do mes (1 a 31).",
-          "examples": [1, 15, 31]
+          "examples": [
+            1,
+            15,
+            31
+          ]
         },
         "trimestre": {
           "description": "Trimestre do ano (1, 2, 3, 4).",
-          "examples": [1, 2, 4]
+          "examples": [
+            1,
+            2,
+            4
+          ]
         },
         "dia_semana_num": {
           "description": "Numero do dia da semana (0=domingo, 6=sabado).",
-          "examples": [0, 1, 5]
+          "examples": [
+            0,
+            1,
+            5
+          ]
         },
         "dia_do_ano": {
           "description": "Dia do ano (1 a 366).",
-          "examples": [1, 100, 365]
+          "examples": [
+            1,
+            100,
+            365
+          ]
         },
         "semana_do_ano": {
           "description": "Semana do ano (1 a 53).",
-          "examples": [1, 26, 52]
+          "examples": [
+            1,
+            26,
+            52
+          ]
         },
         "nome_mes": {
           "description": "Nome do mes em ingles.",
-          "examples": ["January", "June", "December"]
+          "examples": [
+            "January",
+            "June",
+            "December"
+          ]
         },
         "nome_dia_semana": {
           "description": "Nome do dia da semana em ingles.",
-          "examples": ["Sunday", "Monday", "Friday"]
+          "examples": [
+            "Sunday",
+            "Monday",
+            "Friday"
+          ]
         },
         "ano_mes": {
           "description": "Ano e mes concatenados no formato AAAA-MM.",
-          "examples": ["2023-01", "2024-06", "2025-12"]
+          "examples": [
+            "2023-01",
+            "2024-06",
+            "2025-12"
+          ]
         },
         "trimestre_label": {
           "description": "Label do trimestre (ex: Q1, Q2, Q3, Q4).",
-          "examples": ["Q1", "Q2", "Q4"]
+          "examples": [
+            "Q1",
+            "Q2",
+            "Q4"
+          ]
         },
         "fim_de_semana": {
           "description": "Indicador se o dia e fim de semana (Sim/Nao).",
-          "examples": ["Sim", "Nao"]
+          "examples": [
+            "Sim",
+            "Nao"
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:02:46.725763"]
+          "examples": [
+            "2026-05-13 23:02:46.725763"
+          ]
         }
       }
     },
@@ -222,49 +405,86 @@
       "columns": {
         "id_pedido": {
           "description": "Identificador unico do pedido (UUID).",
-          "examples": ["00388693-f07f-45ee-80b5-607c0ceca13d", "1d6c8826-0aaa-4674-880f-0c752cbd3dea"]
+          "examples": [
+            "00388693-f07f-45ee-80b5-607c0ceca13d",
+            "1d6c8826-0aaa-4674-880f-0c752cbd3dea"
+          ]
         },
         "id_pedido_display": {
           "description": "Codigo de exibicao do pedido formatado para o usuario.",
-          "examples": ["PED - 0000 0001", "PED - 0000 0100"],
+          "examples": [
+            "PED - 0000 0001",
+            "PED - 0000 0100"
+          ],
           "sensitive": true,
           "mask_label": "Pedido"
         },
         "id_cliente": {
           "description": "Chave estrangeira para dim_cliente.id_cliente.",
-          "examples": ["da2a251e-e2dd-4885-b8a9-58be529035f2"]
+          "examples": [
+            "da2a251e-e2dd-4885-b8a9-58be529035f2"
+          ]
         },
         "id_produto": {
           "description": "Chave estrangeira para dim_produto.id_produto.",
-          "examples": ["PROD-0024", "PROD-0459"]
+          "examples": [
+            "PROD-0024",
+            "PROD-0459"
+          ]
         },
         "id_data": {
           "description": "Chave estrangeira para dim_tempo.id_data.",
-          "examples": ["2023-01-01", "2024-06-15"]
+          "examples": [
+            "2023-01-01",
+            "2024-06-15"
+          ]
         },
         "quantidade_vendas": {
           "description": "Quantidade de unidades do produto vendidas na linha. Valor -1 indica quantidade nao informada.",
-          "examples": [1, 2, 5, -1]
+          "examples": [
+            1,
+            2,
+            5,
+            -1
+          ]
         },
         "valor_unitario": {
           "description": "Preco unitario do produto no momento da venda (em BRL). Valor -1 indica preco nao informado.",
-          "examples": [325.0, 149.5, -1.0]
+          "examples": [
+            325.0,
+            149.5,
+            -1.0
+          ]
         },
         "valor_total_venda": {
           "description": "Valor total da linha (em BRL).",
-          "examples": [221.36, 299.0, 1995.0]
+          "examples": [
+            221.36,
+            299.0,
+            1995.0
+          ]
         },
         "status": {
           "description": "Status atual do pedido.",
-          "examples": ["Aprovado", "Cancelado", "Pendente"]
+          "examples": [
+            "Aprovado",
+            "Cancelado",
+            "Pendente"
+          ]
         },
         "metodo_pagamento": {
           "description": "Metodo de pagamento utilizado na compra.",
-          "examples": ["Boleto", "PIX", "Cartao"]
+          "examples": [
+            "Boleto",
+            "PIX",
+            "Cartao"
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:02:47.536735"]
+          "examples": [
+            "2026-05-13 23:02:47.536735"
+          ]
         }
       }
     },
@@ -274,83 +494,146 @@
       "columns": {
         "id_avaliacao": {
           "description": "Identificador unico da avaliacao (UUID).",
-          "examples": ["00000000-0000-0000-0002-3464279cec87"]
+          "examples": [
+            "00000000-0000-0000-0002-3464279cec87"
+          ]
         },
         "id_pedido": {
           "description": "Chave estrangeira para fato_vendas.id_pedido.",
-          "examples": ["1d6c8826-0aaa-4674-880f-0c752cbd3dea"]
+          "examples": [
+            "1d6c8826-0aaa-4674-880f-0c752cbd3dea"
+          ]
         },
         "id_cliente": {
           "description": "Chave estrangeira para dim_cliente.id_cliente.",
-          "examples": ["dc6a2b8b-7b15-49aa-a366-b9ebe14a9b3d"]
+          "examples": [
+            "dc6a2b8b-7b15-49aa-a366-b9ebe14a9b3d"
+          ]
         },
         "id_produto": {
           "description": "Chave estrangeira para dim_produto.id_produto.",
-          "examples": ["PROD-0459", "PROD-0022"]
+          "examples": [
+            "PROD-0459",
+            "PROD-0022"
+          ]
         },
         "nome_produto": {
           "description": "Nome do produto avaliado (denormalizado de dim_produto).",
-          "examples": ["Painel Com Lareira", "Monitor 24 Polegadas"]
+          "examples": [
+            "Painel Com Lareira",
+            "Monitor 24 Polegadas"
+          ]
         },
         "id_categoria": {
           "description": "Chave estrangeira para gold_categoria.id_categoria.",
-          "examples": ["CATEG-0007", "CATEG-0005"]
+          "examples": [
+            "CATEG-0007",
+            "CATEG-0005"
+          ]
         },
         "preco": {
           "description": "Preco unitario do produto no momento da venda (em BRL). Valor -1 indica preco nao informado.",
-          "examples": [1676.0, 305.36, -1.0]
+          "examples": [
+            1676.0,
+            305.36,
+            -1.0
+          ]
         },
         "valor_pedido": {
           "description": "Valor total do pedido (em BRL).",
-          "examples": [6931.83, 305.36]
+          "examples": [
+            6931.83,
+            305.36
+          ]
         },
         "quantidade": {
           "description": "Quantidade de unidades do produto no pedido.",
-          "examples": [1, 4, 2]
+          "examples": [
+            1,
+            4,
+            2
+          ]
         },
         "metodo_pagamento": {
           "description": "Metodo de pagamento utilizado.",
-          "examples": ["PIX", "Cartao", "Boleto"]
+          "examples": [
+            "PIX",
+            "Cartao",
+            "Boleto"
+          ]
         },
         "status": {
           "description": "Status do pedido associado a avaliacao.",
-          "examples": ["Aprovado", "Cancelado", "Pendente"]
+          "examples": [
+            "Aprovado",
+            "Cancelado",
+            "Pendente"
+          ]
         },
         "data_pedido": {
           "description": "Data em que o pedido foi realizado.",
-          "examples": ["2025-07-24", "2024-11-06"]
+          "examples": [
+            "2025-07-24",
+            "2024-11-06"
+          ]
         },
         "nota_produto": {
           "description": "Nota dada ao produto pelo cliente (1 a 5).",
-          "examples": [4, 5, 3]
+          "examples": [
+            4,
+            5,
+            3
+          ]
         },
         "nota_nps": {
           "description": "Nota NPS atribuida pelo cliente (0 a 10).",
-          "examples": [7, 9, 5]
+          "examples": [
+            7,
+            9,
+            5
+          ]
         },
         "recomenda": {
           "description": "Indica se o cliente recomendaria o produto (Sim/Nao).",
-          "examples": ["Sim", "Nao"]
+          "examples": [
+            "Sim",
+            "Nao"
+          ]
         },
         "comentario": {
           "description": "Texto livre do comentario do cliente na avaliacao.",
-          "examples": ["O produto e muito confortavel e pratico.", "Estou muito satisfeito com essa compra."]
+          "examples": [
+            "O produto e muito confortavel e pratico.",
+            "Estou muito satisfeito com essa compra."
+          ]
         },
         "data_avaliacao": {
           "description": "Data em que a avaliacao foi registrada.",
-          "examples": ["2025-07-31", "2024-12-31"]
+          "examples": [
+            "2025-07-31",
+            "2024-12-31"
+          ]
         },
         "categoria_nps": {
           "description": "Classificacao NPS derivada da nota_nps: Promotor (9-10), Neutro (7-8) ou Detrator (0-6).",
-          "examples": ["Promotor", "Neutro", "Detrator"]
+          "examples": [
+            "Promotor",
+            "Neutro",
+            "Detrator"
+          ]
         },
         "pct_recomendacoes_sim": {
           "description": "Percentual de avaliacoes do produto que recomendaram (0 a 100).",
-          "examples": [75.71, 71.22]
+          "examples": [
+            75.71,
+            71.22
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:02:42.426230"]
+          "examples": [
+            "2026-05-13 23:02:42.426230"
+          ]
         }
       }
     },
@@ -360,51 +643,91 @@
       "columns": {
         "id_ticket": {
           "description": "Identificador unico do ticket de suporte (UUID).",
-          "examples": ["000186e5-158b-5d7b-ad0f-7bd30c19ec02"]
+          "examples": [
+            "000186e5-158b-5d7b-ad0f-7bd30c19ec02"
+          ]
         },
         "id_cliente": {
           "description": "Chave estrangeira para dim_cliente.id_cliente.",
-          "examples": ["0e97703c-4037-4a95-ab75-067291f74dfc"]
+          "examples": [
+            "0e97703c-4037-4a95-ab75-067291f74dfc"
+          ]
         },
         "id_pedido": {
           "description": "Pedido relacionado ao ticket (UUID).",
-          "examples": ["b3ec2b0e-1e31-4330-a013-ab9a4ab145a7"]
+          "examples": [
+            "b3ec2b0e-1e31-4330-a013-ab9a4ab145a7"
+          ]
         },
         "id_produto": {
           "description": "Chave estrangeira para dim_produto.id_produto.",
-          "examples": ["PROD-0024", "PROD-0459"]
+          "examples": [
+            "PROD-0024",
+            "PROD-0459"
+          ]
         },
         "data_abertura": {
           "description": "Data e hora de abertura do ticket.",
-          "examples": ["2023-04-25 18:49:00", "2024-01-10 09:30:00"]
+          "examples": [
+            "2023-04-25 18:49:00",
+            "2024-01-10 09:30:00"
+          ]
         },
         "data_resolucao": {
           "description": "Data e hora de resolucao do ticket. Pode ser nulo se o ticket ainda estiver aberto.",
-          "examples": ["2023-04-28 18:49:00", null]
+          "examples": [
+            "2023-04-28 18:49:00",
+            null
+          ]
         },
         "tempo_resolucao_horas": {
           "description": "Tempo decorrido entre abertura e resolucao do ticket, em horas.",
-          "examples": [45.9, 72.0, 2.5]
+          "examples": [
+            45.9,
+            72.0,
+            2.5
+          ]
         },
         "status": {
           "description": "Status atual do ticket.",
-          "examples": ["resolvido", "aberto"]
+          "examples": [
+            "resolvido",
+            "aberto"
+          ]
         },
         "tipo_problema": {
           "description": "Categoria do problema relatado no ticket.",
-          "examples": ["pagamento", "entrega", "reembolso", "produto", "atraso"]
+          "examples": [
+            "pagamento",
+            "entrega",
+            "reembolso",
+            "produto",
+            "atraso"
+          ]
         },
         "agente_suporte": {
           "description": "Nome do agente de suporte que atendeu o ticket.",
-          "examples": ["Bruno Rodrigues", "Mariana Costa", "Eduardo Cardoso"]
+          "examples": [
+            "Bruno Rodrigues",
+            "Mariana Costa",
+            "Eduardo Cardoso"
+          ],
+          "sensitive": true,
+          "mask_label": "Agente"
         },
         "nota_avaliacao": {
           "description": "Nota de satisfacao dada pelo cliente apos a resolucao (1 a 5).",
-          "examples": [4, 5, 2]
+          "examples": [
+            4,
+            5,
+            2
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:03:01.481412"]
+          "examples": [
+            "2026-05-13 23:03:01.481412"
+          ]
         }
       }
     },
@@ -414,47 +737,86 @@
       "columns": {
         "id_cliente": {
           "description": "Chave estrangeira para dim_cliente.id_cliente.",
-          "examples": ["0bea5321-c3ec-4312-9412-499d59c27145"]
+          "examples": [
+            "0bea5321-c3ec-4312-9412-499d59c27145"
+          ]
         },
         "total_sessoes": {
           "description": "Total de sessoes de navegacao do cliente.",
-          "examples": [9, 1, 150]
+          "examples": [
+            9,
+            1,
+            150
+          ]
         },
         "total_eventos": {
           "description": "Total de eventos (cliques, visualizacoes, etc.) registrados para o cliente.",
-          "examples": [9, 12, 5000]
+          "examples": [
+            9,
+            12,
+            5000
+          ]
         },
         "data_ultima_sessao": {
           "description": "Data e hora da ultima sessao de navegacao registrada.",
-          "examples": ["2025-12-23 12:25:40", "2024-11-15 08:00:00"]
+          "examples": [
+            "2025-12-23 12:25:40",
+            "2024-11-15 08:00:00"
+          ]
         },
         "qtd_visualizacao_produto": {
           "description": "Quantidade de visualizacoes de paginas de produto.",
-          "examples": [1, 0, 120]
+          "examples": [
+            1,
+            0,
+            120
+          ]
         },
         "qtd_adicoes_carrinho": {
           "description": "Quantidade de adicoes de produtos ao carrinho.",
-          "examples": [0, 8, 25]
+          "examples": [
+            0,
+            8,
+            25
+          ]
         },
         "qtd_abandonos_carrinho": {
           "description": "Quantidade de abandonos de carrinho.",
-          "examples": [0, 3, 10]
+          "examples": [
+            0,
+            3,
+            10
+          ]
         },
         "qtd_compras": {
           "description": "Quantidade de compras finalizadas pelo cliente.",
-          "examples": [0, 5, 20]
+          "examples": [
+            0,
+            5,
+            20
+          ]
         },
         "canal_mais_usado": {
           "description": "Canal de origem de trafego mais utilizado pelo cliente.",
-          "examples": ["web", "mobile", "app"]
+          "examples": [
+            "web",
+            "mobile",
+            "app"
+          ]
         },
         "dispositivo_mais_usado": {
           "description": "Tipo de dispositivo mais utilizado pelo cliente.",
-          "examples": ["desktop", "mobile", "tablet"]
+          "examples": [
+            "desktop",
+            "mobile",
+            "tablet"
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:02:58.883577"]
+          "examples": [
+            "2026-05-13 23:02:58.883577"
+          ]
         }
       }
     },
@@ -464,55 +826,103 @@
       "columns": {
         "id_categoria": {
           "description": "Identificador unico da categoria.",
-          "examples": ["CATEG-0001", "CATEG-0005", "CATEG-0007"]
+          "examples": [
+            "CATEG-0001",
+            "CATEG-0005",
+            "CATEG-0007"
+          ]
         },
         "nome_categoria": {
           "description": "Nome da categoria de produto.",
-          "examples": ["Eletronicos", "Moveis", "Acessorios"]
+          "examples": [
+            "Eletronicos",
+            "Moveis",
+            "Acessorios"
+          ]
         },
         "slug_categoria": {
           "description": "Slug da categoria para URLs.",
-          "examples": ["eletronicos", "moveis", "acessorios"]
+          "examples": [
+            "eletronicos",
+            "moveis",
+            "acessorios"
+          ]
         },
         "imagem_url": {
           "description": "URL da imagem representativa da categoria.",
-          "examples": ["https://exemplo.com/img/eletronicos.jpg"]
+          "examples": [
+            "https://exemplo.com/img/eletronicos.jpg"
+          ]
         },
         "total_produtos": {
           "description": "Quantidade total de produtos na categoria.",
-          "examples": [25, 10, 5]
+          "examples": [
+            25,
+            10,
+            5
+          ]
         },
         "total_produtos_ativos": {
           "description": "Quantidade de produtos ativos na categoria.",
-          "examples": [20, 8, 3]
+          "examples": [
+            20,
+            8,
+            3
+          ]
         },
         "total_com_estoque": {
           "description": "Quantidade de produtos com estoque disponivel.",
-          "examples": [18, 5, 2]
+          "examples": [
+            18,
+            5,
+            2
+          ]
         },
         "preco_medio": {
           "description": "Preco medio dos produtos da categoria (em BRL).",
-          "examples": [1500.0, 200.0, 450.0]
+          "examples": [
+            1500.0,
+            200.0,
+            450.0
+          ]
         },
         "preco_minimo": {
           "description": "Preco minimo dos produtos da categoria (em BRL).",
-          "examples": [500.0, 50.0, 150.0]
+          "examples": [
+            500.0,
+            50.0,
+            150.0
+          ]
         },
         "preco_maximo": {
           "description": "Preco maximo dos produtos da categoria (em BRL).",
-          "examples": [5000.0, 800.0, 1200.0]
+          "examples": [
+            5000.0,
+            800.0,
+            1200.0
+          ]
         },
         "peso_medio_kg": {
           "description": "Peso medio dos produtos da categoria (em kg).",
-          "examples": [1.5, 0.4, 0.8]
+          "examples": [
+            1.5,
+            0.4,
+            0.8
+          ]
         },
         "total_precisa_revisao": {
           "description": "Quantidade de produtos da categoria que precisam de revisao.",
-          "examples": [2, 1, 0]
+          "examples": [
+            2,
+            1,
+            0
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:02:42.426230"]
+          "examples": [
+            "2026-05-13 23:02:42.426230"
+          ]
         }
       }
     },
@@ -522,23 +932,43 @@
       "columns": {
         "agente_suporte": {
           "description": "Nome do agente de suporte.",
-          "examples": ["Bruno Rodrigues", "Mariana Costa", "Eduardo Cardoso"]
+          "examples": [
+            "Bruno Rodrigues",
+            "Mariana Costa",
+            "Eduardo Cardoso"
+          ],
+          "sensitive": true,
+          "mask_label": "Agente"
         },
         "qtd_tickets_resolvidos": {
           "description": "Quantidade total de tickets resolvidos pelo agente.",
-          "examples": [2430, 5209, 416]
+          "examples": [
+            2430,
+            5209,
+            416
+          ]
         },
         "nota_media_satisfacao": {
           "description": "Media das notas de satisfacao dos tickets atendidos pelo agente (1 a 5).",
-          "examples": [3.36, 3.71, 3.17]
+          "examples": [
+            3.36,
+            3.71,
+            3.17
+          ]
         },
         "tempo_medio_resolucao": {
           "description": "Tempo medio de resolucao dos tickets do agente (em horas).",
-          "examples": [75.35, 42.92, 103.99]
+          "examples": [
+            75.35,
+            42.92,
+            103.99
+          ]
         },
         "timestamp_ingestion_gold": {
           "description": "Timestamp de ingestao na camada gold.",
-          "examples": ["2026-05-13 23:03:02.716052"]
+          "examples": [
+            "2026-05-13 23:03:02.716052"
+          ]
         }
       }
     },
@@ -548,19 +978,39 @@
       "columns": {
         "tipo_problema": {
           "description": "Categoria do problema relatado nos tickets.",
-          "examples": ["pagamento", "entrega", "reembolso", "produto", "atraso"]
+          "examples": [
+            "pagamento",
+            "entrega",
+            "reembolso",
+            "produto",
+            "atraso"
+          ]
         },
         "volume_tickets": {
           "description": "Quantidade total de tickets registrados para esse tipo de problema.",
-          "examples": [6703, 9542, 8903, 975]
+          "examples": [
+            6703,
+            9542,
+            8903,
+            975
+          ]
         },
         "nota_media_satisfacao": {
           "description": "Media das notas de satisfacao dos clientes para esse tipo de problema (1 a 5).",
-          "examples": [3.31, 3.36, 3.10]
+          "examples": [
+            3.31,
+            3.36,
+            3.10
+          ]
         },
         "tempo_medio_resolucao_horas": {
           "description": "Tempo medio de resolucao dos tickets desse tipo (em horas).",
-          "examples": [28.74, 52.43, 73.91, 101.07]
+          "examples": [
+            28.74,
+            52.43,
+            73.91,
+            101.07
+          ]
         }
       }
     }

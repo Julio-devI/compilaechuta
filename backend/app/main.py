@@ -26,11 +26,20 @@ import app.models.operator  # noqa: F401
 from app.api.v1.api import api_router
 
 # Configura logger do agente de IA
+import json
+class ExtraFormatter(logging.Formatter):
+    def format(self, record):
+        s = super().format(record)
+        extra = {k: v for k, v in record.__dict__.items() if k not in logging.LogRecord('', 0, '', 0, '', (), None).__dict__ and k != 'message'}
+        if extra:
+            s += f" | {json.dumps(extra, default=str, ensure_ascii=False)}"
+        return s
+
 vcommerce_ai_logger = logging.getLogger("vcommerce_ai_agent")
 vcommerce_ai_logger.setLevel(logging.INFO)
 if not vcommerce_ai_logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
+    handler.setFormatter(ExtraFormatter("%(name)s - %(levelname)s - %(message)s"))
     vcommerce_ai_logger.addHandler(handler)
 
 @asynccontextmanager

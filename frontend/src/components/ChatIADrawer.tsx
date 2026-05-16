@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import ReactMarkdown from 'react-markdown'
 import { askAgent, getSuggestions } from '@/services/aiAgentService'
 
 interface Message {
@@ -21,6 +22,7 @@ interface Message {
   type: 'user' | 'assistant'
   content: string
   timestamp: string
+  sources_text?: string | null
 }
 
 const QUICK_ACTION_ICONS: LucideIcon[] = [Zap, FileText, HelpCircle, Lightbulb]
@@ -88,6 +90,7 @@ export function ChatIADrawer() {
           type: 'assistant',
           content: assistantText,
           timestamp: nowHHmm(),
+          sources_text: response.user_response.sources_text,
         },
       ])
     } catch (err) {
@@ -223,7 +226,7 @@ export function ChatIADrawer() {
                   className={`max-w-[80%] flex flex-col ${msg.type === 'user' ? 'items-end' : 'items-start'}`}
                 >
                   <div
-                    className="px-3 py-2.5 text-sm leading-relaxed whitespace-pre-line"
+                    className="px-3 py-2.5 text-sm leading-relaxed"
                     style={
                       msg.type === 'user'
                         ? {
@@ -241,7 +244,43 @@ export function ChatIADrawer() {
                           }
                     }
                   >
-                    {msg.content}
+                    {msg.type === 'user' ? (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    ) : (
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                          ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    )}
+
+                    {msg.sources_text && (
+                      <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
+                        <p
+                          className="flex items-center gap-1.5 text-xs font-semibold mb-1"
+                          style={{ color: 'var(--chat-accent)' }}
+                        >
+                          <Lightbulb className="w-3.5 h-3.5" />
+                          Fonte de dados consultada:
+                        </p>
+                        <div className="text-xs text-muted-foreground">
+                          <ReactMarkdown
+                            components={{
+                              p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                              em: ({ children }) => <em className="italic">{children}</em>,
+                            }}
+                          >
+                            {msg.sources_text}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <span className="text-[10px] text-muted-foreground mt-1">
                     {msg.timestamp}

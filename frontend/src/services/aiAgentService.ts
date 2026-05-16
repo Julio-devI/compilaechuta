@@ -41,6 +41,7 @@ export interface SessionHistoryEntry {
   role: 'user' | 'assistant'
   content: string
   sql: string | null
+  sources_text?: string | null
 }
 
 export interface SessionDetail {

@@ -254,7 +254,12 @@ async def ask_agent(
                     "Ocorreu uma falha no processamento. Tente novamente ou contate o suporte.",
                 )
             elif response.status == "out_of_scope":
-                response.user_response.answer_text = "Desculpe, não consigo responder essa pergunta com os dados disponíveis no momento."
+                response.user_response.answer_text = (
+                    "Desculpe, meu escopo é **focado na visão do cliente e operações "
+                    "comerciais**, portanto não tenho acesso a dados financeiros internos, "
+                    "de recursos humanos ou fluxo de caixa da V-Commerce, mas posso "
+                    "ajudar com indicadores de vendas e operações."
+                )
 
     return {
         "status": response.status,

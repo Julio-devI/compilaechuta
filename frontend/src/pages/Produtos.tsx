@@ -182,8 +182,8 @@ export function Produtos() {
                 <Medal className="w-5 h-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-semibold text-muted-foreground leading-tight">Produto</span>
-                <span className="text-xs font-semibold text-muted-foreground leading-tight">Campeão (+vendido)</span>
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">Produto mais</span>
+                <span className="text-xs font-semibold text-muted-foreground leading-tight">vendido</span>
               </div>
             </div>
             <span className="text-[10px] font-bold text-[#16A34A] bg-[#DCFCE7] px-2 py-0.5 rounded-full flex items-center gap-0.5">

@@ -11,7 +11,6 @@ interface ModalProps {
 }
 
 export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
-  const navigate = useNavigate()
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 

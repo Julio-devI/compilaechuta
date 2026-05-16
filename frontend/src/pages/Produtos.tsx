@@ -96,15 +96,6 @@ export function Produtos() {
     carregarDados()
   }, [filtroCategoria, filtroStatus, filtroPreco])
 
-  const toggleProduto = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setSelecionados(prev => {
-      const novo = new Set(prev)
-      novo.has(id) ? novo.delete(id) : novo.add(id)
-      return novo
-    })
-  }
-
   const produtosFiltrados = produtos.filter(produto =>
     produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     produto.sku.toLowerCase().includes(searchTerm.toLowerCase())
@@ -418,64 +409,107 @@ export function Produtos() {
             <table className="w-full border-separate border-spacing-y-2">
               <thead>
                 <tr className="bg-[#020854] text-white">
-                  <th className="py-4 px-4 text-left rounded-l-xl"></th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Produto</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Categoria</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Estoque</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Vendidos</th>
-                  <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">Preço</th>
-                  <th className="py-4 px-6 text-left rounded-r-xl text-[10px] font-black uppercase tracking-widest border-none">Status</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none rounded-l-2xl">Produto</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none">SKU</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none">Categoria</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none">Performance</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none">Preço</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none">Estoque</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none">Vendidos</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none">Avaliação</th>
+                  <th className="py-4 px-6 text-left text-[11px] font-black uppercase tracking-widest border-none rounded-r-2xl">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {produtosFiltrados.map((produto) => (
-                  <tr
-                    key={produto.id}
-                    className="bg-white dark:bg-card group cursor-pointer hover:bg-slate-50 dark:hover:bg-background transition-colors border-b border-border"
-                    onClick={() => setProdutoSelecionado(produto)}
-                  >
-                    <td className="py-4 px-4 rounded-l-2xl border-0">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]"
-                        checked={selecionados.has(produto.id)}
-                        onChange={() => { }}
-                        onClick={(e) => toggleProduto(produto.id, e)}
-                      />
-                    </td>
-                    <td className="py-4 px-6 border-0">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl border border-border flex items-center justify-center text-2xl bg-slate-50">
-                          {produto.imagem}
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="font-black text-[#020854] dark:text-foreground text-base">{produto.nome}</span>
-                          <span className="text-muted-foreground text-[10px] font-bold uppercase">{produto.sku}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 border-0">
-                      <span className="bg-sky-100 text-sky-700 border border-sky-200 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
-                        {produto.categoria}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 border-0">
-                      <span className="font-bold text-muted-foreground">{produto.estoque} un</span>
-                    </td>
-                    <td className="py-4 px-6 border-0">
-                      <span className="font-bold text-muted-foreground">{produto.vendidos}</span>
-                    </td>
-                    <td className="py-4 px-6 border-0">
-                      <span className="text-blue-900 dark:text-blue-300 font-black text-lg whitespace-nowrap">{produto.preco}</span>
-                    </td>
-                    <td className="py-4 px-6 rounded-r-2xl border-0">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black whitespace-nowrap ${getStatusColor(produto.status)}`}>
-                        {formatStatusLabel(produto.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+      {produtosFiltrados.map((produto) => (
+        <tr
+          key={produto.id}
+          className="bg-white dark:bg-card group cursor-pointer hover:bg-slate-50 dark:hover:bg-background/50 transition-colors border-b border-border shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+          onClick={() => setProdutoSelecionado(produto)}
+        >
+          {/* PRODUTO (Imagem + Nome em bloco cinza) */}
+          <td className="py-4 px-6 rounded-l-2xl border-0">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl border border-slate-200 flex items-center justify-center text-2xl bg-[#F1F5F9] text-slate-400 shrink-0">
+                {produto.imagem || "✕"}
+              </div>
+              <div className="bg-[#F1F5F9] dark:bg-slate-800 px-4 py-2 rounded-2xl min-w-[140px]">
+                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm block leading-tight">
+                  {produto.nome}
+                </span>
+              </div>
+            </div>
+          </td>
+
+          {/* SKU */}
+          <td className="py-4 px-6 border-0">
+            <span className="text-slate-600 dark:text-slate-400 font-bold text-sm">
+              {produto.sku}
+            </span>
+          </td>
+
+          {/* CATEGORIA */}
+          <td className="py-4 px-6 border-0">
+            <span className="bg-[#E0F2FE] text-[#0284C7] px-3 py-1 rounded-full text-xs font-bold tracking-wide">
+              {produto.categoria}
+            </span>
+          </td>
+
+          {/* PERFORMANCE (Equivalente ao antigo Status na imagem) */}
+          <td className="py-4 px-6 border-0">
+            <span className="bg-[#E2E8F0] dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 w-fit">
+              <Medal className="w-3.5 h-3.5" /> Mais vendido
+            </span>
+          </td>
+
+          {/* PREÇO */}
+          <td className="py-4 px-6 border-0">
+            <span className="text-[#020854] dark:text-blue-400 font-black text-base whitespace-nowrap">
+              {produto.preco}
+            </span>
+          </td>
+
+          {/* ESTOQUE */}
+          <td className="py-4 px-6 border-0">
+            <span className="font-medium text-slate-400 dark:text-slate-500 text-sm">
+              {produto.estoque} produtos
+            </span>
+          </td>
+
+          {/* VENDIDOS */}
+          <td className="py-4 px-6 border-0">
+            <span className="font-medium text-slate-400 dark:text-slate-500 text-sm">
+              {produto.vendidos} produtos
+            </span>
+          </td>
+
+          {/* AVALIAÇÃO */}
+          <td className="py-4 px-6 border-0">
+            <div className="flex items-center gap-1">
+              <span className="text-amber-400 text-lg">★</span>
+              <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">
+                {/* Fallback caso não exista a propriedade no seu tipo Produto */}
+                {(produto as any).avaliacao || "4.8"}
+              </span>
+            </div>
+          </td>
+
+          {/* AÇÕES (Botão Editar) */}
+          <td className="py-4 px-6 rounded-r-2xl border-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/produtos/editar/${produto.id}`);
+              }}
+              className="flex items-center gap-1.5 text-[#1E5EFF] hover:text-[#1E5EFF]/80 font-bold text-sm bg-transparent border-none cursor-pointer transition-colors"
+            >
+              {/* Note: Importe o 'Pencil' do lucide-react no topo caso queira o ícone exato de edição */}
+              <span className="text-base">✏️</span> Editar
+            </button>
+          </td>
+        </tr>
+      ))}
+    </tbody>
             </table>
           </div>
         ) : (

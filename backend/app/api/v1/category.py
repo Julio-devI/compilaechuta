@@ -1,12 +1,29 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 from app.api import deps
 from app.crud import category as crud_category
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 
 router = APIRouter()
+
+class BestSellingCategoryResponse(BaseModel):
+    category: str
+
+class WorstSellingCategoryResponse(BaseModel):
+    category: str
+
+@router.get("/best-selling", response_model=BestSellingCategoryResponse)
+async def get_best_selling_category(db: AsyncSession = Depends(deps.get_db)) -> Any:
+    category = await crud_category.get_best_selling_category(db=db)
+    return BestSellingCategoryResponse(category=category or "Nenhuma")
+
+@router.get("/worst-selling", response_model=WorstSellingCategoryResponse)
+async def get_worst_selling_category(db: AsyncSession = Depends(deps.get_db)) -> Any:
+    category = await crud_category.get_worst_selling_category(db=db)
+    return WorstSellingCategoryResponse(category=category or "Nenhuma")
 
 @router.get("/", response_model=List[CategoryResponse])
 async def read_categories(
@@ -17,7 +34,6 @@ async def read_categories(
     categories = await crud_category.get_multi_categories(db, skip=skip, limit=limit)
     return categories
 
-
 @router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
     *,
@@ -26,7 +42,6 @@ async def create_category(
 ) -> Any:
     category = await crud_category.create_category(db=db, obj_in=category_in)
     return category
-
 
 @router.get("/{id_categoria}", response_model=CategoryResponse)
 async def read_category(

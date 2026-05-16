@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
 import { getProdutos, getTotalProdutos, getTopSellingProduct, Produto, exportarProdutosCSV, deleteProduto } from '../services/productService'
-import { getCategorias } from '../services/categoryService'
+import { getCategorias, getBestSellingCategory, getWorstSellingCategory } from '../services/categoryService'
 
 export function Produtos() {
   const navigate = useNavigate()
@@ -18,6 +18,8 @@ export function Produtos() {
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [totalProdutos, setTotalProdutos] = useState<number>(0)
   const [topSellingProduct, setTopSellingProduct] = useState<string>('')
+  const [bestSellingCategory, setBestSellingCategory] = useState<string>('')
+  const [worstSellingCategory, setWorstSellingCategory] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -58,6 +60,12 @@ export function Produtos() {
     })
     getTopSellingProduct().then(top => {
         setTopSellingProduct(top)
+    })
+    getBestSellingCategory().then(best => {
+        setBestSellingCategory(best)
+    })
+    getWorstSellingCategory().then(worst => {
+        setWorstSellingCategory(worst)
     })
   }, [])
 
@@ -202,7 +210,7 @@ export function Produtos() {
               ↑ 12.6% mês
             </span>
           </div>
-          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">Eletrônicos</h3>
+          <h3 className="text-xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1 truncate max-w-full" title={bestSellingCategory}>{bestSellingCategory || "..."}</h3>
         </div>
 
         {/* Card 4 */}
@@ -221,7 +229,7 @@ export function Produtos() {
               ↑ 12.6% mês
             </span>
           </div>
-          <h3 className="text-3xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1">Moda</h3>
+          <h3 className="text-xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1 truncate max-w-full" title={worstSellingCategory}>{worstSellingCategory || "..."}</h3>
         </div>
       </div>
 

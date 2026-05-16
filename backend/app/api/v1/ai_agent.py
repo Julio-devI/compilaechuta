@@ -68,7 +68,9 @@ async def ask_agent(
     por lock em memória.
 
     Erros de domínio (pergunta fora de escopo, falha na geração de SQL,
-    timeout etc.) chegam sempre como HTTP 200 com `status` != 'success'.
+    timeout etc.) chegam sempre como HTTP 200 com `status` != 'success',
+    e a propriedade `user_response.answer_text` trará uma mensagem
+    amigável mapeada a partir do código de erro.
     Os detalhes técnicos (SQL gerado, tempos, código de erro, tokens) ficam
     restritos ao backend, registrados via logger `vcommerce_ai_agent`, e não
     são enviados ao frontend.
@@ -86,7 +88,6 @@ async def ask_agent(
             except json.JSONDecodeError:
                 history = []
 
-        # Instancia o agente
         agent = VCommerceAgent(
             db_path=settings.DB_PATH,
             schema_descriptions_path=settings.SCHEMA_DESCRIPTIONS_PATH,
@@ -104,11 +105,8 @@ async def ask_agent(
                 )
                 agent.clear_history()
 
-        # Processa a pergunta
         response = await agent.ask(payload.question)
 
-        # Persiste o historico atualizado apenas quando o agente registrou
-        # a interacao (apenas status=success entra no historico, conforme contrato).
         if response.status == "success":
             await create_or_update_session(
                 db,
@@ -117,6 +115,49 @@ async def ask_agent(
                     agent.export_history(), ensure_ascii=False
                 ),
             )
+        else:
+            if response.developer_debug:
+                logging.getLogger("vcommerce_ai_agent").error(
+                    "Erro ao processar pergunta no agente de IA",
+                    extra={"developer_debug": asdict(response.developer_debug)}
+                )
+                
+            if response.developer_debug and response.developer_debug.error:
+                code = response.developer_debug.error.code
+                if code == "EMPTY_INPUT":
+                    response.user_response.answer_text = "Por favor, digite uma pergunta válida."
+                elif code == "INPUT_TOO_LONG":
+                    response.user_response.answer_text = "Sua pergunta é muito longa. Tente ser mais breve."
+                elif code == "INVALID_INPUT_TYPE":
+                    response.user_response.answer_text = "O formato da pergunta enviada é inválido."
+                elif code in ("PROMPT_INJECTION", "DESTRUCTIVE_QUERY", "MULTIPLE_STATEMENTS", "UNKNOWN_GUARDRAIL"):
+                    response.user_response.answer_text = "A sua pergunta não pôde ser processada por motivos de segurança."
+                elif code in ("SCHEMA_VIOLATION_ALLOWLIST", "SCHEMA_VIOLATION_SEMANTIC"):
+                    response.user_response.answer_text = "Sua pergunta refere-se a informações que não estão disponíveis para consulta."
+                elif code == "SENSITIVE_DATA_MASKING_ERROR":
+                    response.user_response.answer_text = "Não é permitido analisar ou cruzar os dados sensíveis solicitados."
+                elif code in ("LLM_RATE_LIMIT_ERROR", "LLM_QUOTA_ERROR"):
+                    response.user_response.answer_text = "Muitas requisições no momento. Aguarde um instante e tente novamente."
+                elif code in ("LLM_TIMEOUT_ERROR", "EXECUTION_TIMEOUT"):
+                    response.user_response.answer_text = "A consulta demorou demais e foi interrompida. Tente uma pergunta mais específica."
+                elif code in ("LLM_UNAVAILABLE_ERROR", "LLM_INTERNAL_ERROR"):
+                    response.user_response.answer_text = "O serviço de inteligência artificial está temporariamente indisponível."
+                elif code == "LLM_AUTHENTICATION_ERROR":
+                    response.user_response.answer_text = "Erro de autenticação com o provedor de IA. Contate o suporte."
+                elif code == "LLM_INVALID_REQUEST_ERROR":
+                    response.user_response.answer_text = "Erro na requisição enviada ao provedor de IA."
+                elif code == "LLM_UNKNOWN_ERROR":
+                    response.user_response.answer_text = "Ocorreu um erro desconhecido no serviço de IA."
+                elif code == "SQL_PARSE_ERROR":
+                    response.user_response.answer_text = "Houve uma dificuldade em interpretar sua pergunta. Pode tentar reescrevê-la de outra forma?"
+                elif code == "INSIGHT_PARSE_ERROR":
+                    response.user_response.answer_text = "Houve uma dificuldade em processar a resposta. Tente novamente."
+                elif code == "DB_EXECUTION_ERROR":
+                    response.user_response.answer_text = "Ocorreu um erro ao executar a consulta no banco de dados."
+                elif code == "SCHEMA_LOAD_ERROR":
+                    response.user_response.answer_text = "Ocorreu um erro ao carregar as definições do banco de dados."
+                else:
+                    response.user_response.answer_text = "Ocorreu uma falha no processamento. Tente novamente ou contate o suporte."
 
     return {
         "status": response.status,

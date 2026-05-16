@@ -10,6 +10,7 @@ import app.models.orders   # noqa: F401
 import app.models.category # noqa: F401
 import app.models.products # noqa: F401
 import app.models.satisfaction_agents  # noqa: F401
+import app.models.problem_satisfaction  # noqa: F401
 
 app = FastAPI(
     title="V-Commerce CRM 360",

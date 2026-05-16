@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   Search, Maximize2, Minimize2, ChevronDown, ChevronUp, Box, Calendar,
-  Filter, Table, Grid, Plus, Download, Trash2, Database, ShoppingCart,
-  Hash, DollarSign, Smile
+  Filter, Table, Grid, Plus, Download, Trash2, Database, ShoppingCart, DollarSign, Smile, Medal
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
@@ -179,8 +178,8 @@ export function Produtos() {
         <div className="bg-white dark:bg-card border border-[#E2E8F0] dark:border-border p-5 rounded-3xl flex flex-col justify-between relative shadow-sm">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#0F172A] flex items-center justify-center text-white">
-                <Hash className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-full bg-[#FEF08A] flex items-center justify-center text-[#B45309]">
+                <Medal className="w-5 h-5" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-semibold text-muted-foreground leading-tight">Produto</span>
@@ -225,8 +224,8 @@ export function Produtos() {
                 <span className="text-xs font-semibold text-muted-foreground leading-tight">vendida</span>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-[#16A34A] bg-[#DCFCE7] px-2 py-0.5 rounded-full flex items-center gap-0.5">
-              ↑ 12.6% mês
+            <span className="text-[10px] font-bold text-[#B91C1C] bg-[#FEE2E2] px-2 py-0.5 rounded-full flex items-center gap-0.5">
+              ↓ 22.0% mês
             </span>
           </div>
           <h3 className="text-xl font-bold text-[#0F172A] dark:text-foreground mt-3 pl-1 truncate max-w-full" title={worstSellingCategory}>{worstSellingCategory || "..."}</h3>

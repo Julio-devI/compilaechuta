@@ -37,6 +37,7 @@ export interface Pedido {
 export interface FiltrosPedidos {
   status?: string;
   id_produto?: string;
+  id_pedido_display?: string;
   data_inicio?: string;
   data_fim?: string;
   tipo_cliente?: string;
@@ -44,8 +45,8 @@ export interface FiltrosPedidos {
   status_ticket?: string;
 }
 
-const API_URL = 'http://localhost:8000/api/v1/orders'
-const CLIENT_API_URL = 'http://localhost:8000/api/v1/clients'
+const API_URL = 'http://localhost:8000/pedidos'
+const CLIENT_API_URL = 'http://localhost:8000/clientes'
 
 // Cache local simples para evitar múltiplas chamadas à API pelo mesmo cliente
 const clientCache = new Map<string, any>();
@@ -82,6 +83,7 @@ export async function getPedidos(
 
     if (filtros?.status) params.append('status', filtros.status);
     if (filtros?.id_produto) params.append('id_produto', filtros.id_produto);
+    if (filtros?.id_pedido_display) params.append('id_pedido_display', filtros.id_pedido_display);
     if (filtros?.data_inicio) params.append('data_inicio', filtros.data_inicio);
     if (filtros?.data_fim) params.append('data_fim', filtros.data_fim);
     if (filtros?.tipo_cliente) params.append('tipo_cliente', filtros.tipo_cliente);

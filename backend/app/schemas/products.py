@@ -24,7 +24,6 @@ class ProductBase(BaseModel):
         
         return v
 
-
 class ProductCreate(ProductBase):
     id_produto: str = Field(..., description="ID manual do produto (ex: PROD-0001)")
 
@@ -37,8 +36,7 @@ class ProductUpdate(BaseModel):
     peso_kg: Optional[float] = Field(None, gt=0)
     estoque_disponivel: Optional[int] = Field(None, ge=0)
     ativo: Optional[str] = None  # "Sim" ou "Não"
-
-
+      
 class ProductResponse(ProductBase):
     id_produto: str
     data_cadastro_produto: Optional[datetime] = None

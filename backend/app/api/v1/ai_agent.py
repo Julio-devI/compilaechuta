@@ -4,8 +4,9 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from vcommerce_ai_agent import VCommerceAgent
 
 from app.api.deps import get_db
 from app.core.config import settings
@@ -18,6 +19,11 @@ from app.schemas.ai_agent import (
 )
 
 router = APIRouter()
+
+# Tabelas operacionais do backend que nao devem ser expostas ao LLM nem
+# permitidas pelos guardrails do agente (alembic_version e ai_agent_sessions
+# contem dados internos e historico de outras conversas).
+_EXCLUDED_TABLES: set[str] = {"ai_agent_sessions", "alembic_version"}
 
 # Lock por session_id para serializar perguntas simultaneas na mesma conversa
 _session_locks: dict[str, asyncio.Lock] = {}
@@ -38,14 +44,6 @@ async def ask_agent(
     Recebe uma pergunta em linguagem natural e retorna uma resposta estruturada
     gerada pelo agente de IA Text-to-SQL.
     """
-    try:
-        from vcommerce_ai_agent import VCommerceAgent
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Modulo ai-agent nao disponivel. Verifique a instalacao.",
-        ) from exc
-
     lock = _get_lock(payload.session_id)
     async with lock:
         # Recupera historico persistido
@@ -63,7 +61,7 @@ async def ask_agent(
         agent = VCommerceAgent(
             db_path=settings.DB_PATH,
             schema_descriptions_path=settings.SCHEMA_DESCRIPTIONS_PATH,
-            excluded_tables=set(),
+            excluded_tables=_EXCLUDED_TABLES,
         )
 
         if history:
@@ -80,13 +78,15 @@ async def ask_agent(
         # Processa a pergunta
         response = await agent.ask(payload.question)
 
-        # Persiste o historico atualizado
-        updated_history = agent.export_history()
-        if updated_history:
+        # Persiste o historico atualizado apenas quando o agente registrou
+        # a interacao (apenas status=success entra no historico, conforme contrato).
+        if response.status == "success":
             await create_or_update_session(
                 db,
                 session_id=payload.session_id,
-                history_json=json.dumps(updated_history, ensure_ascii=False),
+                history_json=json.dumps(
+                    agent.export_history(), ensure_ascii=False
+                ),
             )
 
     return asdict(response)
@@ -99,18 +99,10 @@ async def get_suggestions(
     """
     Retorna sugestoes iniciais de perguntas baseadas no schema do banco.
     """
-    try:
-        from vcommerce_ai_agent import VCommerceAgent
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Modulo ai-agent nao disponivel. Verifique a instalacao.",
-        ) from exc
-
     agent = VCommerceAgent(
         db_path=settings.DB_PATH,
         schema_descriptions_path=settings.SCHEMA_DESCRIPTIONS_PATH,
-        excluded_tables=set(),
+        excluded_tables=_EXCLUDED_TABLES,
     )
 
     suggestions = await agent.initial_suggestions(

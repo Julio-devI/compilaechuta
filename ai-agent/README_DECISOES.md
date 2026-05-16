@@ -421,15 +421,3 @@
 - **Justificativa:** Delegar a responsabilidade de tradução de nomenclatura inteiramente ao artefato de configuração (schema JSON) e garantir que o código Python se mantenha agnóstico quanto às práticas de nomenclatura do pipeline de engenharia de dados. Essa mudança simplifica o código, tornando a apresentação previsível e garantindo robustez a longo prazo quando novos prefixos não mapeados previamente (ex: `mart_`) forem criados.
 
 - **Implicações:** O preenchimento da propriedade `display_name` em `schema_descriptions.json` torna-se praticamente um requisito de interface visual.
-
----
-
-### DA-36: DB_PATH Derivado de DATABASE_URL no Backend
-
-- **Contexto:** O plano de integração inicial propunha adicionar uma variável de ambiente `DB_PATH` separada no backend para informar o caminho do SQLite ao agente de IA, duplicando a informação já presente em `DATABASE_URL`.
-
-- **Decisão:** Remover `DB_PATH` do `.env` do backend e implementar uma property `DB_PATH` no `config.py` que extrai automaticamente o caminho do arquivo SQLite a partir do `DATABASE_URL`.
-
-- **Justificativa:** Não deveria ser necessário manter duas variáveis de ambiente que fazem a mesma coisa. A extração automática simplifica a configuração, elimina o risco de divergência entre o caminho usado pelo SQLAlchemy e pelo agente, e mantém o backend com uma única fonte de verdade para a localização do banco.
-
-- **Implicações:** O backend depende do formato `sqlite+aiosqlite:///...` do `DATABASE_URL`. Se o backend migrar para outro driver SQLAlchemy ou banco de dados não SQLite, a property `DB_PATH` precisará ser refatorada. O agente continua recebendo o caminho absoluto via `settings.DB_PATH` sem alterações na interface pública.

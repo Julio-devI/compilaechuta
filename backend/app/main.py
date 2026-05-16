@@ -1,8 +1,15 @@
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+
+if settings.GEMINI_API_KEY:
+    os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+os.environ.setdefault(
+    "LLM_TEMPERATURE_INSIGHT", str(settings.LLM_TEMPERATURE_INSIGHT)
+)
 
 from app.api.v1.ai_agent import router as ai_agent_router
 from app.api.v1.clients import router as clientes_router

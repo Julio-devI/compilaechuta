@@ -49,7 +49,7 @@ class AgentResponseSchema(BaseModel):
 
 
 class AskRequest(BaseModel):
-    question: str = Field(..., max_length=500)
+    question: str
     session_id: str
 
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import date
 
 
@@ -16,6 +16,8 @@ class TimeResponse(BaseModel):
     ano_mes: str = Field(..., description="Year-Month")
     trismestre_label: str = Field(..., description="Quarter label")
     fim_de_semana: bool = Field(..., description="Weekend flag")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TimeListOut(BaseModel):

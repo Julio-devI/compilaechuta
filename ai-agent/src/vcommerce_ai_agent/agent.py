@@ -1211,13 +1211,7 @@ class VCommerceAgent:
                 extra={"event": "suggestions_finished", "status": "success"},
             )
             return suggestions
-        except (
-            FileNotFoundError,
-            RuntimeError,
-            ValueError,
-            EnvironmentError,
-            LLMError,
-        ):
+        except (OSError, RuntimeError, ValueError, LLMError):
             logger.info(
                 "suggestions_fallback",
                 extra={"event": "suggestions_fallback"},

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -12,6 +13,7 @@ os.environ.setdefault(
     "LLM_TEMPERATURE_INSIGHT", str(settings.LLM_TEMPERATURE_INSIGHT)
 )
 
+from app.api.v1.ai_agent import cleanup_session_locks_loop
 from app.api.v1.ai_agent import router as ai_agent_router
 from app.api.v1.clients import router as clientes_router
 from app.api.v1.tickets import router as tickets_router
@@ -40,14 +42,15 @@ if not vcommerce_ai_logger.handlers:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Preaquece as sugestões do agente no startup (dispara a primeira geração de IA)
+    cleanup_task = asyncio.create_task(cleanup_session_locks_loop())
     try:
-        from app.api.v1.ai_agent import get_suggestions
-        await get_suggestions()
-        vcommerce_ai_logger.info("Sugestões preaquecidas com sucesso no startup.")
-    except Exception as e:
-        vcommerce_ai_logger.error(f"Falha ao preaquecer sugestões no startup: {e}")
-    yield
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title="V-Commerce CRM 360",

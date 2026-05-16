@@ -87,6 +87,7 @@ class AgentResponseSchema(BaseModel):
         json_schema_extra={
             "example": {
                 "status": "success",
+                "session_id": "sessao-usuario-123",
                 "user_response": {
                     "answer_text": (
                         "Os 3 produtos mais vendidos foram Camiseta Básica, "
@@ -135,10 +136,49 @@ class AskRequest(BaseModel):
     )
 
 
+class SuggestionsRequest(BaseModel):
+    """Payload para POST /ai-agent/suggestions."""
+
+    session_id: str = Field(
+        default="",
+        description=(
+            "Identificador da conversa. Quando informado, o backend recupera "
+            "o histórico da sessão e gera sugestões contextuais de follow-up "
+            "via LLM. Quando vazio ou ausente, retorna a lista fixa inicial."
+        ),
+        examples=["sessao-usuario-123"],
+    )
+
+
 class SuggestionsResponse(BaseModel):
-    """Resposta de GET /ai-agent/suggestions."""
+    """Resposta de POST /ai-agent/suggestions."""
 
     suggestions: list[str] = Field(
         ...,
         description="Lista de 5 perguntas sugeridas em PT-BR, baseadas no schema real do banco.",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "suggestions": [
+                        "Qual é a receita total agrupada por região do país?",
+                        "Quais são os principais clientes do segmento 'Campeões' que mais gastaram na loja?",
+                        "Qual é o tempo médio de resolução de tickets por tipo de problema?",
+                        "Quais são os 10 produtos com a melhor média de avaliação dos clientes?",
+                        "Quais canais de aquisição geram o maior número de compras e adições ao carrinho?",
+                    ]
+                },
+                {
+                    "suggestions": [
+                        "Qual região teve o maior crescimento de receita no último trimestre?",
+                        "Quais produtos da região Sudeste têm a maior margem de lucro?",
+                        "Como a receita por região se compara ao mesmo período do ano anterior?",
+                        "Quais são os 5 estados com maior ticket médio de compra?",
+                        "Existe correlação entre a região do cliente e o canal de aquisição preferido?",
+                    ]
+                },
+            ]
+        }
     )

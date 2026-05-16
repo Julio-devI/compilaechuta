@@ -13,13 +13,14 @@ class Produto(Base):
     id_produto = Column(String, primary_key=True, index=True)
     sku = Column(String, index=True, nullable=True)
     nome_produto = Column(String, nullable=False)
-    categoria = Column(String, ForeignKey("gold_categoria.nome_categoria"), nullable=True)
+    id_categoria = Column(String, ForeignKey("gold_categoria.id_categoria"), nullable=True, index=True)
     fornecedor = Column(String, nullable=True)
     preco = Column(Float, nullable=True)
     peso_kg = Column(Float, nullable=True)
     estoque_disponivel = Column(Integer, default=0)
     ativo = Column(String, default="Sim")
     precisa_revisao = Column(String, default="Não")
+    descricao = Column(String, nullable=True)
     data_cadastro_produto = Column(
         DateTime(timezone=True), 
         default=get_sp_time,
@@ -33,8 +34,10 @@ class Produto(Base):
     media_nota_produto = Column(Float, nullable=True)
     media_nota_nps = Column(Float, nullable=True)
     pct_recomendacoes_sim = Column(Float, nullable=True)
-    total_tickets = Column(Integer, default=0)
     media_tempo_resolucao_horas = Column(Float, nullable=True)
     media_nota_suporte = Column(Float, nullable=True)
     timestamp_ingestion_gold = Column(String, nullable=True)
-    categoria_rel = relationship("Categoria", back_populates="produtos")
+    total_tickets = Column(Integer, default=0)
+
+    categoria = relationship("Categoria", back_populates="produto")
+    pedido = relationship("Pedido", back_populates="produto", lazy="select")

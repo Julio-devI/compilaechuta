@@ -4,29 +4,36 @@ import { Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { SplashScreen } from '../components/SplashScreen'
 import { DecorativePanel } from '../components/DecorativePanel'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function Login() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [splashDone, setSplashDone] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleLogin = () => {
-    if (!email.trim() && !password.trim()) {
-      toast.error('Preencha o email e a senha para continuar.')
-      return
-    }
-    if (!email.trim()) {
-      toast.error('Informe seu email.')
+  const handleLogin = async () => {
+    if (!username.trim()) {
+      toast.error('Informe seu usuário ou email.')
       return
     }
     if (!password.trim()) {
       toast.error('Informe sua senha.')
       return
     }
-    navigate('/dashboard')
+
+    setIsLoading(true)
+    try {
+      await login(username.trim(), password)
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao fazer login.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -51,7 +58,7 @@ export function Login() {
             <img src="/logo.png" alt="VCommerce" className="h-7 sm:h-8" />
           </div>
 
-          {/* Form — vertically centered, horizontally capped */}
+          {/* Form */}
           <div className="flex flex-col justify-center flex-1 w-full max-w-sm mx-auto px-6 sm:px-4 lg:px-0 py-8">
 
             <h1
@@ -69,18 +76,19 @@ export function Login() {
 
             <div className="space-y-4 sm:space-y-5">
 
-              {/* Email */}
+              {/* Username / Email */}
               <div>
                 <label className="block text-sm font-semibold text-[#1A237E] mb-1.5">
-                  Email
+                  Usuário ou Email
                 </label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="Digite seu email..."
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="Digite seu usuário ou email..."
                   className="w-full h-11 sm:h-12 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
                   style={{ background: '#F5F5F5', border: 'none' }}
+                  disabled={isLoading}
                 />
               </div>
 
@@ -98,6 +106,7 @@ export function Login() {
                     placeholder="Digite sua senha..."
                     className="w-full h-11 sm:h-12 px-4 pr-12 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
                     style={{ background: '#F5F5F5', border: 'none' }}
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
@@ -109,18 +118,9 @@ export function Login() {
                 </div>
               </div>
 
-              {/* Remember / Forgot */}
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded accent-[#1565C0] cursor-pointer"
-                  />
-                  <span className="text-sm text-[#64748B]">Lembrar senha</span>
-                </label>
-                <a href="/esqueci-senha" className="text-sm font-semibold text-[#1565C0] whitespace-nowrap">
+              {/* Forgot password */}
+              <div className="flex justify-end">
+                <a href="/esqueci-senha" className="text-sm font-semibold text-[#1565C0]">
                   Esqueceu a senha?
                 </a>
               </div>
@@ -129,37 +129,22 @@ export function Login() {
               <button
                 type="button"
                 onClick={handleLogin}
-                className="w-full h-11 sm:h-12 rounded-full text-white font-bold text-base transition-colors mt-1"
+                disabled={isLoading}
+                className="w-full h-11 sm:h-12 rounded-full text-white font-bold text-base transition-colors mt-1 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 style={{ background: '#1565C0' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#1251A3')}
+                onMouseEnter={e => !isLoading && (e.currentTarget.style.background = '#1251A3')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#1565C0')}
               >
-                Login
+                {isLoading && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                {isLoading ? 'Entrando...' : 'Entrar'}
               </button>
             </div>
-
-            {/* Sign up */}
-            <p className="text-sm text-center text-[#64748B] mt-6 sm:mt-8">
-              Primeira vez por aqui?{' '}
-              <a href="cadastro" className="font-bold text-[#1565C0]">
-                Faça o Cadastro →
-              </a>
-            </p>
           </div>
         </div>
 
       </div>
     </>
-  )
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
   )
 }

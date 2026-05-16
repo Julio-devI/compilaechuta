@@ -1,10 +1,31 @@
 import { Search, Bell } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: 'Super Admin',
+  admin: 'Admin',
+  user: 'Operador',
+}
+
+function getInitials(nome: string): string {
+  return nome
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(n => n[0].toUpperCase())
+    .join('')
+}
 
 export function Header() {
+  const { user } = useAuth()
+
+  const initials = user ? getInitials(user.nome) : '?'
+  const roleLabel = user ? (ROLE_LABELS[user.role] ?? user.role) : ''
+
   return (
     <header className="h-16 border-b border-border flex items-center justify-end px-6">
       <div className="flex items-center gap-4">
-        <div className="w-[400px]">
+        <div className="w-100">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
             <input
@@ -19,11 +40,17 @@ export function Header() {
           <Bell className="w-5 h-5 text-primary" />
         </button>
 
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ADE9FF] to-[#ADE9FF] flex items-center justify-center mr-1">
-            <span className="text-[#0070DB] font-semibold text-sm">AA</span>
+        {user && (
+          <div className="flex items-center gap-2 mr-1">
+            <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#ADE9FF] to-[#ADE9FF] flex items-center justify-center">
+              <span className="text-[#0070DB] font-semibold text-sm">{initials}</span>
+            </div>
+            <div className="hidden sm:block leading-tight">
+              <p className="text-sm font-semibold text-foreground truncate max-w-30">{user.nome}</p>
+              <p className="text-xs text-muted">{roleLabel}</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </header>
   )

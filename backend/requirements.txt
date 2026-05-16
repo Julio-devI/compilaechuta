@@ -2,15 +2,13 @@
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 
-
 # ORM and Migrations
 sqlalchemy==2.0.36
 alembic==1.14.0
-
+greenlet==3.5.0
 
 # SQLite async driver
 aiosqlite==0.22.1
-
 
 # Gerenciamento de variáveis de ambiente (.env)
 python-dotenv==1.0.1
@@ -19,12 +17,18 @@ python-dotenv==1.0.1
 # AI Agent (local editable package)
 -e ../ai-agent
 
+# Auth
+python-jose[cryptography]==3.3.0
+bcrypt==5.0.0
+
+# Email
+fastapi-mail==1.4.2
+
 # Extras libraries
 pydantic==2.10.3
 pydantic-settings==2.7.0
 pytest==8.3.4
 httpx==0.28.1
-tzdata>=2023.3  
+tzdata>=2023.3
 pandas==3.0.3
-psycopg2-binary==2.9.12
-asyncpg==0.31.0
+greenlet==3.5.0

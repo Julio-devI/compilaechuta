@@ -1,4 +1,4 @@
-import { X, Package, DollarSign, BarChart2, Hash, ArrowUpRight, Trash2 } from 'lucide-react'
+import { X, Package, DollarSign, BarChart2, Hash, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MouseEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -144,9 +144,6 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
                     className="w-full bg-[#1E5EFF] text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-sm"
                   >
                     Editar Produto
-                  </button>
-                  <button className="w-full bg-card text-foreground border border-border py-3.5 rounded-xl font-bold hover:bg-background transition-colors">
-                    Ver na Loja <ArrowUpRight className="w-4 h-4 inline ml-1" />
                   </button>
                   
                   {/* BOTÃO DE EXCLUIR ORIGINAL CHAMANDO O ESTADO */}

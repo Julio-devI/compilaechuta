@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
-class ClickstreamOut(BaseModel):
+class ClickstreamResponse(BaseModel):
     id_cliente: str
     total_sessoes: Optional[int] = None
     total_eventos: Optional[int] = None
@@ -17,8 +17,8 @@ class ClickstreamOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-class ClickstreamListOut(BaseModel):
+class ClickstreamListResponse(BaseModel):
     total: int
     skip: int
     limit: int
-    data: list[ClickstreamOut]
+    data: list[ClickstreamResponse]

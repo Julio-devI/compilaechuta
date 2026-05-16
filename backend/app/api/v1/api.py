@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+  ai_agent,
   clients,
   tickets,
   products,
@@ -14,7 +15,7 @@ from app.api.v1 import (
 
 api_router = APIRouter()
 
-
+api_router.include_router(ai_agent.router, prefix="/ai-agent", tags=["AI Agent"])
 api_router.include_router(clients.router, prefix="/clients", tags=["Clients"])
 api_router.include_router(tickets.router, prefix="/tickets", tags=["Tickets"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])

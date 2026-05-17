@@ -5,9 +5,9 @@ from typing import Optional, List, Dict, Any
 
 from app.models.orders import Pedido
 from app.models.tickets import Ticket
-from app.models.products import Produto  # ADICIONADO: Necessário para o JOIN do filtro de categoria
-# NOTA PARA O CRUD: Descomente a importação abaixo quando criar a model para a fato_avaliacoes_pedido
-# from app.models.reviews import Avaliacao 
+from app.models.products import Produto
+from app.models.orders_evaluation import AvaliacaoPedido as Avaliacao
+from app.models.clients import Cliente
 
 
 def _calculate_percentage_change(current: float, previous: float) -> float:
@@ -116,6 +116,11 @@ async def get_kpis(
     prev_total_evals = row_csat_ant.total or 0 if row_csat_ant else 0
     prev_csat = (prev_promoters / prev_total_evals * 100) if prev_total_evals > 0 else 0.0
 
+    # 5. LTV Médio global (média de total_gasto_brl em dim_cliente)
+    stmt_ltv = select(func.avg(Cliente.total_gasto_brl))
+    res_ltv = await db.execute(stmt_ltv)
+    current_ltv = float(res_ltv.scalar_one() or 0.0)
+
     return {
         "total_revenue": {
             "current_value": current_revenue,
@@ -132,6 +137,10 @@ async def get_kpis(
         "active_clients": {
             "current_value": current_active,
             "percentage_change": _calculate_percentage_change(current_active, prev_active)
+        },
+        "ltv_medio": {
+            "current_value": round(current_ltv, 2),
+            "percentage_change": 0.0
         }
     }
 

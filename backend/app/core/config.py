@@ -4,7 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./banco_local.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./scripts/vcommerce.db"
     CSV_DIR: str = "./data"
     
     # App

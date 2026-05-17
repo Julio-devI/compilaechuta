@@ -193,7 +193,7 @@ async def update_product(db: AsyncSession, id_produto: str, product_in: ProductU
     
     altered_relantionship = False 
     obj_new_category = None
-
+    
     if "categoria" in update_data:
         nome_categoria = update_data.pop("categoria")
         
@@ -221,6 +221,25 @@ async def update_product(db: AsyncSession, id_produto: str, product_in: ProductU
                     detail=f"Não foi possível encontrar uma categoria correspondente ao slug '{slug_buscado}'."
                 )
 
+    if "nome_produto" in update_data or "fornecedor" in update_data or altered_relantionship:
+        novo_nome_produto = update_data.get("nome_produto", db_product.nome_produto)
+        novo_fornecedor = update_data.get("fornecedor", db_product.fornecedor)
+        
+        if altered_relantionship and obj_new_category:
+            nova_cat_string = obj_new_category.nome_categoria
+        elif db_product.categoria:
+            nova_cat_string = db_product.categoria.nome_categoria
+        else:
+            nova_cat_string = "Outros"
+            
+        novo_sku = generate_sku(
+            id_produto=id_produto,
+            categoria=str(nova_cat_string),
+            nome_produto=str(novo_nome_produto),
+            fornecedor=str(novo_fornecedor or "Desconhecido")
+        )
+        update_data["sku"] = novo_sku
+
     for field, value in update_data.items():
         setattr(db_product, field, value)
     
@@ -231,6 +250,7 @@ async def update_product(db: AsyncSession, id_produto: str, product_in: ProductU
     await db.refresh(db_product)
     
     return db_product
+
 
 async def delete_product(db: AsyncSession, id_produto: str) -> bool:
     db_product = await get_productById(db, id_produto)

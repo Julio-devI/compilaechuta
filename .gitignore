@@ -8,7 +8,6 @@ alembic/versions/
 backend/vcommerce.db
 
 vcommerce.db
-data/
 .idea
 
 # Logs de execucao local do uvicorn

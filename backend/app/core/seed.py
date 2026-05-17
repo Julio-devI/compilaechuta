@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from app.core.config import BACKEND_ROOT, settings
 
@@ -74,7 +75,7 @@ def _missing_seed_files(csv_dir: Path) -> list[Path]:
     ]
 
 
-def _load_csv_table(conn: sqlite3.Connection, csv_dir: Path, table_name: str) -> None:
+def _load_csv_table(conn: sqlite3.Connection, csv_dir: Path, table_name: str) -> int:
     csv_path = csv_dir / f"{table_name}.csv"
     dataframe = pd.read_csv(csv_path)
     dataframe = dataframe.drop(columns=[INGESTION_COLUMN], errors="ignore")
@@ -85,13 +86,31 @@ def _load_csv_table(conn: sqlite3.Connection, csv_dir: Path, table_name: str) ->
         index=False,
         chunksize=SEED_CHUNKSIZE,
     )
+    return len(dataframe)
 
 
 def _run_migrations(database_url: str) -> None:
     alembic_config = Config(str(BACKEND_ROOT / "alembic.ini"))
     alembic_config.set_main_option("script_location", str(BACKEND_ROOT / "alembic"))
     alembic_config.set_main_option("sqlalchemy.url", database_url)
-    command.upgrade(alembic_config, "head")
+
+    script = ScriptDirectory.from_config(alembic_config)
+    pending = list(script.walk_revisions())[::-1]
+
+    logger.info("Aplicando %d migration(s) Alembic.", len(pending))
+    for rev in pending:
+        description = (rev.doc or "").strip() or "sem descrição"
+        logger.info(
+            "Aplicando migration Alembic %s: %s",
+            rev.revision,
+            description,
+        )
+        command.upgrade(alembic_config, rev.revision)
+
+    logger.info(
+        "Migrations Alembic concluídas (%d aplicadas).",
+        len(pending),
+    )
 
 
 def seed_database_if_needed_sync(
@@ -142,8 +161,13 @@ def seed_database_if_needed_sync(
         )
 
         for table_name in CSV_TABLES:
-            _load_csv_table(conn, resolved_csv_dir, table_name)
-            logger.info("Tabela populada via seed CSV.", extra={"table": table_name})
+            logger.info("Populando tabela via seed CSV: %s", table_name)
+            rows = _load_csv_table(conn, resolved_csv_dir, table_name)
+            logger.info(
+                "Tabela populada via seed CSV: %s (%d linhas).",
+                table_name,
+                rows,
+            )
 
         conn.commit()
         logger.info("Seed CSV concluído.")

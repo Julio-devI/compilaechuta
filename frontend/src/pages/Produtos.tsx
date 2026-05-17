@@ -489,7 +489,7 @@ export function Produtos() {
               <span className="text-amber-400 text-lg">★</span>
               <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">
                 {/* Fallback caso não exista a propriedade no seu tipo Produto */}
-                {(produto as any).avaliacao || "4.8"}
+                {(produto as any).avaliacao || "N/A"}
               </span>
             </div>
           </td>

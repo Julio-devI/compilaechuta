@@ -14,7 +14,6 @@ class AvaliacaoPedido(Base):
     nome_produto = Column(String, nullable=True)
     id_categoria = Column(String, nullable=True)
     nota_produto = Column(Float, nullable=True)
-    categoria = Column(String, nullable=True)
     preco = Column(Float, nullable=True)
     valor_pedido = Column(Float, nullable=True)
     quantidade = Column(Float, nullable=True)
@@ -27,3 +26,4 @@ class AvaliacaoPedido(Base):
     data_avaliacao = Column(DateTime, nullable=True)
     categoria_nps = Column(String, nullable=True)
     pct_recomendacoes_sim = Column(Float, nullable=True)
+    comentario_consistente = Column(Boolean, nullable=True)

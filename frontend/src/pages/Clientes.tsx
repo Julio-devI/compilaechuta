@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Search, Table, Grid, ArrowUp,
-  ArrowDown, Box, Calendar, ChevronDown, ChevronUp, Maximize2, Crown, RotateCcw, Sparkles, X, Flame,
-  Loader2, Star, Ticket, UserMinus, Trophy, Activity, Heart, AlertTriangle
+  Search, Table, Grid, ArrowUp, ArrowDown,
+  Box, ChevronDown, ChevronUp, Crown, Sparkles, X,
+  Loader2, Star, Ticket as TicketIcon, UserMinus, Trophy, Activity, Heart, AlertTriangle,
+  ShoppingBag
 } from 'lucide-react'
 
-import type { Cliente, FiltrosClientes } from '../services/customerService'
-import { getClientes, getClienteStatusStyle } from '../services/customerService'
-
-import { ExportCsvButton, ClientFilters } from '../components/ExportCsvButton'
+import type { Cliente, FiltrosClientes, ClientesKPIs } from '../services/customerService'
+import { getClientes, getClienteStatusStyle, getClientesKPIs } from '../services/customerService'
+import { ExportCsvButton, type ClientFilters } from '../components/ExportCsvButton'
 import { Toaster, toast } from 'react-hot-toast'
 
 type SortConfig = {
@@ -16,7 +16,43 @@ type SortConfig = {
   direction: 'ascending' | 'descending';
 };
 
+const LTV_MIN = 0;
+const LTV_MAX = 5000;
+
+function DualRangeSlider({
+  min, max, minVal, maxVal, onMinChange, onMaxChange,
+}: {
+  min: number; max: number; minVal: number; maxVal: number;
+  onMinChange: (v: number) => void; onMaxChange: (v: number) => void;
+}) {
+  const minPercent = ((minVal - min) / (max - min)) * 100;
+  const maxPercent = ((maxVal - min) / (max - min)) * 100;
+  return (
+    <div className="relative h-5 mt-1">
+      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-gray-200 rounded-full" />
+      <div
+        className="absolute top-1/2 -translate-y-1/2 h-1.5 bg-[#1E5EFF] rounded-full pointer-events-none"
+        style={{ left: `${minPercent}%`, right: `${100 - maxPercent}%` }}
+      />
+      <input
+        type="range" min={min} max={max} step={100} value={minVal}
+        onChange={(e) => onMinChange(Math.min(Number(e.target.value), maxVal - 100))}
+        className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer range-slider"
+        style={{ zIndex: minVal > maxVal - 200 ? 5 : 3 }}
+      />
+      <input
+        type="range" min={min} max={max} step={100} value={maxVal}
+        onChange={(e) => onMaxChange(Math.max(Number(e.target.value), minVal + 100))}
+        className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer range-slider"
+        style={{ zIndex: 4 }}
+      />
+    </div>
+  );
+}
+
 export function Clientes() {
+  const [kpis, setKpis] = useState<ClientesKPIs | null>(null)
+
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [page, setPage] = useState(1)
@@ -24,220 +60,433 @@ export function Clientes() {
   const [isLoadingData, setIsLoadingData] = useState(false)
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('todos')
-  const [selectedSegmento] = useState<string | undefined>()
-  const [ticketRange, setTicketRange] = useState<{ min?: number, max?: number }>({})
-  const [lvtRange, setLvtRange] = useState<{ min?: number, max?: number }>({})
-  const [dateRange, setDateRange] = useState<{ inicio?: string, fim?: string }>({})
-  const [regiaoSelecionada, setRegiaoSelecionada] = useState<string>('')
 
-  const [viewMode, setViewMode] = useState<string>('tabela')
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'ascending' });
-  const [showFilters, setShowFilters] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
-  const [isTransitioningView, setIsTransitioningView] = useState(false);
+  const [filterTipoCliente, setFilterTipoCliente] = useState('Todos')
+  const [filterCategoria, setFilterCategoria] = useState('Todos')
+  const [filterTicketStatus, setFilterTicketStatus] = useState('Todos')
+  const [filterNPS, setFilterNPS] = useState('Todos')
+  const [filterCSAT, setFilterCSAT] = useState('Todos')
+  const [filterRegiao, setFilterRegiao] = useState('Todos')
+  const [filterSKU, setFilterSKU] = useState('')
+  const [lvtMin, setLvtMin] = useState(LTV_MIN)
+  const [lvtMax, setLvtMax] = useState(LTV_MAX)
 
-  const handleTicketFilter = (min?: number, max?: number) => {
-    setTicketRange({ min, max });
-    setPage(1);
-  };
-
-  const handleLvtFilter = (min?: number, max?: number) => {
-    setLvtRange({ min, max });
-    setPage(1);
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDateRange(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    setPage(1);
-  }
-
-  const handleRegiaoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRegiaoSelecionada(e.target.value);
-    setPage(1);
-  }
+  const [viewMode, setViewMode] = useState<'tabela' | 'grade'>('tabela')
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'ascending' })
+  const [showFilters, setShowFilters] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
 
   const fetchClientes = useCallback(async () => {
     setIsLoadingData(true)
     try {
       const filtros: FiltrosClientes = {
         search: searchTerm,
-        status: filterStatus !== 'todos' ? filterStatus : undefined,
-        segmento: selectedSegmento,
-        ticket_min: ticketRange.min,
-        ticket_max: ticketRange.max,
-        lvtMin: lvtRange.min,
-        lvtMax: lvtRange.max,
-        data_inicio: dateRange.inicio,
-        data_fim: dateRange.fim,
-        regiao: regiaoSelecionada,
+        status: filterTipoCliente !== 'Todos' ? filterTipoCliente : undefined,
+        lvtMin: lvtMin > LTV_MIN ? lvtMin : undefined,
+        lvtMax: lvtMax < LTV_MAX ? lvtMax : undefined,
+        regiao: filterRegiao !== 'Todos' && filterRegiao !== 'Personalizar' ? filterRegiao : undefined,
+        status_ticket: filterTicketStatus === 'Aberto' ? 'aberto' : filterTicketStatus === 'Finalizado' ? 'resolvido' : undefined,
+        sem_ticket: filterTicketStatus === 'Sem ticket' ? true : undefined,
+        nps: filterNPS !== 'Todos' ? filterNPS : undefined,
+        csat: filterCSAT !== 'Todos' ? filterCSAT : undefined,
+        sku: filterSKU || undefined,
+        categoria: filterCategoria !== 'Todos' ? filterCategoria : undefined,
       }
-
       const res = await getClientes((page - 1) * pageSize, pageSize, filtros)
       setClientes(res.data)
       setTotalItems(res.total)
     } finally {
       setIsLoadingData(false)
     }
-  }, [page, searchTerm, filterStatus, selectedSegmento, ticketRange, lvtRange, dateRange, regiaoSelecionada])
+  }, [page, searchTerm, filterTipoCliente, lvtMin, lvtMax, filterRegiao, filterTicketStatus, filterNPS, filterCSAT, filterSKU, filterCategoria])
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      fetchClientes()
-    }, 500)
-
+    const handler = setTimeout(() => { fetchClientes() }, 500)
     return () => clearTimeout(handler)
   }, [fetchClientes])
 
+  useEffect(() => {
+    getClientesKPIs().then(setKpis)
+  }, [])
+
   const totalPages = Math.ceil(totalItems / pageSize)
 
-  // --- Lógica de Ordenação e Filtro ---
   const sortedClientes = [...clientes].sort((a, b) => {
     if (!sortConfig.key) return 0;
     let aValue: any = a[sortConfig.key as keyof Cliente];
     let bValue: any = b[sortConfig.key as keyof Cliente];
-
     if (typeof aValue === 'string' && aValue.startsWith('R$')) {
-      aValue = parseFloat(aValue.replace('R$ ', '').replace('.', '').replace(',', '.'));
-      bValue = parseFloat(bValue.replace('R$ ', '').replace('.', '').replace(',', '.'));
+      aValue = parseFloat(aValue.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
+      bValue = parseFloat((bValue as string).replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
     }
-
     if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
     if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
     return 0;
   });
 
   const handleSort = (key: string) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
+    const direction: 'ascending' | 'descending' =
+      sortConfig.key === key && sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
     setSortConfig({ key, direction });
   };
 
-  const handleFilterStatus = (status: string) => {
-    setFilterStatus(status);
-    setPage(1); // Sempre reseta a página ao filtrar
+  const isAllSelected = sortedClientes.length > 0 && selectedIds.size === sortedClientes.length;
+
+  const handleSelectAll = () => {
+    setSelectedIds(isAllSelected ? new Set() : new Set(sortedClientes.map(c => c.id)));
   };
 
-  const handleViewChange = (mode: string) => {
-    if (viewMode === mode) return;
-    setIsTransitioningView(true);
-    setViewMode(mode);
-    setTimeout(() => setIsTransitioningView(false), 500);
+  const handleSelectOne = (id: string | number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedIds(next);
   };
+
+  const getNPS = (estrelas: number) => {
+    if (estrelas >= 4) return 'Promotor';
+    if (estrelas === 3) return 'Neutro';
+    return 'Detrator';
+  };
+
+  const getNPSStyle = (nps: string) => {
+    if (nps === 'Promotor') return 'text-emerald-600';
+    if (nps === 'Neutro') return 'text-amber-500';
+    return 'text-red-500';
+  };
+
+  const getCSAT = (estrelas: number) => estrelas >= 4 ? 'Satisfeito' : 'Insatisfeito';
+  const getCSATStyle = (csat: string) => csat === 'Satisfeito' ? 'text-emerald-600' : 'text-red-500';
 
   const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortConfig.key !== columnKey) return <ArrowUp className="w-6 h-6 text-white ml-auto opacity-50" />;
+    if (sortConfig.key !== columnKey) return <ArrowUp className="w-3 h-3 opacity-40" />;
     return sortConfig.direction === 'ascending'
-      ? <ArrowUp className="w-6 h-6 text-white ml-auto" />
-      : <ArrowDown className="w-6 h-6 text-white ml-auto" />;
+      ? <ArrowUp className="w-3 h-3" />
+      : <ArrowDown className="w-3 h-3" />;
   };
-
-  const ClienteCardSkeleton = () => (
-    <div className="bg-card p-6 rounded-2xl border border-border animate-pulse">
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-16 h-16 rounded-full bg-gray-200"></div>
-        <div className="flex-1 space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-        </div>
-      </div>
-      <div className="space-y-4">
-        <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-        <div className="h-3 bg-gray-200 rounded w-4/6"></div>
-        <div className="h-3 bg-gray-200 rounded w-3/6"></div>
-      </div>
-      <div className="mt-6 pt-4 border-t border-border flex justify-end">
-        <div className="h-8 w-24 bg-gray-200 rounded-full"></div>
-      </div>
-    </div>
-  );
 
   const StatusIcon = ({ status }: { status: string | undefined | null }) => {
     if (!status) return null;
     const s = status.toLowerCase();
-    if (s.includes('vip')) return <Crown className="w-3.5 h-3.5" />;
-    if (s.includes('novo')) return <Sparkles className="w-3.5 h-3.5" />;
-    if (s.includes('inativo') || s.includes('perdido')) return <UserMinus className="w-3.5 h-3.5" />;
-    if (s.includes('campeão') || s.includes('campeao')) return <Trophy className="w-3.5 h-3.5" />;
-    if (s.includes('regular') || s.includes('recorrente') || s.includes('promissor') || s.includes('potencial')) return <Activity className="w-3.5 h-3.5" />;
-    if (s.includes('fiel') || s.includes('leal')) return <Heart className="w-3.5 h-3.5" />;
-    if (s.includes('risco')) return <AlertTriangle className="w-3.5 h-3.5" />;
-    return <Sparkles className="w-3.5 h-3.5" />; // fallback
+    if (s.includes('vip')) return <Crown className="w-3 h-3" />;
+    if (s.includes('novo')) return <Sparkles className="w-3 h-3" />;
+    if (s.includes('inativo') || s.includes('perdido')) return <UserMinus className="w-3 h-3" />;
+    if (s.includes('campeão') || s.includes('campeao')) return <Trophy className="w-3 h-3" />;
+    if (s.includes('regular') || s.includes('recorrente') || s.includes('promissor') || s.includes('potencial')) return <Activity className="w-3 h-3" />;
+    if (s.includes('fiel') || s.includes('leal')) return <Heart className="w-3 h-3" />;
+    if (s.includes('risco')) return <AlertTriangle className="w-3 h-3" />;
+    return <Sparkles className="w-3 h-3" />;
   };
 
-  const getStyleFallback = (status: string) => {
-    return getClienteStatusStyle(status);
-  }
+  const tiposCliente = ['Todos', 'VIP', 'Recorrente', '1ª Compra', 'Inativo', 'Em Risco'];
+  const categorias = ['Todos', 'Móveis', 'Eletrônicos', 'Lar'];
+  const ticketStatuses = ['Todos', 'Sem ticket', 'Aberto', 'Finalizado'];
+  const npsOptions = ['Todos', 'Neutro', 'Promotores', 'Detratores'];
+  const csatOptions = ['Todos', 'Satisfeito', 'Insatisfeito'];
+  const regioes = ['Todos', 'Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul', 'Personalizar'];
 
-  // Lista dos segmentos com a grafia exata retornada pela API
-  const segmentosFiltro = ['VIP', 'Novo Cliente', 'Inativo', 'Campeão', 'Regular', 'Fiel', 'Em Risco'];
-  const regioesFiltro = ['Norte', 'Nordeste', 'Sudeste', 'Sul', 'Centro-Oeste'];
+  const hasActiveFilters =
+    filterTipoCliente !== 'Todos' || filterCategoria !== 'Todos' ||
+    filterTicketStatus !== 'Todos' || filterNPS !== 'Todos' ||
+    filterCSAT !== 'Todos' || filterRegiao !== 'Todos' ||
+    filterSKU !== '' || lvtMin > LTV_MIN || lvtMax < LTV_MAX || searchTerm !== '' ||
+    filterNPS !== 'Todos' || filterCSAT !== 'Todos';
+
+  const PillButton = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+        active
+          ? 'bg-[#1E5EFF] text-white'
+          : 'bg-[#F1F5F9] dark:bg-background text-muted-foreground hover:bg-gray-200 dark:hover:bg-border'
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="p-8 bg-background min-h-screen">
       <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .range-slider::-webkit-slider-thumb {
+          -webkit-appearance: none; appearance: none;
+          width: 16px; height: 16px; border-radius: 50%;
+          background: white; border: 2px solid #1E5EFF;
+          cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
         }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        .range-slider::-moz-range-thumb {
+          width: 16px; height: 16px; border-radius: 50%;
+          background: white; border: 2px solid #1E5EFF;
+          cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
         }
+        .range-slider::-webkit-slider-runnable-track { background: transparent; }
+        .range-slider::-moz-range-track { background: transparent; }
       `}</style>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-5xl font-bold text-[#020854] dark:text-foreground">Clientes</h1>
-      </div>
 
-      {/* Top Controls */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="w-5 h-5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Buscar por cliente"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-              className="pl-10 pr-4 py-2.5 bg-card rounded-4xl border border-border w-[500px] focus:ring-2 focus:ring-[#1E5EFF]/20 outline-none"
-            />
-          </div>
+      <h1 className="text-5xl font-bold text-[#020854] dark:text-foreground mb-8">Clientes</h1>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[#020854] dark:text-foreground">Visualizar por:</span>
-            <div className="flex bg-card rounded-lg p-1 border border-border">
-              <button
-                onClick={() => handleViewChange('tabela')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'tabela' ? 'bg-[#1E5EFF] text-white shadow-sm' : 'text-muted hover:bg-background'}`}
-              >
-                <Table className="w-4 h-4" /> Tabela
-              </button>
-              <button
-                onClick={() => handleViewChange('grade')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'grade' ? 'bg-[#1E5EFF] text-white shadow-sm' : 'text-muted hover:bg-background'}`}
-              >
-                <Grid className="w-4 h-4" /> Grade
-              </button>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="bg-[#EEF3FF] rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-[#020854]/70">Total de Pedidos</span>
+            <div className="w-8 h-8 bg-[#1E5EFF]/10 rounded-xl flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4 text-[#1E5EFF]" />
             </div>
+          </div>
+          <p className="text-2xl font-bold text-[#020854]">
+            {kpis ? kpis.totalPedidos.value.toLocaleString('pt-BR') : '—'}
+          </p>
+          {kpis && (
+            <p className={`text-xs font-medium mt-1 ${kpis.totalPedidos.change >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+              {kpis.totalPedidos.change >= 0 ? '+' : ''}{kpis.totalPedidos.change.toFixed(1)}% mês
+            </p>
+          )}
+        </div>
+
+        <div className="bg-[#020854] rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-white/70">Total de Tickets</span>
+            <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center">
+              <TicketIcon className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {kpis ? kpis.totalTickets.toLocaleString('pt-BR') : '—'}
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-card border border-border rounded-2xl p-4">
+          <div className="mb-2">
+            <span className="text-xs font-semibold text-[#020854]/70 dark:text-foreground/70">NPS Destaque</span>
+          </div>
+          <p className="text-base font-bold text-[#020854] dark:text-foreground mb-2">Promotores</p>
+          <div className="flex h-2 rounded-full overflow-hidden">
+            <div
+              className="bg-red-400 rounded-l-full"
+              style={{ width: `${kpis?.npsDistribuicao.detratores ?? 12}%` }}
+            />
+            <div
+              className="bg-amber-400 mx-0.5"
+              style={{ width: `${kpis?.npsDistribuicao.neutros ?? 18}%` }}
+            />
+            <div className="bg-emerald-500 rounded-r-full flex-1" />
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-[9px] text-muted-foreground">
+              Det. {kpis?.npsDistribuicao.detratores ?? 12}%
+            </span>
+            <span className="text-[9px] text-muted-foreground">
+              Neu. {kpis?.npsDistribuicao.neutros ?? 18}%
+            </span>
+            <span className="text-[9px] text-muted-foreground">
+              Pro. {kpis?.npsDistribuicao.promotores ?? 70}%
+            </span>
           </div>
         </div>
 
+        <div className="bg-[#ECFDF5] rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-[#020854]/70">LTV Médio</span>
+            <div className="w-8 h-8 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+              <span className="text-sm font-bold text-emerald-600">$</span>
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-[#020854]">
+            {kpis
+              ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpis.ltvMedio.value)
+              : '—'}
+          </p>
+          <p className="text-xs text-emerald-600 font-medium mt-1">média global</p>
+        </div>
+
+        <div className="bg-[#EFF6FF] rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-[#020854]/70">CSAT Satisfeitos</span>
+            <div className="w-8 h-8 bg-[#1E5EFF]/10 rounded-xl flex items-center justify-center">
+              <Star className="w-4 h-4 text-[#1E5EFF]" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-[#020854]">
+            {kpis ? `${kpis.csatPromotores.value.toFixed(0)}%` : '—'}
+          </p>
+          {kpis && (
+            <p className={`text-xs font-medium mt-1 ${kpis.csatPromotores.change >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+              {kpis.csatPromotores.change >= 0 ? '+' : ''}{kpis.csatPromotores.change.toFixed(1)}% mês
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="mb-6">
+        <p className="text-sm font-bold text-[#020854] dark:text-foreground mb-2">Consultar Clientes</p>
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Busca por pedidos, cliente, produto, etc..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="pl-9 pr-4 py-2.5 bg-card rounded-full border border-border w-full focus:ring-2 focus:ring-[#1E5EFF]/20 outline-none text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground ml-auto">
+            <span>Total: <strong className="text-foreground">{totalItems.toLocaleString('pt-BR')}</strong></span>
+            <span>Exibindo: <strong className="text-foreground">{sortedClientes.length}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Panel */}
+      <div className="bg-card rounded-3xl border border-border shadow-sm mb-6 overflow-hidden">
+        <div
+          className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-background transition-colors"
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <div className="flex items-center gap-2 font-bold text-foreground text-sm">
+            {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <span>{showFilters ? 'Esconder Filtros' : 'Mostrar Filtros'}</span>
+          </div>
+          {hasActiveFilters && (
+            <span className="bg-[#1E5EFF]/10 text-[#1E5EFF] text-[10px] px-2 py-1 rounded-md font-medium">
+              Filtros Ativos
+            </span>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="px-6 pb-6 pt-4 border-t border-border space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            {/* Row 1: SKU | Categorias | Ticket */}
+            <div className="grid grid-cols-3 gap-8">
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">SKU Produto</p>
+                <div className="relative">
+                  <select
+                    value={filterSKU}
+                    onChange={(e) => { setFilterSKU(e.target.value); setPage(1); }}
+                    className="w-full py-2 bg-[#F1F5F9] dark:bg-background rounded-full px-4 outline-none text-sm text-muted-foreground border-none appearance-none focus:ring-1 focus:ring-[#1E5EFF]/50"
+                  >
+                    <option value="">Todos os Produtos</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">Categorias de Interesse</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {categorias.map(c => (
+                    <PillButton key={c} label={c} active={filterCategoria === c} onClick={() => { setFilterCategoria(c); setPage(1); }} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">Ticket</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ticketStatuses.map(t => (
+                    <PillButton key={t} label={t} active={filterTicketStatus === t} onClick={() => { setFilterTicketStatus(t); setPage(1); }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: LTV Slider | NPS | CSAT */}
+            <div className="grid grid-cols-3 gap-8">
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">LTV (Lifetime Value)</p>
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <span>R$ {lvtMin.toLocaleString('pt-BR')}</span>
+                  <span>R$ {lvtMax.toLocaleString('pt-BR')}</span>
+                </div>
+                <DualRangeSlider
+                  min={LTV_MIN} max={LTV_MAX}
+                  minVal={lvtMin} maxVal={lvtMax}
+                  onMinChange={(v) => { setLvtMin(v); setPage(1); }}
+                  onMaxChange={(v) => { setLvtMax(v); setPage(1); }}
+                />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">NPS (Net Promoter Score)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {npsOptions.map(n => (
+                    <PillButton key={n} label={n} active={filterNPS === n} onClick={() => { setFilterNPS(n); setPage(1); }} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">CSAT (Customer Satisfaction Score)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {csatOptions.map(c => (
+                    <PillButton key={c} label={c} active={filterCSAT === c} onClick={() => { setFilterCSAT(c); setPage(1); }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 3: Tipo de Cliente | Localização */}
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">Tipo de Cliente</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {tiposCliente.map(t => (
+                    <PillButton key={t} label={t} active={filterTipoCliente === t} onClick={() => { setFilterTipoCliente(t); setPage(1); }} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground mb-3">Localização</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {regioes.map(r => (
+                    <PillButton key={r} label={r} active={filterRegiao === r} onClick={() => { setFilterRegiao(r); setPage(1); }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Results count + View toggle */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-foreground">{totalItems} clientes encontrados</p>
+        <div className="flex bg-card rounded-lg p-1 border border-border">
+          <button
+            onClick={() => setViewMode('tabela')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${viewMode === 'tabela' ? 'bg-[#1E5EFF] text-white shadow-sm' : 'text-muted hover:bg-background'}`}
+          >
+            <Table className="w-3.5 h-3.5" /> Tabela
+          </button>
+          <button
+            onClick={() => setViewMode('grade')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${viewMode === 'grade' ? 'bg-[#1E5EFF] text-white shadow-sm' : 'text-muted hover:bg-background'}`}
+          >
+            <Grid className="w-3.5 h-3.5" /> Grade
+          </button>
+        </div>
+      </div>
+
+      {/* Selecionar tudo + Export */}
+      <div className="flex items-center justify-between mb-3">
+        <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground font-medium select-none">
+          <input
+            type="checkbox"
+            checked={isAllSelected}
+            onChange={handleSelectAll}
+            className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]"
+          />
+          Selecionar tudo
+        </label>
         <ExportCsvButton<ClientFilters>
           type="client"
           filters={{
-            averageTicketFloor: ticketRange.min,
-            averageTicketCeil: ticketRange.max,
-            ltvFloor: lvtRange.min,
-            ltvCeil: lvtRange.max,
-            lastOrderDateFloor: dateRange.inicio,
-            lastOrderDateCeil: dateRange.fim,
-            region: regiaoSelecionada,
-            rfmSegment: filterStatus !== 'todos' ? filterStatus : undefined,
+            rfmSegment: filterTipoCliente !== 'Todos' ? filterTipoCliente : undefined,
+            ltvFloor: lvtMin > LTV_MIN ? lvtMin : undefined,
+            ltvCeil: lvtMax < LTV_MAX ? lvtMax : undefined,
+            region: filterRegiao !== 'Todos' ? filterRegiao : undefined,
           }}
           endpoint="http://localhost:8000/api/v1/clients/exportar"
           onSuccess={(msg) => toast.success(msg)}
@@ -246,246 +495,120 @@ export function Clientes() {
         <Toaster position="top-right" />
       </div>
 
-      {/* PAINEL DE FILTROS EXPANSÍVEL */}
-      <div className="bg-card rounded-3xl border border-border shadow-sm mb-8 overflow-hidden transition-all">
-        <div
-          className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-background"
-          onClick={() => setShowFilters(!showFilters)}
-        >
-          <div className="flex items-center gap-2 font-bold text-foreground">
-            {showFilters ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            <span>{showFilters ? 'Esconder Filtros' : 'Mostrar Filtros'}</span>
-          </div>
-          <div className="flex gap-2">
-            {(filterStatus !== 'todos' || searchTerm || selectedSegmento || ticketRange.min || ticketRange.max || lvtRange.min || lvtRange.max || dateRange.inicio || dateRange.fim || regiaoSelecionada) && (<span className="bg-[#1E5EFF]/10 text-[#1E5EFF] text-[10px] px-2 py-1 rounded-md">Filtros Ativos</span>)}
-            <Maximize2 className="w-4 h-4 text-muted-foreground" />
-          </div>
-        </div>
-
-        {showFilters && (
-          <div className="px-8 pb-8 pt-4 grid grid-cols-12 gap-y-10 gap-x-8 border-t border-border animate-in fade-in slide-in-from-top-2 duration-300">
-
-            {/* 1. Segmento RFM */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
-                <Calendar className="w-5 h-5" /> <span>Segmento rfm</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {segmentosFiltro.map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => handleFilterStatus(filterStatus === status ? 'todos' : status)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all ${filterStatus === status
-                      ? 'ring-2 ring-[#1E5EFF] ring-offset-2 scale-105 shadow-md'
-                      : 'opacity-70 hover:opacity-100'
-                      } ${getStyleFallback(status)}`}
-                  >
-                    <StatusIcon status={status} />
-                    {status}
-                  </button>
-                ))}
-                {filterStatus !== 'todos' && (
-                  <button
-                    onClick={() => handleFilterStatus('todos')}
-                    className="text-xs text-muted-foreground underline ml-2"
-                  >
-                    Limpar
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 2. Faixa de LVT */}
-            <div className="col-span-5">
-              <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
-                <span className="text-lg font-bold">$</span> <span>Faixa de LVT</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleLvtFilter(0, 500)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${lvtRange.min === 0 && lvtRange.max === 500 ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
-                >
-                  Até R$500
-                </button>
-                <button
-                  onClick={() => handleLvtFilter(500, 2000)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${lvtRange.min === 500 && lvtRange.max === 2000 ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
-                >
-                  R$500-R$2.000
-                </button>
-                <button
-                  onClick={() => handleLvtFilter(2000, undefined)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${lvtRange.min === 2000 && lvtRange.max === undefined ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
-                >
-                  + R$2.000
-                </button>
-                {(lvtRange.min !== undefined || lvtRange.max !== undefined) && (
-                  <button
-                    onClick={() => handleLvtFilter(undefined, undefined)}
-                    className="text-xs text-muted-foreground underline ml-2 hover:text-[#1E5EFF]"
-                  >
-                    Limpar
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 3. Faixa de Ticket Médio */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
-                <span className="text-lg font-bold">$</span> <span>Faixa de Ticket Médio</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleTicketFilter(0, 100)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${ticketRange.min === 0 && ticketRange.max === 100 ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
-                >
-                  Até R$100
-                </button>
-                <button
-                  onClick={() => handleTicketFilter(100, 500)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${ticketRange.min === 100 && ticketRange.max === 500 ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
-                >
-                  R$100 - R$500
-                </button>
-                <button
-                  onClick={() => handleTicketFilter(500, undefined)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${ticketRange.min === 500 && ticketRange.max === undefined ? 'bg-[#1E5EFF] text-white' : 'bg-[#F1F5F9] text-muted-foreground hover:bg-gray-200'}`}
-                >
-                  + R$500
-                </button>
-                {(ticketRange.min !== undefined || ticketRange.max !== undefined) && (
-                  <button
-                    onClick={() => handleTicketFilter(undefined, undefined)}
-                    className="text-xs text-muted-foreground underline ml-2 hover:text-[#1E5EFF]"
-                  >
-                    Limpar
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 4. Último Pedido */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
-                <Calendar className="w-5 h-5" /> <span>Último Pedido</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <label htmlFor="inicio" className="text-xs text-muted-foreground">De</label>
-                  <input type="date" name="inicio" id="inicio" value={dateRange.inicio} onChange={handleDateChange} className="w-full p-2 bg-[#F1F5F9] rounded-md px-3 outline-none text-sm text-muted-foreground border-none focus:ring-1 focus:ring-[#1E5EFF]/50" />
-                </div>
-                <div className="flex-1">
-                  <label htmlFor="fim" className="text-xs text-muted-foreground">Até</label>
-                  <input type="date" name="fim" id="fim" value={dateRange.fim} onChange={handleDateChange} className="w-full p-2 bg-[#F1F5F9] rounded-md px-3 outline-none text-sm text-muted-foreground border-none focus:ring-1 focus:ring-[#1E5EFF]/50" />
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Região */}
-            <div className="col-span-4">
-              <div className="flex items-center gap-2 mb-4 font-bold text-foreground">
-                <Search className="w-5 h-5" /> <span>Região</span>
-              </div>
-              <div className="relative">
-                <select
-                  value={regiaoSelecionada}
-                  onChange={handleRegiaoChange}
-                  className="w-full p-2.5 bg-[#F1F5F9] rounded-full px-6 outline-none text-sm text-muted-foreground border-none appearance-none focus:ring-1 focus:ring-[#1E5EFF]/50"
-                >
-                  <option value="">Todas</option>
-                  {regioesFiltro.map(regiao => (
-                    <option key={regiao} value={regiao}>{regiao}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground cursor-pointer" />
-              </div>
-            </div>
-
-          </div>
-        )}
-      </div>
-
-      {/* Main Content Area */}
-      <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden relative min-h-[400px]">
-        {isLoadingData ? (
+      {/* Main Content */}
+      <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden relative min-h-100">
+        {isLoadingData && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/80 backdrop-blur-sm">
             <Loader2 className="w-8 h-8 text-[#1E5EFF] animate-spin mb-4" />
             <p className="text-muted-foreground font-medium">Buscando registros do banco de dados...</p>
           </div>
-        ) : null}
+        )}
 
-        {isTransitioningView ? (
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <ClienteCardSkeleton key={index} />
-            ))}
-          </div>
-        ) : viewMode === 'tabela' ? (
-          <div className="overflow-x-auto p-4">
-            <table className="w-full border-separate border-spacing-y-0">
+        {viewMode === 'tabela' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
               <thead>
-                <tr className="bg-[#020854] first:rounded-l-xl last:rounded-r-xl">
-                  <th className="py-4 px-4 text-left rounded-l-xl">
+                <tr className="bg-[#020854]">
+                  <th className="py-3.5 px-4 rounded-tl-2xl w-10">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 rounded accent-white"
+                    />
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('nome')}>
-                    <div className="flex items-center gap-2">Cliente </div>
+                  <th className="py-3.5 px-4 text-left text-white font-medium text-xs cursor-pointer" onClick={() => handleSort('nome')}>
+                    <div className="flex items-center gap-1">Nome / Localização <SortIcon columnKey="nome" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('status')}>
-                    <div className="flex items-center gap-2">Segmento RFM <SortIcon columnKey="status" /></div>
+                  <th className="py-3.5 px-4 text-left text-white font-medium text-xs">Interesse</th>
+                  <th className="py-3.5 px-4 text-left text-white font-medium text-xs cursor-pointer" onClick={() => handleSort('status')}>
+                    <div className="flex items-center gap-1">Tipo <SortIcon columnKey="status" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('lvtTotal')}>
-                    <div className="flex items-center gap-2">LVT Total <SortIcon columnKey="lvtTotal" /></div>
+                  <th className="py-3.5 px-4 text-left text-white font-medium text-xs cursor-pointer" onClick={() => handleSort('qtd_tickets_suporte')}>
+                    <div className="flex items-center gap-1">Tickets <SortIcon columnKey="qtd_tickets_suporte" /></div>
                   </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('ultimoPedido')}>
-                    <div className="flex items-center gap-2">Último Pedido <SortIcon columnKey="ultimoPedido" /></div>
-                  </th>
-                  <th className="py-4 px-2 text-white font-medium text-sm cursor-pointer" onClick={() => handleSort('ticketMedio')}>
-                    <div className="flex items-center gap-2">Ticket médio </div>
-                  </th>
-                  <th className="py-4 px-4 text-white font-medium text-sm rounded-r-xl">Ações</th>
+                  <th className="py-3.5 px-4 text-left text-white font-medium text-xs">Histórico</th>
+                  <th className="py-3.5 px-4 text-left text-white font-medium text-xs rounded-tr-2xl">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedClientes.map((cliente) => (
-                  <tr key={cliente.id} className="border-b border-border hover:bg-[#1E5EFF]/5 dark:hover:bg-[#1E5EFF]/10 transition-colors">
-                    <td className="py-4 px-4">
-                    </td>
-                    <td className="py-4 px-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-xl font-medium mb-1 shrink-0">
-                          {cliente.nome.substring(0, 2).toUpperCase()}
+                {sortedClientes.map((cliente) => {
+                  const nps = getNPS(cliente.estrelas);
+                  const csat = getCSAT(cliente.estrelas);
+                  return (
+                    <tr
+                      key={cliente.id}
+                      className="border-b border-border hover:bg-[#1E5EFF]/5 dark:hover:bg-[#1E5EFF]/10 transition-colors"
+                    >
+                      <td className="py-4 px-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(cliente.id)}
+                          onChange={() => handleSelectOne(cliente.id)}
+                          className="w-4 h-4 rounded border-gray-300 accent-[#1E5EFF]"
+                        />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] text-sm font-bold shrink-0">
+                            {cliente.nome.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground text-sm leading-tight">{cliente.nome}</p>
+                            <p className="text-xs text-muted-foreground">{cliente.cidade}</p>
+                          </div>
                         </div>
-                        <span className="font-medium text-foreground text-sm">{cliente.nome}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-2">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStyleFallback(cliente.status)}`}>
-                        <StatusIcon status={cliente.status} />
-                        {cliente.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.lvtTotal}</td>
-                    <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.ultimoPedido}</td>
-                    <td className="py-4 px-2 text-sm font-medium text-foreground">{cliente.ticketMedio}</td>
-                    <td className="py-4 px-4">
-                      <button
-                        className="text-sm font-medium text-[#1E5EFF] hover:underline cursor-pointer"
-                        onClick={() => {
-                          setSelectedCliente(cliente)
-                          setShowModal(true)
-                        }}
-                      >
-                        Ver detalhes
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="px-2.5 py-1 bg-[#DBEAFE] text-[#1D4ED8] rounded-full text-xs font-medium">
+                          {cliente.categoriaInteresse ?? 'N/A'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${getClienteStatusStyle(cliente.status)}`}>
+                          <StatusIcon status={cliente.status} />
+                          {cliente.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-sm font-medium text-foreground">
+                        {cliente.qtd_tickets_suporte}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-5">
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">PEDIDOS</p>
+                            <p className="text-sm font-semibold text-foreground">{cliente.totalPedidos}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">NPS</p>
+                            <p className={`text-sm font-semibold ${getNPSStyle(nps)}`}>{nps}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">LTV</p>
+                            <p className="text-sm font-semibold text-foreground">{cliente.lvtTotal}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">CSAT</p>
+                            <p className={`text-sm font-semibold ${getCSATStyle(csat)}`}>{csat}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <button
+                          className="text-sm font-medium text-[#1E5EFF] hover:underline cursor-pointer"
+                          onClick={() => { setSelectedCliente(cliente); setShowModal(true); }}
+                        >
+                          Ver detalhes
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
-            {sortedClientes.length === 0 && (
-              <div className="w-full py-12 flex flex-col items-center justify-center text-slate-400">
+            {sortedClientes.length === 0 && !isLoadingData && (
+              <div className="w-full py-16 flex flex-col items-center justify-center text-slate-400">
                 <Box className="w-12 h-12 mb-4 opacity-50" />
                 <p className="font-bold text-lg text-slate-500">Nenhum cliente encontrado.</p>
               </div>
@@ -493,55 +616,63 @@ export function Clientes() {
           </div>
         ) : (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedClientes.map((cliente) => (
-              <div key={cliente.id} className="bg-card p-6 rounded-2xl border border-[#ADE9FF] flex flex-col justify-between shadow-[0_4px_24px_-8px_rgba(0,110,219,0.12)] hover:shadow-lg transition-shadow">
-                <div>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] dark:text-foreground text-3xl font-medium mb-1 shrink-0">
-                      {cliente.nome.substring(0, 2).toUpperCase()}
+            {sortedClientes.map((cliente) => {
+              const nps = getNPS(cliente.estrelas);
+              const csat = getCSAT(cliente.estrelas);
+              return (
+                <div key={cliente.id} className="bg-card p-5 rounded-2xl border border-[#ADE9FF] flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] text-xl font-bold shrink-0">
+                        {cliente.nome.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-[#020854] dark:text-foreground text-sm">{cliente.nome}</h3>
+                        <p className="text-xs text-muted-foreground">{cliente.cidade}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-[#020854] dark:text-foreground">{cliente.nome}</h3>
-                      <p className="text-sm text-muted-foreground">{cliente.cidade}</p>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase mb-3 ${getClienteStatusStyle(cliente.status)}`}>
+                      <StatusIcon status={cliente.status} />
+                      {cliente.status}
+                    </span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">LTV Total</span>
+                        <span className="font-semibold text-foreground text-xs">{cliente.lvtTotal}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">Ticket Médio</span>
+                        <span className="font-semibold text-foreground text-xs">{cliente.ticketMedio}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">NPS</span>
+                        <span className={`text-xs font-semibold ${getNPSStyle(nps)}`}>{nps}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">CSAT</span>
+                        <span className={`text-xs font-semibold ${getCSATStyle(csat)}`}>{csat}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">LVT Total</span>
-                      <span className="font-medium text-foreground">{cliente.lvtTotal}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ticket Médio</span>
-                      <span className="font-medium text-foreground">{cliente.ticketMedio}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Segmento RFM</span>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getStyleFallback(cliente.status)}`}>
-                        <StatusIcon status={cliente.status} />
-                        {cliente.status}
-                      </span>
-                    </div>
+                  <div className="mt-4 pt-4 border-t border-border flex justify-end">
+                    <button
+                      onClick={() => { setSelectedCliente(cliente); setShowModal(true); }}
+                      className="text-xs font-medium text-[#1E5EFF] hover:underline"
+                    >
+                      Ver detalhes
+                    </button>
                   </div>
                 </div>
-                <div className="mt-6 pt-4 border-t border-border flex justify-end">
-                  <button
-                    className="text-sm font-medium text-[#1E5EFF] hover:underline"
-                    onClick={() => {
-                      setSelectedCliente(cliente)
-                      setShowModal(true)
-                    }}
-                  >
-                    Ver detalhes
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
         {/* Pagination */}
         <div className="p-6 flex items-center justify-between border-t border-border bg-background">
-          <p className="text-sm text-muted font-medium">Mostrando página {page} de {totalPages || 1} ({totalItems} registros totais)</p>
+          <p className="text-sm text-muted font-medium">
+            Página {page} de {totalPages || 1} ({totalItems} registros)
+          </p>
           <div className="flex items-center gap-2">
             <button
               disabled={page === 1}
@@ -562,98 +693,74 @@ export function Clientes() {
         </div>
       </div>
 
-      {/* Modal de Detalhes do Cliente */}
-      {showModal && (
+      {/* Modal */}
+      {showModal && selectedCliente && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowModal(false);
-            }
-          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
         >
           <div
-            className="w-[800px] max-h-[95vh] bg-white rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto"
+            className="w-175 max-h-[90vh] bg-white rounded-[40px] shadow-2xl relative overflow-y-auto scrollbar-hide animate-in fade-in zoom-in duration-300 my-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5">
-              <div className="absolute top-6 right-8 flex flex-col items-end gap-4">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-8 h-8 text-black" />
-                </button>
+            <div className="p-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="absolute top-6 right-6 p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-7 h-7 text-black" />
+              </button>
+
+              <h2 className="text-3xl font-bold text-[#020854] mb-4">Detalhes do Cliente</h2>
+
+              <div className="border border-[#BAE6FD] rounded-3xl p-5 mb-4 bg-white">
+                <div className="w-16 h-16 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] text-2xl font-bold mb-2">
+                  {selectedCliente.nome.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-xl font-bold text-[#020854]">{selectedCliente.nome}</h3>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${getClienteStatusStyle(selectedCliente.status)}`}>
+                    <StatusIcon status={selectedCliente.status} />
+                    {selectedCliente.status}
+                  </span>
+                </div>
+                <div className="space-y-1 text-[#64748B] text-sm">
+                  <p>{selectedCliente.totalPedidos} pedidos no total</p>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                    Média de Estrelas: {selectedCliente.estrelas ?? '0.0'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TicketIcon className="w-4 h-4 text-blue-500" />
+                    Tickets de suporte: {selectedCliente.qtd_tickets_suporte ?? '0'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Box className="w-4 h-4" />
+                    {selectedCliente.cidade}
+                  </div>
+                </div>
               </div>
 
-              <h2 className="text-[40px] font-bold text-[#020854] mb-2">Detalhes do Cliente</h2>
-
-              <div className="border border-[#BAE6FD] rounded-[35px] p-5 mb-2 relative bg-white">
-                <div className="w-20 h-20 bg-[#BAE6FD] rounded-full flex items-center justify-center text-[#020854] text-3xl font-medium mb-1">
-                  {selectedCliente ? selectedCliente.nome.substring(0, 2).toUpperCase() : 'AA'}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#F8FAFC] rounded-2xl p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">LTV Total</p>
+                  <p className="text-lg font-bold text-[#020854]">{selectedCliente.lvtTotal}</p>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <h3 className="text-2xl font-bold text-[#020854]">
-                    {selectedCliente?.nome || 'Marina Albuquerque'}
-                  </h3>
-                  {selectedCliente && (
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${getStyleFallback(selectedCliente.status)}`}>
-                      <StatusIcon status={selectedCliente.status} />
-                      {selectedCliente.status}
-                    </span>
-                  )}
+                <div className="bg-[#F8FAFC] rounded-2xl p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Ticket Médio</p>
+                  <p className="text-lg font-bold text-[#020854]">{selectedCliente.ticketMedio}</p>
                 </div>
-
-                <div className="space-y-1 text-[#64748B] text-base">
-                  <p>{selectedCliente ? `${selectedCliente.totalPedidos} pedidos no total` : '38 pedidos no total'}</p>
-                  <div className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" /> Média de Estrelas dada: {selectedCliente?.estrelas || '0.0'}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Ticket className="w-4 h-4 text-blue-500" /> Tickets de suporte: {selectedCliente?.qtd_tickets_suporte || '0'}
-                  </div>
-                  <p className="flex items-center gap-2 mt-1">
-                    <Box className="w-4 h-4" /> {selectedCliente?.cidade || 'São Paulo, SP'}
+                <div className="bg-[#F8FAFC] rounded-2xl p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">NPS</p>
+                  <p className={`text-lg font-bold ${getNPSStyle(getNPS(selectedCliente.estrelas))}`}>
+                    {getNPS(selectedCliente.estrelas)}
                   </p>
                 </div>
-              </div>
-
-              <div className="border border-gray-100 rounded-[35px] p-5 shadow-sm bg-white">
-                <span className="text-[#1E5EFF] text-xs font-bold tracking-widest uppercase mb-2 block">
-                  Informações Gerais
-                </span>
-                <h4 className="text-2xl font-bold text-[#020854] mb-6">Produtos & Performance</h4>
-
-                <div className="space-y-4">
-                  <div className="bg-[#F8FAFC] rounded-2xl p-4 flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-gray-100">
-                      <Box className="w-6 h-6 text-black" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-[#020854] text-sm">Smart TV 55" QLED 4K Vivara</p>
-                      <p className="text-[10px] text-[#94A3B8] font-bold uppercase">SKU ELE-9921 · qtd 1</p>
-                      <div className="flex gap-2 mt-2">
-                        <span className="bg-[#DCFCE7] text-[#15803D] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                          <Flame className="w-3 h-3" /> Mais vendido
-                        </span>
-                        <span className="bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                          <RotateCcw className="w-3 h-3" /> Alta devolução
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-[#020854] text-sm">R$ 3.499,00</p>
-                      <p className="text-[10px] text-[#94A3B8]">R$ 3.499,00 un</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end mt-2">
-                  <button className="bg-[#BAE6FD] text-[#020854] px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-[#7DD3FC] transition-colors text-sm">
-                    Ver perfil completo
-                    <ArrowUp className="w-4 h-4 rotate-45" />
-                  </button>
+                <div className="bg-[#F8FAFC] rounded-2xl p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">CSAT</p>
+                  <p className={`text-lg font-bold ${getCSATStyle(getCSAT(selectedCliente.estrelas))}`}>
+                    {getCSAT(selectedCliente.estrelas)}
+                  </p>
                 </div>
               </div>
             </div>

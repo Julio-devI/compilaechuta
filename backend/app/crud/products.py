@@ -5,10 +5,12 @@ from sqlalchemy import func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
+from fastapi import HTTPException, status 
 
 from app.models.products import Produto
 from app.models.orders import Pedido
 from app.schemas.products import ProductCreate, ProductUpdate
+
 
 
 async def generate_product_id(db: AsyncSession) -> str:
@@ -39,6 +41,7 @@ def _limpar_e_maiusculo(texto: str) -> str:
     texto_limpo = re.sub(r'[^a-zA-Z0-9\s]', '', texto_sem_acento)
     return texto_limpo.upper().strip()
 
+
 def generate_sku(id_produto: str, categoria: str, nome_produto: str, fornecedor: str) -> str:
     # 1. Categoria (4 primeiras letras)
     cat_limpa = _limpar_e_maiusculo(categoria).replace(" ", "")
@@ -62,6 +65,7 @@ def generate_sku(id_produto: str, categoria: str, nome_produto: str, fornecedor:
         comp_id = "0001"
 
     return f"{comp_categoria}-{comp_produto}-{comp_fornecedor}-{comp_id}"
+
 
 async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto:
     id_produto = await generate_product_id(db)
@@ -108,6 +112,7 @@ async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto
 
     return db_product_completo
 
+
 async def get_productById(db: AsyncSession, id_produto: str) -> Optional[Produto]:
     result = await db.execute(
         select(Produto)
@@ -115,6 +120,7 @@ async def get_productById(db: AsyncSession, id_produto: str) -> Optional[Produto
         .filter(Produto.id_produto == id_produto)
     )
     return result.scalars().first()
+
 
 async def get_all_products(
         db: AsyncSession,
@@ -153,6 +159,7 @@ async def get_all_products(
     result = await db.execute(query.offset(skip).limit(limit))
     return list(result.scalars().all())
 
+
 async def get_all_suppliers(db: AsyncSession) -> List[str]:
     query = select(Produto.fornecedor).distinct()
 
@@ -160,10 +167,12 @@ async def get_all_suppliers(db: AsyncSession) -> List[str]:
 
     return list(result.scalars().all())
 
+
 async def get_total_products_count(db: AsyncSession) -> int:
     query = select(func.count(Produto.id_produto))
     result = await db.execute(query)
     return result.scalar_one()
+
 
 async def get_top_selling_product(db: AsyncSession) -> Optional[str]:
     query = (
@@ -174,6 +183,7 @@ async def get_top_selling_product(db: AsyncSession) -> Optional[str]:
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
+
 async def update_product(db: AsyncSession, id_produto: str, product_in: ProductUpdate) -> Optional[Produto]:
     db_product = await get_productById(db, id_produto)
     if not db_product:
@@ -181,8 +191,41 @@ async def update_product(db: AsyncSession, id_produto: str, product_in: ProductU
     
     update_data = product_in.model_dump(exclude_unset=True)
     
+    altered_relantionship = False 
+    obj_new_category = None
+
+    if "categoria" in update_data:
+        nome_categoria = update_data.pop("categoria")
+        
+        if nome_categoria:
+            from app.models.category import Categoria
+
+            texto_sem_acento = "".join(
+                c for c in unicodedata.normalize('NFD', nome_categoria)
+                if unicodedata.category(c) != 'Mn'
+            )
+            slug_buscado = texto_sem_acento.lower().strip().replace(" ", "-")
+            
+            stmt = select(Categoria).where(
+                Categoria.slug_categoria == slug_buscado
+            )
+            result = await db.execute(stmt)
+            obj_new_category = result.scalar_one_or_none()
+            
+            if obj_new_category:
+                update_data["id_categoria"] = obj_new_category.id_categoria
+                altered_relantionship = True
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Não foi possível encontrar uma categoria correspondente ao slug '{slug_buscado}'."
+                )
+
     for field, value in update_data.items():
         setattr(db_product, field, value)
+    
+    if altered_relantionship and obj_new_category:
+        db_product.categoria = obj_new_category
         
     await db.commit()
     await db.refresh(db_product)
@@ -197,6 +240,7 @@ async def delete_product(db: AsyncSession, id_produto: str) -> bool:
     await db.delete(db_product)
     await db.commit()
     return True
+
 
 async def get_products_by_cliente(
     db: AsyncSession,

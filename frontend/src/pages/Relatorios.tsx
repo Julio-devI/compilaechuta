@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from 'recharts'
 import { Download, Calendar, TrendingUp, DollarSign, Users, ShoppingCart, FileText } from 'lucide-react'
-import type { ReceitaMensal, VendaCategoria, ClienteRegiao, PedidoDia, RelatorioDisponivel } from '../services/reportService'
-import { getReceitaMensal, getVendasPorCategoria, getClientesPorRegiao, getPedidosPorDia, getRelatoriosDisponiveis } from '../services/reportService'
+import type { ReceitaMensal, VendaCategoria, ClienteRegiao, PedidoDia } from '../services/reportService'
+import { getReceitaMensal, getVendasPorCategoria, getClientesPorRegiao, getPedidosPorDia } from '../services/reportService'
+
+const DEFAULT_RANGE = { inicio: '2019-01-01', fim: new Date().toISOString().split('T')[0] }
 
 export function Relatorios() {
   const [periodo, setPeriodo] = useState('anual')
@@ -10,14 +12,11 @@ export function Relatorios() {
   const [vendasPorCategoria, setVendasPorCategoria] = useState<VendaCategoria[]>([])
   const [clientesPorRegiao, setClientesPorRegiao] = useState<ClienteRegiao[]>([])
   const [pedidosPorDia, setPedidosPorDia] = useState<PedidoDia[]>([])
-  const [relatoriosDisponiveis, setRelatoriosDisponiveis] = useState<RelatorioDisponivel[]>([])
-
   useEffect(() => {
-    getReceitaMensal().then(setReceitaMensal)
-    getVendasPorCategoria().then(setVendasPorCategoria)
+    getReceitaMensal(DEFAULT_RANGE).then(setReceitaMensal)
+    getVendasPorCategoria(DEFAULT_RANGE).then(setVendasPorCategoria)
     getClientesPorRegiao().then(setClientesPorRegiao)
-    getPedidosPorDia().then(setPedidosPorDia)
-    getRelatoriosDisponiveis().then(setRelatoriosDisponiveis)
+    getPedidosPorDia(DEFAULT_RANGE).then(setPedidosPorDia)
   }, [])
 
   return (
@@ -213,32 +212,6 @@ export function Relatorios() {
       </div>
 
       {/* Relatórios Disponíveis */}
-      <div className="bg-card rounded-2xl border border-border">
-        <div className="p-4 border-b border-border">
-          <h3 className="font-bold text-foreground">Relatórios Recentes</h3>
-        </div>
-        <div className="divide-y divide-[#E2E8F0]">
-          {relatoriosDisponiveis.map((relatorio) => (
-            <div key={relatorio.id} className="p-4 flex items-center justify-between hover:bg-background transition-colors">
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${relatorio.tipo === 'PDF' ? 'bg-[#FF4757]/10' : 'bg-[#00C48C]/10'}`}>
-                  <FileText className={`w-5 h-5 ${relatorio.tipo === 'PDF' ? 'text-[#FF4757]' : 'text-[#00C48C]'}`} />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">{relatorio.nome}</p>
-                  <p className="text-sm text-muted">{relatorio.tipo} • {relatorio.tamanho}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted">{relatorio.data}</span>
-                <button className="p-2 hover:bg-[#E2E8F0] rounded-lg transition-colors">
-                  <Download className="w-5 h-5 text-[#1E5EFF]" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

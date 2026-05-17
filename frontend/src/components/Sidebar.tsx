@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   Package,
   HeadphonesIcon,
-  BarChart3,
   MessageSquare,
   Settings,
   LogOut,
@@ -38,7 +37,7 @@ const navItems: NavItem[] = [
     roles: ["admin", "super_admin"],
   },
 ];
-
+        
 const bottomNavItems: NavItem[] = [
   { icon: Settings, label: "Configurações", path: "/configuracoes" },
 ];

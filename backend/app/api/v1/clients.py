@@ -23,23 +23,33 @@ from datetime import date
 class ClientFilters:
     def __init__(
         self,
-        ticket_min: Optional[float] = Query(None, description="Filtra por ticket medio minimo"),
-        ticket_max: Optional[float] = Query(None, description="Filtra por ticket medio maximo"),
-        lvt_min: Optional[float] = Query(None, description="Filtra por LVT mínimo"),
-        lvt_max: Optional[float] = Query(None, description="Filtra por LVT máximo"),
-        data_inicio: Optional[date] = Query(None, description="Data inicial"),
-        data_fim: Optional[date] = Query(None, description="Data final"),
-        regiao: Optional[str] = Query(None, description="Filtro de região"),
-        status: Optional[str] = Query(None, description="Status VIP/Recorrente"),
+        ticket_min:  Optional[float] = Query(None, description="Ticket médio mínimo"),
+        ticket_max:  Optional[float] = Query(None, description="Ticket médio máximo"),
+        lvt_min:     Optional[float] = Query(None, description="LVT mínimo"),
+        lvt_max:     Optional[float] = Query(None, description="LVT máximo"),
+        data_inicio: Optional[date]  = Query(None, description="Data inicial"),
+        data_fim:    Optional[date]  = Query(None, description="Data final"),
+        regiao:      Optional[str]   = Query(None, description="Filtro de região"),
+        status:      Optional[str]   = Query(None, description="Segmento RFM"),
+        sem_ticket:  Optional[bool]  = Query(None, description="Apenas clientes sem tickets"),
+        nps:         Optional[str]   = Query(None, description="Categoria NPS: Promotor, Neutro, Detrator"),
+        csat:        Optional[str]   = Query(None, description="CSAT: Satisfeito, Insatisfeito"),
+        sku:         Optional[str]   = Query(None, description="SKU do produto comprado"),
+        categoria:   Optional[str]   = Query(None, description="Categoria de produto de interesse"),
     ):
-        self.ticket_min = ticket_min
-        self.ticket_max = ticket_max
-        self.lvt_min = lvt_min
-        self.lvt_max = lvt_max
+        self.ticket_min  = ticket_min
+        self.ticket_max  = ticket_max
+        self.lvt_min     = lvt_min
+        self.lvt_max     = lvt_max
         self.data_inicio = data_inicio
-        self.data_fim = data_fim
-        self.regiao = regiao
-        self.status = status
+        self.data_fim    = data_fim
+        self.regiao      = regiao
+        self.status      = status
+        self.sem_ticket  = sem_ticket
+        self.nps         = nps
+        self.csat        = csat
+        self.sku         = sku
+        self.categoria   = categoria
 
 
 router = APIRouter()

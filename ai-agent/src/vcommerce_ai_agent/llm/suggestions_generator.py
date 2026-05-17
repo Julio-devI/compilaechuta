@@ -223,10 +223,15 @@ async def generate_suggestions(
         model=model,
     )
 
+    suggestions: list[str] = []
+
+    def _validator(raw: str) -> None:
+        nonlocal suggestions
+        suggestions = _parse_suggestions(raw, table_names)
+
     result = await agent.run(
         "Gere 5 perguntas de follow-up úteis para continuar a conversa.",
-        validator=lambda raw: _parse_suggestions(raw, table_names),
+        validator=_validator,
     )
 
-    suggestions = _parse_suggestions(result.output, table_names)
     return suggestions, result.tokens_used

@@ -898,12 +898,7 @@ export function Pedidos() {
         </div>
       </div>
 
-      {/* 5. Floating Action Button */}
-      <button className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform shadow-lg cursor-pointer">
-        <span className="text-2xl">✨</span>
-      </button>
-
-      {/* 6. Modal de Detalhes */}
+      {/* Modal de Detalhes */}
       <ModalDetalhesPedido
         isOpen={!!pedidoSelecionado}
         onClose={() => setPedidoSelecionado(null)}

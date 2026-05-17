@@ -118,6 +118,21 @@ def _normalize_insight(parsed: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def y_axis_has_numeric_values(
+    y_axis: str | None, data: list[dict[str, Any]]
+) -> bool:
+    """y_axis ausente é aceito; presente exige >=1 valor int/float (não bool)."""
+    if y_axis is None:
+        return True
+    for row in data:
+        value = row.get(y_axis)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return True
+    return False
+
+
 def _validate_chart(insight: dict[str, Any], data: list[dict[str, Any]]) -> None:
     """
     Valida e, se necessário, anula a sugestão de gráfico.
@@ -125,6 +140,8 @@ def _validate_chart(insight: dict[str, Any], data: list[dict[str, Any]]) -> None
     Regras:
         - type deve estar em ["bar", "line", "pie", "area"].
         - x_axis e y_axis devem corresponder a chaves presentes em `data`.
+        - y_axis deve apontar para uma coluna numérica (int/float, não bool).
+        - y_axis_format inválido é sanitizado para None (não invalida o chart).
     """
     chart = insight.get("chart")
     if not chart:
@@ -150,6 +167,15 @@ def _validate_chart(insight: dict[str, Any], data: list[dict[str, Any]]) -> None
         y_axis is not None and y_axis not in sample_keys
     ):
         insight["chart"] = None
+        return
+
+    if not y_axis_has_numeric_values(y_axis, data):
+        insight["chart"] = None
+        return
+
+    raw_format = chart.get("y_axis_format")
+    if raw_format not in {"percent", "currency", "number", None}:
+        chart["y_axis_format"] = None
 
 
 _MAX_ROWS_FOR_INSIGHT_PROMPT = 100

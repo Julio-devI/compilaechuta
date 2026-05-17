@@ -42,6 +42,10 @@ async def get_all_products(
     total = await crud_products.get_total_products_count(db=db)
     return ProductListOut(data=products, total=total, skip=skip, limit=limit)
 
+
+async def get_all_suppliers(db: AsyncSession) -> int:
+    return await crud_products.get_all_suppliers(db=db)
+
 async def get_total_products_count(db: AsyncSession) -> int:
     return await crud_products.get_total_products_count(db=db)
 

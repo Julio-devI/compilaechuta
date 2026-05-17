@@ -153,6 +153,13 @@ async def get_all_products(
     result = await db.execute(query.offset(skip).limit(limit))
     return list(result.scalars().all())
 
+async def get_all_suppliers(db: AsyncSession) -> List[str]:
+    query = select(Produto.fornecedor).distinct()
+
+    result = await db.execute(query)
+
+    return list(result.scalars().all())
+
 async def get_total_products_count(db: AsyncSession) -> int:
     query = select(func.count(Produto.id_produto))
     result = await db.execute(query)

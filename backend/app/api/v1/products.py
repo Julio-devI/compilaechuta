@@ -19,6 +19,10 @@ class TotalResponse(BaseModel):
 class TopSellingResponse(BaseModel):
     top_selling: str
 
+
+class SuppliersResponse(BaseModel):
+    supplierList: List[str]
+
 @router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
     product_in: ProductCreate,
@@ -52,6 +56,12 @@ async def exportar_produtos_csv(db: AsyncSession = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=produtos.csv"}
     )
+
+
+@router.get("/suppliers", response_model=SuppliersResponse)
+async def get_lista_fornecedores(db: AsyncSession = Depends(get_db)):
+    result = await product_service.get_all_suppliers(db=db)
+    return SuppliersResponse(supplierList=result)
 
 @router.get("/total", response_model=TotalResponse)
 async def get_total_produtos(db: AsyncSession = Depends(get_db)):

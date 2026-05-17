@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.seed import seed_database_if_needed
 
 if settings.GEMINI_API_KEY:
     os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
@@ -42,8 +43,21 @@ if not vcommerce_ai_logger.handlers:
     handler.setFormatter(ExtraFormatter("%(name)s - %(levelname)s - %(message)s"))
     vcommerce_ai_logger.addHandler(handler)
 
+# Logger do namespace da aplicação (app.*), usado por app.core.seed e similares.
+# Necessário porque uvicorn não configura o root logger em INFO por padrão.
+app_logger = logging.getLogger("app")
+app_logger.setLevel(logging.INFO)
+app_logger.propagate = False  # evita duplicar quando o root também tiver handler (alembic.ini)
+if not app_logger.handlers:
+    app_handler = logging.StreamHandler()
+    app_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(name)s | %(levelname)s | %(message)s")
+    )
+    app_logger.addHandler(app_handler)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await seed_database_if_needed()
     cleanup_task = asyncio.create_task(cleanup_session_locks_loop())
     try:
         yield

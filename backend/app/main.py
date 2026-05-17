@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.seed import seed_database_if_needed
 
 if settings.GEMINI_API_KEY:
     os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
@@ -44,6 +45,7 @@ if not vcommerce_ai_logger.handlers:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await seed_database_if_needed()
     cleanup_task = asyncio.create_task(cleanup_session_locks_loop())
     try:
         yield

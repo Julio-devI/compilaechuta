@@ -19,28 +19,32 @@ const iconMap: Record<KpiItem['iconName'], LucideIcon> = {
 }
 
 export function Dashboard() {
+  const [activeTab, setActiveTab] = useState('ultimos-30-dias')
   const [kpiData, setKpiData] = useState<KpiItem[]>([])
 
   useEffect(() => {
-    getKpiData().then(setKpiData)
-  }, [])
+    getKpiData(activeTab).then(setKpiData)
+  }, [activeTab])
 
   return (
     <div className="p-4">
-      {/* Title */}
       <h1 className="text-3xl font-bold text-[#020854] dark:text-foreground mb-3">Dashboard</h1>
 
-      {/* Filter Tabs */}
-      <FilterTabs />
+      <FilterTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Current View Info */}
       <div className="mt-3 mb-4">
         <p className="text-muted text-sm">
-          Você está visualizando <span className="font-semibold text-foreground">Últimos 30 Dias</span>
+          Você está visualizando{' '}
+          <span className="font-semibold text-foreground">
+            {activeTab === 'visao-geral' ? 'Visão Geral' :
+             activeTab === 'este-mes' ? 'Este Mês' :
+             activeTab === 'ultimos-30-dias' ? 'Últimos 30 Dias' :
+             activeTab === 'trimestre' ? 'Trimestre' :
+             activeTab === 'por-categoria' ? 'Por Categoria' : 'Período Personalizado'}
+          </span>
         </p>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">
         {kpiData.map((kpi) => {
           const Icon = iconMap[kpi.iconName]
@@ -58,15 +62,13 @@ export function Dashboard() {
         })}
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
-        <RevenueChart />
-        <SatisfactionChart />
+        <RevenueChart tabId={activeTab} />
+        <SatisfactionChart tabId={activeTab} />
       </div>
 
-      {/* Operations Chart and Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <OperationsChart />
+        <OperationsChart tabId={activeTab} />
         <QuickActions />
       </div>
     </div>

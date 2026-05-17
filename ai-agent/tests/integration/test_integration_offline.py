@@ -106,6 +106,7 @@ async def test_success_with_chart(agent, monkeypatch):
             "x_axis": "regiao",
             "y_axis": "total",
             "title": "Clientes por regiao",
+            "y_axis_format": "number",
         }
     )
     _patch_sql_and_insight(monkeypatch, sql, insight)
@@ -117,6 +118,7 @@ async def test_success_with_chart(agent, monkeypatch):
     assert response.user_response.chart.type == "bar"
     assert response.user_response.chart.x_axis == "regiao"
     assert response.user_response.chart.y_axis == "total"
+    assert response.user_response.chart.y_axis_format == "number"
 
 
 @pytest.mark.integration
@@ -354,7 +356,55 @@ async def test_import_export_history_roundtrip(agent):
         {"role": "assistant", "content": "Ola", "sql": "SELECT 1"},
     ]
     agent.import_history(snapshot)
-    assert agent.export_history() == snapshot
+    exported = agent.export_history()
+    assert exported == [
+        {
+            "role": "user",
+            "content": "Oi",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+        {
+            "role": "assistant",
+            "content": "Ola",
+            "sql": "SELECT 1",
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+    ]
+
+
+@pytest.mark.integration
+async def test_import_export_history_preserves_data_and_chart(agent):
+    snapshot = [
+        {"role": "user", "content": "Oi", "sql": None},
+        {
+            "role": "assistant",
+            "content": "Ola",
+            "sql": "SELECT 1",
+            "sources_text": "Fonte X",
+            "data": [{"a": 1}],
+            "chart": {
+                "type": "bar",
+                "x_axis": "a",
+                "y_axis": "a",
+                "title": "T",
+            },
+        },
+    ]
+    agent.import_history(snapshot)
+    exported = agent.export_history()
+    assert exported[1]["data"] == [{"a": 1}]
+    assert exported[1]["chart"] == {
+        "type": "bar",
+        "x_axis": "a",
+        "y_axis": "a",
+        "title": "T",
+        "y_axis_format": None,
+    }
 
 
 # ---------------------------------------------------------------------------

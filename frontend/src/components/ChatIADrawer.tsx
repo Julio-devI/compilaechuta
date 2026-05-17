@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { getRouteSuggestions } from '@/lib/chatSuggestionsByRoute'
+import {
+  AGENT_PLACEHOLDERS_COMPACT,
+  useRotatingPlaceholder,
+} from '@/lib/useRotatingPlaceholder'
 import {
   X,
   Maximize2,
@@ -11,11 +16,21 @@ import {
   Zap,
   Lightbulb,
   History,
+  ChevronDown,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
-import { askAgent, getSuggestions } from '@/services/aiAgentService'
+import {
+  askAgent,
+  getSuggestions,
+  type ChartSuggestion,
+} from '@/services/aiAgentService'
+import { AgentChart } from '@/components/AgentChart'
+import {
+  SLASH_COMMANDS,
+  SlashCommandMenu,
+} from '@/components/SlashCommandMenu'
 
 interface Message {
   id: number
@@ -23,6 +38,9 @@ interface Message {
   content: string
   timestamp: string
   sources_text?: string | null
+  data?: Array<Record<string, unknown>> | null
+  chart?: ChartSuggestion | null
+  suggestions?: string[]
 }
 
 const QUICK_ACTION_ICONS: LucideIcon[] = [Zap, FileText, HelpCircle, Lightbulb]
@@ -41,20 +59,35 @@ export function ChatIADrawer() {
   const [isTyping, setIsTyping] = useState(false)
   const [quickActions, setQuickActions] = useState<string[]>([])
   const [sessionId] = useState<string>(() => crypto.randomUUID())
+  const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messageIdRef = useRef(0)
   const navigate = useNavigate()
+  const location = useLocation()
+  const { text: placeholder, opacity: placeholderOpacity } =
+    useRotatingPlaceholder(AGENT_PLACEHOLDERS_COMPACT)
 
   const nextMessageId = () => {
     messageIdRef.current += 1
     return messageIdRef.current
   }
 
+  const toggleChart = (messageId: number) => {
+    setExpandedCharts(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) {
+        next.delete(messageId)
+      } else {
+        next.add(messageId)
+      }
+      return next
+    })
+  }
+
   useEffect(() => {
-    getSuggestions('')
-      .then(r => setQuickActions(r.suggestions.slice(0, 4)))
-      .catch(err => toast.error((err as Error).message))
-  }, [])
+    setQuickActions(getRouteSuggestions(location.pathname))
+  }, [location.pathname])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -74,6 +107,7 @@ export function ChatIADrawer() {
       },
     ])
     setInputValue('')
+    setSlashMenuOpen(false)
     setIsTyping(true)
 
     try {
@@ -91,6 +125,8 @@ export function ChatIADrawer() {
           content: assistantText,
           timestamp: nowHHmm(),
           sources_text: response.user_response.sources_text,
+          data: response.user_response.data,
+          chart: response.user_response.chart,
         },
       ])
     } catch (err) {
@@ -110,7 +146,65 @@ export function ChatIADrawer() {
     }
   }
 
-  const handleEnviar = () => sendQuestion(inputValue)
+  const runSugestaoCommand = async () => {
+    setIsTyping(true)
+    try {
+      const { suggestions: list } = await getSuggestions(sessionId)
+      setMensagens(prev => [
+        ...prev,
+        {
+          id: nextMessageId(),
+          type: 'assistant',
+          content: 'Aqui vão algumas sugestões para você:',
+          timestamp: nowHHmm(),
+          suggestions: list,
+        },
+      ])
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setIsTyping(false)
+    }
+  }
+
+  const executeSlashCommand = (command: string) => {
+    setInputValue('')
+    setSlashMenuOpen(false)
+    if (command === '/sugestao') {
+      runSugestaoCommand()
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setInputValue(value)
+    setSlashMenuOpen(value.startsWith('/'))
+  }
+
+  const tryExecuteSlashCommand = (): boolean => {
+    const match = SLASH_COMMANDS.find(
+      c => c.command.toLowerCase() === inputValue.trim().toLowerCase(),
+    )
+    if (match) {
+      executeSlashCommand(match.command)
+      return true
+    }
+    return false
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    if (slashMenuOpen) {
+      e.preventDefault()
+      if (tryExecuteSlashCommand()) return
+    }
+    sendQuestion(inputValue)
+  }
+
+  const handleEnviar = () => {
+    if (slashMenuOpen && tryExecuteSlashCommand()) return
+    sendQuestion(inputValue)
+  }
 
   return (
     <>
@@ -203,7 +297,7 @@ export function ChatIADrawer() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto themed-scrollbar px-4 py-4 space-y-4">
             {mensagens.map(msg => (
               <div
                 key={msg.id}
@@ -257,6 +351,32 @@ export function ChatIADrawer() {
                       >
                         {msg.content}
                       </ReactMarkdown>
+                    )}
+
+                    {msg.type === 'assistant' && msg.chart && msg.data && msg.data.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
+                        <button
+                          type="button"
+                          onClick={() => toggleChart(msg.id)}
+                          className="flex items-center gap-1.5 text-xs font-semibold w-full transition-colors"
+                          style={{ color: 'var(--chat-accent)' }}
+                        >
+                          <ChevronDown
+                            className="w-3.5 h-3.5 transition-transform"
+                            style={{
+                              transform: expandedCharts.has(msg.id)
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                            }}
+                          />
+                          Visualizar gráfico
+                        </button>
+                        {expandedCharts.has(msg.id) && (
+                          <div className="mt-3">
+                            <AgentChart chart={msg.chart} data={msg.data} height={200} />
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {msg.sources_text && (
@@ -327,21 +447,29 @@ export function ChatIADrawer() {
 
         {/* Input area */}
         <div className="p-4 shrink-0" style={{ borderTop: '1px solid var(--chat-border)' }}>
-          <div
-            className="rounded-2xl px-4 pt-3 pb-3 focus-within:ring-1 focus-within:ring-[#1E5EFF]/30 transition-all"
-            style={{
-              background: 'var(--chat-input-bg)',
-              border: '1px solid var(--chat-border)',
-            }}
-          >
-            <input
-              type="text"
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleEnviar()}
-              placeholder="Pergunte sobre a V-Commerce..."
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none mb-3"
-            />
+          <div className="relative">
+            {slashMenuOpen && (
+              <SlashCommandMenu
+                filter={inputValue}
+                onSelect={executeSlashCommand}
+              />
+            )}
+            <div
+              className="rounded-2xl px-4 pt-3 pb-3 focus-within:ring-1 focus-within:ring-[#1E5EFF]/30 transition-all"
+              style={{
+                background: 'var(--chat-input-bg)',
+                border: '1px solid var(--chat-border)',
+              }}
+            >
+              <input
+                type="text"
+                value={inputValue}
+                onChange={handleInputChange}
+                onKeyDown={handleInputKeyDown}
+                placeholder={placeholder}
+                style={{ '--ph-opacity': placeholderOpacity } as React.CSSProperties}
+                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none mb-3 agent-placeholder-fade"
+              />
             <div className="flex items-center justify-between">
               <button
                 onClick={() => {
@@ -362,6 +490,7 @@ export function ChatIADrawer() {
               >
                 <Send className="w-3.5 h-3.5 text-white" />
               </button>
+            </div>
             </div>
           </div>
         </div>

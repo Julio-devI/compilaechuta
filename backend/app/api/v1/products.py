@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
-from app.schemas.products import ProductCreate, ProductUpdate, ProductResponse
+from app.schemas.products import ProductCreate, ProductUpdate, ProductResponse, ProductListOut
 from app.services import products as product_service
 
 import csv

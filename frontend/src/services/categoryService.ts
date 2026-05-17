@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8800/categorias'
+const API_URL = 'http://localhost:8000/api/v1/categories'
 
 export interface Categoria {
   id_categoria: string

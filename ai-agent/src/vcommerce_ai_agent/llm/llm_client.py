@@ -13,6 +13,7 @@ from typing import Any
 
 import httpx
 from google.api_core import exceptions as google_exceptions
+from google.genai import errors as genai_errors
 from pydantic_ai import Agent
 from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.models.google import GoogleModel
@@ -37,80 +38,80 @@ from vcommerce_ai_agent.core.exceptions import (
 )
 
 
-def _map_http_error(exc: ModelHTTPError) -> LLMError:
+def _map_status_to_llm_error(status: int, body: Any, original: Exception) -> LLMError:
     """
-    Converte uma exceção HTTP do PydanticAI em exceção de domínio do ai-agent.
+    Converte um par (status code, body) da API Gemini em LLMError de domínio.
 
-    Mapeia status codes 4xx/5xx retornados pela API Gemini para subclasses
-    de LLMError com mensagens amigáveis em português brasileiro.
+    Compartilhada entre os dois caminhos de erro HTTP: ModelHTTPError do
+    pydantic-ai (que entrega `status_code` + `body` string) e
+    genai_errors.APIError do SDK google-genai (que entrega `code` + `details`
+    dict). Ambos os caminhos passam `original` para preservar a stack original.
     """
-    status = exc.status_code
-
     if status in (401, 403):
         return LLMAuthenticationError(
             "Permissão negada pela API Gemini. "
             "Verifique se a chave GEMINI_API_KEY está configurada corretamente e se tem acesso ao modelo solicitado.",
-            original_error=exc,
+            original_error=original,
         )
 
     if status == 429:
-        if is_rate_limit_per_minute_from_body(exc.body or ""):
+        if is_rate_limit_per_minute_from_body(body or ""):
             return LLMRateLimitError(
                 "Limite de requisições por minuto atingido. "
                 "Aguarde alguns instantes antes de tentar novamente.",
-                original_error=exc,
+                original_error=original,
             )
         return LLMQuotaError(
             "Limite diário de requisições da API Gemini atingido. "
             "Tente novamente amanhã ou verifique seu plano de uso.",
-            original_error=exc,
+            original_error=original,
         )
 
     if status in (408, 504):
         return LLMTimeoutError(
             "A API Gemini demorou demais para responder. "
             "Tente novamente ou simplifique a pergunta.",
-            original_error=exc,
+            original_error=original,
         )
 
     if status == 404:
         return LLMInvalidRequestError(
             "O modelo ou recurso solicitado não foi encontrado na API Gemini. "
             "Verifique se o modelo configurado está disponível.",
-            original_error=exc,
+            original_error=original,
         )
 
     if status in (500, 502):
         return LLMInternalError(
             "Erro interno nos servidores da Google Gemini. "
             "Este é um problema temporário do provedor. Tente novamente mais tarde.",
-            original_error=exc,
+            original_error=original,
         )
 
     if status == 503:
         return LLMUnavailableError(
             "O serviço Gemini está temporariamente indisponível. "
             "Aguarde um momento e tente novamente.",
-            original_error=exc,
+            original_error=original,
         )
 
     if status == 400:
-        body_str = str(exc.body) if exc.body else ""
+        body_str = str(body) if body else ""
         if "API_KEY_INVALID" in body_str:
             return LLMAuthenticationError(
                 "A chave de API fornecida é inválida ou expirou. "
                 "Verifique a variável de ambiente GEMINI_API_KEY.",
-                original_error=exc,
+                original_error=original,
             )
         return LLMInvalidRequestError(
             "A requisição enviada à API Gemini é inválida. "
             "Verifique se o prompt está dentro dos limites permitidos.",
-            original_error=exc,
+            original_error=original,
         )
 
     return LLMUnknownError(
-        f"Erro inesperado na comunicação com o modelo Gemini: {exc}",
-        original_error=exc,
+        f"Erro inesperado na comunicação com o modelo Gemini: {original}",
+        original_error=original,
     )
 
 
@@ -232,8 +233,13 @@ class LLMAgent:
                 if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
                     raise mapped from exc
                 last_error = mapped
+            except genai_errors.APIError as exc:
+                mapped = _map_status_to_llm_error(exc.code, exc.details, exc)
+                if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
+                    raise mapped from exc
+                last_error = mapped
             except ModelHTTPError as exc:
-                mapped = _map_http_error(exc)
+                mapped = _map_status_to_llm_error(exc.status_code, exc.body, exc)
                 if not isinstance(mapped, _RETRYABLE_ERRORS) or attempt == _MAX_RETRIES - 1:
                     raise mapped from exc
                 last_error = mapped

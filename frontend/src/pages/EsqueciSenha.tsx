@@ -1,16 +1,27 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { DecorativePanel } from '../components/DecorativePanel'
+import { forgotPasswordRequest } from '../services/authService'
 
 export function EsqueciSenha() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [enviado, setEnviado] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleEnviar = () => {
+  const handleEnviar = async () => {
     if (!email.trim()) return
-    setEnviado(true)
+    setLoading(true)
+    try {
+      await forgotPasswordRequest(email.trim())
+      setEnviado(true)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar email')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -68,19 +79,20 @@ export function EsqueciSenha() {
                     onKeyDown={e => e.key === 'Enter' && handleEnviar()}
                     placeholder="Digite seu email..."
                     className="w-full h-11 sm:h-12 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                    style={{ background: '#F5F5F5', border: 'none' }}
+                    style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={handleEnviar}
-                  className="w-full h-11 sm:h-12 rounded-full text-white font-bold text-base transition-colors mt-1"
+                  disabled={loading}
+                  className="w-full h-11 sm:h-12 rounded-full text-white font-bold text-base transition-colors mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ background: '#1565C0' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#1251A3')}
+                  onMouseEnter={e => !loading && (e.currentTarget.style.background = '#1251A3')}
                   onMouseLeave={e => (e.currentTarget.style.background = '#1565C0')}
                 >
-                  Enviar link de recuperação
+                  {loading ? 'Enviando...' : 'Enviar link de recuperação'}
                 </button>
               </div>
             </>

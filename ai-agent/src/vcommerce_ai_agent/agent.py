@@ -8,7 +8,7 @@ e expõe a interface consumida pelo backend FastAPI.
 import asyncio
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -41,12 +41,15 @@ from vcommerce_ai_agent.security.sensitive_data_masking import (
     mask_sensitive_data,
     restore_sensitive_values,
 )
-from vcommerce_ai_agent.llm.insight_generator import generate_insight
+from vcommerce_ai_agent.llm.insight_generator import (
+    generate_insight,
+    y_axis_has_numeric_values,
+)
 from vcommerce_ai_agent.database.schema import build_allowlist, format_schema, load_descriptions
 from vcommerce_ai_agent.llm.sql_generator import generate_sql, generate_sql_correction
 from vcommerce_ai_agent.llm.suggestions_generator import (
+    INITIAL_SUGGESTIONS,
     generate_suggestions,
-    select_fallback_suggestions,
 )
 
 
@@ -58,6 +61,7 @@ class ChartSuggestion:
     x_axis: str | None
     y_axis: str | None
     title: str
+    y_axis_format: Literal["percent", "currency", "number"] | None = None
 
 
 @dataclass
@@ -278,7 +282,7 @@ class VCommerceAgent:
         """Limpa o histórico de conversa, iniciando uma nova sessão."""
         self._history = []
 
-    def export_history(self) -> list[dict[str, str | None]]:
+    def export_history(self) -> list[dict[str, Any]]:
         """
         Exporta o histórico atual em formato serializável (JSON-compatível).
 
@@ -286,12 +290,15 @@ class VCommerceAgent:
             - role: 'user' | 'assistant'
             - content: texto da mensagem (pergunta ou insight)
             - sql: SQL gerado (apenas para role='assistant', None para 'user')
+            - sources_text: descrição das fontes (apenas em 'assistant')
+            - data: linhas tabulares retornadas pela query (apenas em 'assistant')
+            - chart: dict serializado de ChartSuggestion (apenas em 'assistant')
 
         O backend pode serializar com json.dumps() e armazenar onde desejar.
         """
         return [entry.copy() for entry in self._history]
 
-    def import_history(self, history: list[dict[str, str | None]]) -> None:
+    def import_history(self, history: list[dict[str, Any]]) -> None:
         """
         Restaura o histórico a partir de um snapshot exportado.
 
@@ -308,7 +315,8 @@ class VCommerceAgent:
             raise ValueError("O histórico deve ser uma lista de dicionários.")
 
         valid_roles = {"user", "assistant"}
-        normalized_history: list[dict[str, str | None]] = []
+        valid_chart_types = {"bar", "line", "pie", "area"}
+        normalized_history: list[dict[str, Any]] = []
         for index, entry in enumerate(history):
             if not isinstance(entry, dict):
                 raise ValueError(
@@ -340,6 +348,9 @@ class VCommerceAgent:
                     "role": "user",
                     "content": content,
                     "sql": None,
+                    "sources_text": None,
+                    "data": None,
+                    "chart": None,
                 })
                 continue
 
@@ -347,10 +358,54 @@ class VCommerceAgent:
                 raise ValueError(
                     "Entradas com role='assistant' devem ter campo 'sql' com texto não vazio."
                 )
+
+            data = entry.get("data")
+            if data is not None:
+                if not isinstance(data, list) or not all(
+                    isinstance(row, dict) for row in data
+                ):
+                    raise ValueError(
+                        "Campo 'data' deve ser uma lista de dicionários ou None."
+                    )
+
+            chart = entry.get("chart")
+            if chart is not None:
+                if not isinstance(chart, dict):
+                    raise ValueError(
+                        "Campo 'chart' deve ser um dicionário ou None."
+                    )
+                chart_type = chart.get("type")
+                if chart_type not in valid_chart_types:
+                    raise ValueError(
+                        f"Campo 'chart.type' inválido: '{chart_type}'. "
+                        f"Valores permitidos: {valid_chart_types}"
+                    )
+                title = chart.get("title")
+                if not isinstance(title, str) or not title.strip():
+                    raise ValueError(
+                        "Campo 'chart.title' deve ser uma string não vazia."
+                    )
+                raw_format = chart.get("y_axis_format")
+                y_axis_format = (
+                    raw_format
+                    if raw_format in {"percent", "currency", "number"}
+                    else None
+                )
+                chart = {
+                    "type": chart_type,
+                    "x_axis": chart.get("x_axis"),
+                    "y_axis": chart.get("y_axis"),
+                    "title": title,
+                    "y_axis_format": y_axis_format,
+                }
+
             normalized_history.append({
                 "role": "assistant",
                 "content": content,
                 "sql": sql,
+                "sources_text": entry.get("sources_text"),
+                "data": data,
+                "chart": chart,
             })
 
         if len(normalized_history) % 2 != 0:
@@ -368,12 +423,27 @@ class VCommerceAgent:
     ) -> None:
         """Adiciona a interação ao histórico e aplica truncamento."""
         self._history.append(
-            {"role": "user", "content": question, "sql": None}
+            {
+                "role": "user",
+                "content": question,
+                "sql": None,
+                "sources_text": None,
+                "data": None,
+                "chart": None,
+            }
+        )
+        chart_dict = (
+            asdict(response.user_response.chart)
+            if response.user_response.chart is not None
+            else None
         )
         self._history.append({
             "role": "assistant",
             "content": response.user_response.answer_text,
             "sql": response.developer_debug.sql,
+            "sources_text": response.user_response.sources_text,
+            "data": response.user_response.data,
+            "chart": chart_dict,
         })
         max_entries = config.MAX_HISTORY_TURNS * 2
         if len(self._history) > max_entries:
@@ -706,12 +776,20 @@ class VCommerceAgent:
             return None
         if y_axis is not None and y_axis not in sample_keys:
             return None
+        if not y_axis_has_numeric_values(y_axis, data):
+            return None
+
+        raw_format = chart_data.get("y_axis_format")
+        y_axis_format: Literal["percent", "currency", "number"] | None = (
+            raw_format if raw_format in {"percent", "currency", "number"} else None
+        )
 
         return ChartSuggestion(
             type=chart_type,
             x_axis=x_axis,
             y_axis=y_axis,
             title=str(chart_data.get("title") or ""),
+            y_axis_format=y_axis_format,
         )
 
     async def ask(self, question: str) -> AgentResponse:
@@ -1139,6 +1217,7 @@ class VCommerceAgent:
                 x_axis=chart.x_axis,
                 y_axis=chart.y_axis,
                 title=restore_sensitive_values(chart.title, token_map),
+                y_axis_format=chart.y_axis_format,
             )
 
         response = AgentResponse(
@@ -1161,25 +1240,32 @@ class VCommerceAgent:
         return response
 
     async def initial_suggestions(
-        self, previous_suggestions: list[str] | None = None
+        self, history: list[dict[str, str | None]] | None = None
     ) -> list[str]:
         """
-        Gera dinamicamente 5 perguntas de exemplo para o início da conversa.
+        Retorna 5 sugestões de perguntas para o chat.
 
-        As perguntas são geradas pelo LLM com base no schema real do banco.
-        Quando uma lista de perguntas anteriores é informada, o prompt pede
-        novas sugestões e o fallback também evita repetir as perguntas da lista.
-        Em caso de falha esperada, retorna uma lista fixa de 5 perguntas de fallback.
+        Quando o histórico está vazio ou ausente, retorna uma lista fixa
+        e imutável de perguntas iniciais sem chamar o LLM.
 
-        O backend pode chamar este método no carregamento do chat ou ao clicar
-        no botão de perguntas de exemplo.
+        Quando o histórico está preenchido, gera 5 perguntas contextuais
+        via LLM com base no schema real e no estado da conversa.
+        Em caso de falha esperada, retorna a lista fixa.
 
         Args:
-            previous_suggestions: Perguntas já exibidas ao usuário nesta sessão.
+            history: Histórico da conversa no formato exportado pelo agente.
+                Se vazio ou None, retorna a lista fixa sem chamar o LLM.
 
         Returns:
             Lista com exatamente 5 perguntas em português brasileiro.
         """
+        if not history:
+            logger.info(
+                "suggestions_finished",
+                extra={"event": "suggestions_finished", "status": "initial"},
+            )
+            return list(INITIAL_SUGGESTIONS)
+
         logger.info(
             "suggestions_started",
             extra={"event": "suggestions_started", "model": self._llm_model},
@@ -1188,7 +1274,7 @@ class VCommerceAgent:
             schema, _ = await self._load_schema()
             suggestions, tokens = await generate_suggestions(
                 schema,
-                previous_suggestions=previous_suggestions,
+                history=history,
                 model=self._llm_model,
             )
             logger.info(
@@ -1204,13 +1290,7 @@ class VCommerceAgent:
                 extra={"event": "suggestions_finished", "status": "success"},
             )
             return suggestions
-        except (
-            FileNotFoundError,
-            RuntimeError,
-            ValueError,
-            EnvironmentError,
-            LLMError,
-        ):
+        except (OSError, RuntimeError, ValueError, LLMError):
             logger.info(
                 "suggestions_fallback",
                 extra={"event": "suggestions_fallback"},
@@ -1219,4 +1299,4 @@ class VCommerceAgent:
                 "suggestions_finished",
                 extra={"event": "suggestions_finished", "status": "fallback"},
             )
-            return select_fallback_suggestions(previous_suggestions)
+            return list(INITIAL_SUGGESTIONS)

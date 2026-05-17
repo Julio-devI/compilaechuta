@@ -46,7 +46,7 @@ export function Cadastro() {
                 type="text"
                 placeholder="Digite seu nome completo..."
                 className="w-full h-11 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                style={{ background: '#F5F5F5', border: 'none' }}
+                style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
               />
             </div>
 
@@ -59,7 +59,7 @@ export function Cadastro() {
                 type="text"
                 placeholder="Digite seu nome de usuário..."
                 className="w-full h-11 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                style={{ background: '#F5F5F5', border: 'none' }}
+                style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
               />
             </div>
 
@@ -72,7 +72,7 @@ export function Cadastro() {
                 type="email"
                 placeholder="Digite seu email..."
                 className="w-full h-11 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                style={{ background: '#F5F5F5', border: 'none' }}
+                style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
               />
             </div>
 
@@ -85,7 +85,7 @@ export function Cadastro() {
                 type="tel"
                 placeholder="Digite seu telefone..."
                 className="w-full h-11 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                style={{ background: '#F5F5F5', border: 'none' }}
+                style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
               />
             </div>
 
@@ -99,7 +99,7 @@ export function Cadastro() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Digite sua senha..."
                   className="w-full h-11 px-4 pr-11 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                  style={{ background: '#F5F5F5', border: 'none' }}
+                  style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
                 />
                 <button
                   type="button"
@@ -121,7 +121,7 @@ export function Cadastro() {
                   type={showConfirm ? 'text' : 'password'}
                   placeholder="Confirme sua senha..."
                   className="w-full h-11 px-4 pr-11 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                  style={{ background: '#F5F5F5', border: 'none' }}
+                  style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
                 />
                 <button
                   type="button"

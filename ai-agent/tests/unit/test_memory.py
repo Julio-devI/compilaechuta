@@ -5,7 +5,13 @@ Cobre funcionalidades stateful, truncamento, export/import e formatação de his
 
 import pytest
 
-from vcommerce_ai_agent.agent import DeveloperDebug, UserResponse, VCommerceAgent, AgentResponse
+from vcommerce_ai_agent.agent import (
+    AgentResponse,
+    ChartSuggestion,
+    DeveloperDebug,
+    UserResponse,
+    VCommerceAgent,
+)
 from vcommerce_ai_agent.core import config
 from vcommerce_ai_agent.core.exceptions import ErrorCode, LLMParseError
 from vcommerce_ai_agent.llm.sql_generator import format_history_for_sql
@@ -47,8 +53,54 @@ def test_append_to_history():
     agent._append_to_history("Pergunta", resp)
 
     assert len(agent._history) == 2
-    assert agent._history[0] == {"role": "user", "content": "Pergunta", "sql": None}
-    assert agent._history[1] == {"role": "assistant", "content": "Insight", "sql": "SELECT 1"}
+    assert agent._history[0] == {
+        "role": "user",
+        "content": "Pergunta",
+        "sql": None,
+        "sources_text": None,
+        "data": None,
+        "chart": None,
+    }
+    assert agent._history[1] == {
+        "role": "assistant",
+        "content": "Insight",
+        "sql": "SELECT 1",
+        "sources_text": None,
+        "data": [{"a": 1}],
+        "chart": None,
+    }
+
+
+def test_append_to_history_serializes_chart():
+    agent = VCommerceAgent(db_path=":memory:")
+    chart = ChartSuggestion(
+        type="bar",
+        x_axis="produto",
+        y_axis="quantidade",
+        title="Top produtos",
+    )
+    resp = AgentResponse(
+        status="success",
+        user_response=UserResponse(
+            answer_text="Insight",
+            sources_text="Fonte X",
+            data=[{"produto": "A", "quantidade": 10}],
+            chart=chart,
+            truncated=False,
+        ),
+        developer_debug=DeveloperDebug(sql="SELECT 1", error=None),
+    )
+    agent._append_to_history("Pergunta", resp)
+
+    assert agent._history[1]["chart"] == {
+        "type": "bar",
+        "x_axis": "produto",
+        "y_axis": "quantidade",
+        "title": "Top produtos",
+        "y_axis_format": None,
+    }
+    assert agent._history[1]["data"] == [{"produto": "A", "quantidade": 10}]
+    assert agent._history[1]["sources_text"] == "Fonte X"
 
 
 def test_history_truncation(monkeypatch):
@@ -99,10 +151,93 @@ def test_import_history_valid():
     agent = VCommerceAgent(db_path=":memory:")
     history = [
         {"role": "user", "content": "Q1", "sql": None},
-        {"role": "assistant", "content": "A1", "sql": "SQL"}
+        {"role": "assistant", "content": "A1", "sql": "SQL"},
     ]
     agent.import_history(history)
-    assert agent._history == history
+    assert agent._history == [
+        {
+            "role": "user",
+            "content": "Q1",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+        {
+            "role": "assistant",
+            "content": "A1",
+            "sql": "SQL",
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+    ]
+
+
+def test_import_history_preserves_data_and_chart():
+    agent = VCommerceAgent(db_path=":memory:")
+    history = [
+        {"role": "user", "content": "Q1", "sql": None},
+        {
+            "role": "assistant",
+            "content": "A1",
+            "sql": "SELECT 1",
+            "sources_text": "Fonte X",
+            "data": [{"x": 1, "y": 2}],
+            "chart": {
+                "type": "line",
+                "x_axis": "x",
+                "y_axis": "y",
+                "title": "Série",
+            },
+        },
+    ]
+    agent.import_history(history)
+    assistant_turn = agent._history[1]
+    assert assistant_turn["data"] == [{"x": 1, "y": 2}]
+    assert assistant_turn["chart"] == {
+        "type": "line",
+        "x_axis": "x",
+        "y_axis": "y",
+        "title": "Série",
+        "y_axis_format": None,
+    }
+    assert assistant_turn["sources_text"] == "Fonte X"
+
+
+def test_import_history_rejects_invalid_chart_type():
+    agent = VCommerceAgent(db_path=":memory:")
+    history = [
+        {"role": "user", "content": "Q1", "sql": None},
+        {
+            "role": "assistant",
+            "content": "A1",
+            "sql": "SELECT 1",
+            "chart": {
+                "type": "scatter",
+                "x_axis": "x",
+                "y_axis": "y",
+                "title": "T",
+            },
+        },
+    ]
+    with pytest.raises(ValueError, match="'chart.type' inválido"):
+        agent.import_history(history)
+
+
+def test_import_history_rejects_invalid_data_shape():
+    agent = VCommerceAgent(db_path=":memory:")
+    history = [
+        {"role": "user", "content": "Q1", "sql": None},
+        {
+            "role": "assistant",
+            "content": "A1",
+            "sql": "SELECT 1",
+            "data": ["nao_eh_dict"],
+        },
+    ]
+    with pytest.raises(ValueError, match="'data' deve ser uma lista"):
+        agent.import_history(history)
 
 
 def test_import_history_truncates(monkeypatch):

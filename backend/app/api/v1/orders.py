@@ -57,10 +57,10 @@ async def listar(
     limit:       int = Query(100,  ge=1, le=500),
 ):
     return await service.listar_pedidos(
-        db=db, 
+        db=db,
         filters=filters,
         tipo_cliente=tipo_cliente,
-        skip=skip, 
+        skip=skip,
         limit=limit
     )
 

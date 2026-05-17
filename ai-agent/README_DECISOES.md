@@ -379,12 +379,15 @@
 
 ---
 
-### DA-32: Sugestões Iniciais Dinâmicas Baseadas no Schema
+### DA-32: Sugestões Híbridas com Lista Fixa e Follow-ups Contextuais
 
-- **Contexto:** O backend precisa expor um botão de perguntas de exemplo no início do chat. Essas perguntas devem ser úteis para o banco disponível, mas não devem depender de histórico conversacional.
-- **Decisão:** `initial_suggestions(previous_suggestions=None)` passa a gerar 5 perguntas dinamicamente via LLM, usando o schema formatado, um prompt dedicado e, quando informado, o conjunto de perguntas já exibidas ao usuário. Em caso de falha esperada, o método retorna uma lista local de 5 perguntas balanceadas por domínio, também evitando perguntas anteriores quando houver alternativas disponíveis.
-- **Justificativa:** O recurso é acionado no início da conversa e pode ser usado várias vezes pelo botão de perguntas de exemplo. As sugestões devem refletir o banco disponível, não depender do contexto conversacional e evitar repetir perguntas já exibidas ao usuário. O fallback local mantém a experiência estável quando a API do LLM estiver indisponível ou retornar payload inválido.
-- **Implicações:** A chamada de sugestões passa a ser assíncrona e pode consumir uma chamada ao LLM. O backend deve usar `await agent.initial_suggestions(previous_suggestions=...)`, repassando as perguntas já renderizadas no chat quando o usuário solicitar novas sugestões, e tratar o retorno como uma lista sempre segura para exibição.
+- **Contexto:** O backend precisa expor sugestões de perguntas para o chat em dois cenários distintos: no carregamento inicial (antes de qualquer interação) e durante a conversa (para ajudar o usuário a continuar explorando os dados). No carregamento inicial não existe contexto conversacional, portanto gerar sugestões via LLM não agrega valor proporcional ao custo da chamada. Durante a conversa, as sugestões precisam refletir o que já foi discutido para serem úteis como continuação da análise.
+
+- **Decisão:** `initial_suggestions(history=None)` adota um modelo híbrido. Sem histórico, retorna uma lista fixa e imutável de 5 perguntas curadas por domínio, sem chamar o LLM. Com histórico preenchido, gera 5 perguntas de follow-up contextuais via LLM, usando o schema real do banco e o estado da conversa. Em caso de falha esperada na geração via LLM, o fallback retorna a lista fixa.
+
+- **Justificativa:** A lista fixa no carregamento inicial garante latência zero, custo zero de API e previsibilidade no onboarding do chat. A injeção do histórico completo no prompt de sugestões permite ao LLM gerar follow-ups coerentes com os temas já discutidos e evitar repetições de forma natural, sem necessidade de um mecanismo explícito de deduplicação. A interface pública fica simples: um único parâmetro opcional (`history`) determina qual caminho é executado.
+
+- **Implicações:** O backend deve usar `await agent.initial_suggestions(history=...)`, passando o histórico da conversa exportado pelo agente quando disponível. No carregamento do chat (sem histórico), basta chamar `await agent.initial_suggestions()` para receber a lista fixa. O retorno é sempre uma lista de 5 perguntas segura para exibição. A variável `LLM_TEMPERATURE_SUGGESTIONS` é aplicável apenas quando o LLM é invocado (histórico preenchido).
 
 ---
 
@@ -408,7 +411,7 @@
 
 - **Justificativa:** Tira a responsabilidade do frontend de sempre produzir um gráfico. Remove o clutter visual para o usuário; perguntas simples (valor único, listagem detalhada) não precisam de gráfico como resposta. O agente respeita a intenção explícita do usuário quando solicita visualizações.
 
-- **Implicações:** O frontend deve sempre tratar `chart` como opcional; quando `chart=None` e `data` existe, renderiza como tabela. O orçamento de chamadas LLM não muda (Chamada 2 já existia). O smoke test `smoke_test_chart_decision.py` valida a decisão do agente em cenários variados.
+- **Implicações:** O frontend deve sempre tratar `chart` como opcional. Quando `chart=None`, a interface não deve inventar visualização nem renderizar fallback automático de tabela apenas por haver `data`; deve exibir a resposta textual e omitir o bloco de gráfico. Quando `chart` vier preenchido, o frontend valida `type`, `x_axis` e `y_axis` contra as chaves presentes em `data` antes de renderizar com Recharts. O campo `y_axis_format`, quando presente, orienta a formatação visual do eixo ou tooltip, sem alterar os dados retornados pelo agente. O orçamento de chamadas LLM não muda (Chamada 2 já existia). O smoke test `smoke_test_chart_decision.py` valida a decisão do agente em cenários variados.
 
 ---
 
@@ -421,3 +424,21 @@
 - **Justificativa:** Delegar a responsabilidade de tradução de nomenclatura inteiramente ao artefato de configuração (schema JSON) e garantir que o código Python se mantenha agnóstico quanto às práticas de nomenclatura do pipeline de engenharia de dados. Essa mudança simplifica o código, tornando a apresentação previsível e garantindo robustez a longo prazo quando novos prefixos não mapeados previamente (ex: `mart_`) forem criados.
 
 - **Implicações:** O preenchimento da propriedade `display_name` em `schema_descriptions.json` torna-se praticamente um requisito de interface visual.
+
+---
+
+## Decisões de Frontend
+
+Esta seção agrupa decisões arquiteturais que pertencem primariamente ao frontend da aplicação principal, mas que impactam a integração com o `ai-agent` ou com o backend.
+
+---
+
+### DF-01: Tratamento Global de Expiração de Sessão
+
+- **Contexto:** Múltiplos serviços do frontend consomem endpoints protegidos via `fetch`, incluindo os endpoints do agente de IA. Tratar respostas HTTP 401 individualmente em cada serviço duplicaria lógica de autenticação e criaria comportamentos inconsistentes de logout, navegação e feedback ao usuário.
+
+- **Decisão:** Instalar um interceptor global de `window.fetch` no bootstrap da aplicação. Quando uma resposta 401 ocorre fora das rotas públicas de autenticação e ainda existe token local, o interceptor dispara o evento `auth:expired`. O componente raiz escuta esse evento, executa logout, exibe feedback de sessão expirada e redireciona para `/login`.
+
+- **Justificativa:** Centralizar o tratamento de expiração de sessão garante comportamento uniforme para todas as telas e serviços, sem exigir que cada chamada HTTP conheça detalhes de autenticação. O evento desacopla a camada de transporte (`fetch`) da camada de UI, permitindo que o redirecionamento e o toast permaneçam no React.
+
+- **Implicações:** Novas chamadas que usem `fetch` herdam automaticamente o tratamento de 401. Rotas públicas de autenticação precisam permanecer na allowlist do interceptor para evitar logout durante login, recuperação ou redefinição de senha. Se algum serviço futuro trocar `fetch` por outro cliente HTTP, ele precisa preservar esse contrato de expiração de sessão.

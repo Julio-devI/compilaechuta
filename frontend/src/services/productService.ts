@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8800/produtos'
+const API_URL = 'http://localhost:8000/api/v1/products/'
 
 // 1. Interface de como o dado CHEGA da sua nova API (Backend)
 export interface ProdutoDaAPI {
@@ -56,7 +56,7 @@ export interface FiltrosProdutos {
 export async function getCategorias(): Promise<string[]> {
   try {
     // Tenta buscar da API (se você tiver criado a rota GET /categorias)
-    const response = await fetch('http://localhost:8800/categorias');
+    const response = await fetch(`http://localhost:8000/api/v1/categories`);
     if (response.ok) {
       return await response.json();
     }
@@ -121,7 +121,7 @@ export async function getProdutos(
     if (filtros?.precoMin !== undefined) params.append('preco_min', filtros.precoMin.toString())
     if (filtros?.precoMax !== undefined) params.append('preco_max', filtros.precoMax.toString())
 
-    const response = await fetch(`${API_URL}/?${params.toString()}`)
+    const response = await fetch(`${API_URL}?${params.toString()}`)
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
 
     const data: ProdutoDaAPI[] = await response.json()
@@ -135,7 +135,7 @@ export async function getProdutos(
 // Buscar um único produto por ID
 export async function getProduto(id: string): Promise<Produto | null> {
   try {
-    const response = await fetch(`${API_URL}/${id}`)
+    const response = await fetch(`${API_URL}${id}`)
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
     
     const data: ProdutoDaAPI = await response.json()
@@ -181,7 +181,7 @@ export async function criarProduto(produto: ProdutoPayload): Promise<boolean> {
 
 export async function atualizarProduto(id: string, produto: Partial<ProdutoPayload>): Promise<boolean> {
   try {
-    const response = await fetch(`${API_URL}/${id}`, {
+    const response = await fetch(`${API_URL}${id}`, {
       method: 'PATCH', 
       headers: {
         'Content-Type': 'application/json',
@@ -198,7 +198,7 @@ export async function atualizarProduto(id: string, produto: Partial<ProdutoPaylo
 }
 
 export async function deleteProduto(id: string): Promise<void> {
-  const response = await fetch(`${API_URL}/${id}`, {
+  const response = await fetch(`${API_URL}${id}`, {
     method: 'DELETE',
   })
   
@@ -209,7 +209,7 @@ export async function deleteProduto(id: string): Promise<void> {
 
 export async function exportarProdutosCSV(): Promise<void> {
   try {
-    const response = await fetch(`${API_URL}/exportar/csv`)
+    const response = await fetch(`${API_URL}exportar/csv`)
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
 
     const blob = await response.blob()

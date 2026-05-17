@@ -86,10 +86,22 @@ function formatTicketDisplayId(ticketId: string) {
 }
 
 function normalizeTicketSearch(search: string) {
-  const trimmedSearch = search.trim();
-  return trimmedSearch.toLowerCase().startsWith("tk-")
-    ? trimmedSearch.slice(3)
-    : trimmedSearch;
+  return (
+    search
+      .toLowerCase()
+      .trim()
+
+      // remove espaços
+      .replace(/\s+/g, "")
+
+      // remove separadores
+      .replace(/[-_]/g, "")
+
+      // remove prefixos conhecidos apenas no início
+      .replace(/^ticket/, "")
+      .replace(/^tk/, "")
+      .replace(/^t(?=\d)/, "")
+  );
 }
 
 export type Ticket = {

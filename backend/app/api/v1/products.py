@@ -24,6 +24,7 @@ async def create_product(
     product_in: ProductCreate,
     db: AsyncSession = Depends(get_db)
 ):
+    print(product_in)
     return await product_service.create_product(db=db, product_in=product_in)
 
 @router.get("/exportar/csv")

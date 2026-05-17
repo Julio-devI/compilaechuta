@@ -1,33 +1,37 @@
 const BASE = 'http://localhost:8000/api/v1/dashboard'
 
-const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+export interface DateRange {
+  inicio: string
+  fim: string
+}
 
-function tabToDateRange(tabId: string): Record<string, string> {
+export function tabToDateRange(tabId: string): DateRange {
   const hoje = new Date()
   const fmt = (d: Date) => d.toISOString().split('T')[0]
 
-  if (tabId === 'visao-geral') {
-    return { data_inicio: '2019-01-01', data_fim: fmt(hoje) }
-  }
+  if (tabId === 'visao-geral') return { inicio: '2019-01-01', fim: fmt(hoje) }
   if (tabId === 'este-mes') {
     const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-    return { data_inicio: fmt(inicio), data_fim: fmt(hoje) }
+    return { inicio: fmt(inicio), fim: fmt(hoje) }
   }
   if (tabId === 'trimestre') {
     const inicio = new Date(hoje)
     inicio.setDate(hoje.getDate() - 90)
-    return { data_inicio: fmt(inicio), data_fim: fmt(hoje) }
+    return { inicio: fmt(inicio), fim: fmt(hoje) }
   }
-  // default: últimos 30 dias
   const inicio = new Date(hoje)
   inicio.setDate(hoje.getDate() - 30)
-  return { data_inicio: fmt(inicio), data_fim: fmt(hoje) }
+  return { inicio: fmt(inicio), fim: fmt(hoje) }
+}
+
+function rangeToParams(r: DateRange): URLSearchParams {
+  return new URLSearchParams({ data_inicio: r.inicio, data_fim: r.fim })
 }
 
 export interface KpiItem {
   title: string
   value: string
-  change: number
+  change: number | null
   changeLabel: string
   iconName: 'DollarSign' | 'ShoppingBag' | 'ThumbsUp' | 'Users' | 'Truck'
   iconColor: string
@@ -39,19 +43,6 @@ export interface FilterTab {
   label: string
 }
 
-export interface QuickAction {
-  iconName: 'Package' | 'Users' | 'Download' | 'Lightbulb'
-  label: string
-  subLabel: string
-  iconColor: string
-  bgColor: string
-}
-
-export interface RevenueDataPoint {
-  month: string
-  value: number
-  active: boolean
-}
 
 export interface SatisfactionItem {
   name: string
@@ -59,7 +50,6 @@ export interface SatisfactionItem {
   color: string
 }
 
-// "Dentro/Fora do prazo" não existe no banco — substituído por contagem por status
 export interface OperationsDataPoint {
   status: string
   count: number
@@ -70,18 +60,15 @@ const filterTabs: FilterTab[] = [
   { id: 'este-mes',        label: 'Este Mês' },
   { id: 'ultimos-30-dias', label: 'Últimos 30 Dias' },
   { id: 'trimestre',       label: 'Trimestre' },
-  { id: 'por-categoria',   label: 'Por Categoria' },
-  { id: 'escolher-outro',  label: 'Escolher outro' },
 ]
 
 export function getFilterTabs(): FilterTab[] {
   return filterTabs
 }
 
-export async function getKpiData(tabId = 'ultimos-30-dias'): Promise<KpiItem[]> {
+export async function getKpiData(dateRange: DateRange): Promise<KpiItem[]> {
   try {
-    const params = new URLSearchParams(tabToDateRange(tabId))
-    const res = await fetch(`${BASE}/kpis?${params}`)
+    const res = await fetch(`${BASE}/kpis?${rangeToParams(dateRange)}`)
     if (!res.ok) throw new Error()
     const data = await res.json()
 
@@ -147,32 +134,9 @@ export async function getKpiData(tabId = 'ultimos-30-dias'): Promise<KpiItem[]> 
   }
 }
 
-export async function getRevenueData(tabId = 'ultimos-30-dias'): Promise<RevenueDataPoint[]> {
+export async function getSatisfactionData(dateRange: DateRange): Promise<SatisfactionItem[]> {
   try {
-    const params = new URLSearchParams(tabToDateRange(tabId))
-    const res = await fetch(`${BASE}/charts/revenue-over-time?${params}`)
-    if (!res.ok) throw new Error()
-    const json = await res.json()
-    const currentMonthKey = new Date().toISOString().slice(0, 7)
-
-    return (json.data as { time_period: string; revenue: number }[]).map((row) => {
-      const [, monthStr] = row.time_period.split('-')
-      const month = MONTH_LABELS[parseInt(monthStr, 10) - 1] ?? row.time_period
-      return {
-        month,
-        value: Math.round(row.revenue / 1000),
-        active: row.time_period === currentMonthKey,
-      }
-    })
-  } catch {
-    return []
-  }
-}
-
-export async function getSatisfactionData(tabId = 'ultimos-30-dias'): Promise<SatisfactionItem[]> {
-  try {
-    const params = new URLSearchParams(tabToDateRange(tabId))
-    const res = await fetch(`${BASE}/charts/csat-distribution?${params}`)
+    const res = await fetch(`${BASE}/charts/csat-distribution?${rangeToParams(dateRange)}`)
     if (!res.ok) throw new Error()
     const json = await res.json()
     const d = json.data
@@ -186,10 +150,9 @@ export async function getSatisfactionData(tabId = 'ultimos-30-dias'): Promise<Sa
   }
 }
 
-export async function getOperationsData(tabId = 'ultimos-30-dias'): Promise<OperationsDataPoint[]> {
+export async function getOperationsData(dateRange: DateRange): Promise<OperationsDataPoint[]> {
   try {
-    const params = new URLSearchParams(tabToDateRange(tabId))
-    const res = await fetch(`${BASE}/charts/order-status?${params}`)
+    const res = await fetch(`${BASE}/charts/order-status?${rangeToParams(dateRange)}`)
     if (!res.ok) throw new Error()
     const json = await res.json()
     return (json.data as { status: string; count: number }[]).map((row) => ({
@@ -201,35 +164,13 @@ export async function getOperationsData(tabId = 'ultimos-30-dias'): Promise<Oper
   }
 }
 
-export async function getQuickActions(): Promise<QuickAction[]> {
+export async function getTicketsAbertos(): Promise<number> {
   try {
     const res = await fetch(`${BASE}/quick-actions`)
     if (!res.ok) throw new Error()
     const data = await res.json()
-    return [
-      {
-        iconName: 'Users',
-        label: 'Clientes com tickets abertos',
-        subLabel: String(data.clients_with_open_tickets),
-        iconColor: 'text-[#FFCC00]',
-        bgColor: 'bg-[#FFCC00]/20',
-      },
-      {
-        iconName: 'Download',
-        label: 'Exportar CSV',
-        subLabel: 'Mês atual',
-        iconColor: 'text-[#0070DB]',
-        bgColor: 'bg-[#0070DB]/10',
-      },
-      {
-        iconName: 'Lightbulb',
-        label: 'Insights de IA',
-        subLabel: 'Analisar dados',
-        iconColor: 'text-white',
-        bgColor: 'bg-linear-to-b from-[#60A5FA] to-[#1E5EFF]',
-      },
-    ]
+    return data.clients_with_open_tickets as number
   } catch {
-    return []
+    return 0
   }
 }

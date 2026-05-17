@@ -14,6 +14,7 @@ from app.api.deps import get_current_user, get_db
 from app.core.config import settings
 from app.crud.ai_agent import (
     create_or_update_session,
+    delete_session,
     get_session,
     list_sessions_by_user,
 )
@@ -422,3 +423,28 @@ async def get_user_session(
     except json.JSONDecodeError:
         history = []
     return SessionDetailResponse(session_id=session_id, history=history)
+
+
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove uma sessão de chat do usuário autenticado",
+    responses={
+        204: {"description": "Sessão removida com sucesso."},
+        401: {"description": "Token JWT ausente ou inválido."},
+        404: {"description": "Sessão não encontrada para este usuário."},
+    },
+)
+async def delete_user_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> None:
+    user_id = current_user["sub"]
+    async with _get_lock(user_id, session_id):
+        deleted = await delete_session(db, user_id, session_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sessão não encontrada.",
+        )

@@ -338,3 +338,612 @@ def test_delete_session_returns_404_for_another_user_session(monkeypatch) -> Non
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Sessão não encontrada."}
+
+
+# ---------------------------------------------------------------------
+# Autenticacao: sem token JWT, os endpoints devem retornar 401.
+# ---------------------------------------------------------------------
+
+
+def test_ask_requires_authentication() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 401
+
+
+def test_suggestions_requires_authentication() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/suggestions",
+            json={"session_id": "session-1"},
+        )
+
+    assert response.status_code == 401
+
+
+def test_list_sessions_requires_authentication() -> None:
+    with TestClient(app) as client:
+        response = client.get("/api/v1/ai-agent/sessions")
+
+    assert response.status_code == 401
+
+
+def test_get_session_detail_requires_authentication() -> None:
+    with TestClient(app) as client:
+        response = client.get("/api/v1/ai-agent/sessions/session-1")
+
+    assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------
+# Validacao Pydantic: payloads malformados retornam 422.
+# ---------------------------------------------------------------------
+
+
+def test_ask_rejects_missing_question() -> None:
+    override_dependencies()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"session_id": "session-1"},
+        )
+
+    assert response.status_code == 422
+
+
+def test_ask_rejects_non_string_question() -> None:
+    override_dependencies()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": 123, "session_id": "session-1"},
+        )
+
+    assert response.status_code == 422
+
+
+def test_suggestions_rejects_non_string_session_id() -> None:
+    override_dependencies()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/suggestions",
+            json={"session_id": 42},
+        )
+
+    assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------
+# /ask: ramos nao cobertos (sem historico, historico corrompido, erros do
+# agente, out_of_scope, chart serializado).
+# ---------------------------------------------------------------------
+
+
+def test_ask_without_previous_history_skips_import(monkeypatch) -> None:
+    """Quando nao existe sessao salva, import_history nao deve ser chamado."""
+    override_dependencies()
+    persisted: list[str] = []
+    imported_history: list[Any] = []
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return None
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        persisted.append(history_json)
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            imported_history.append(history)
+
+        def clear_history(self) -> None:
+            pass
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return build_agent_response()
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return [{"role": "user", "content": "Qual?", "sql": None}]
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    assert imported_history == []
+    assert len(persisted) == 1
+
+
+def test_ask_with_corrupted_history_treats_as_empty(monkeypatch) -> None:
+    """history_json invalido como JSON deve ser tratado como historico vazio."""
+    override_dependencies()
+    imported_history: list[Any] = []
+    clear_called: list[bool] = []
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return SimpleNamespace(history_json="{not json")
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        return None
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            imported_history.append(history)
+
+        def clear_history(self) -> None:
+            clear_called.append(True)
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return build_agent_response()
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    assert imported_history == []
+    assert clear_called == []
+
+
+def test_ask_with_non_list_history_treats_as_empty(monkeypatch) -> None:
+    """history_json contendo dict (nao-lista) e tratado como historico vazio."""
+    override_dependencies()
+    imported_history: list[Any] = []
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return SimpleNamespace(history_json='{"foo": 1}')
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        return None
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            imported_history.append(history)
+
+        def clear_history(self) -> None:
+            pass
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return build_agent_response()
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    assert imported_history == []
+
+
+def test_ask_clears_history_when_import_raises_value_error(monkeypatch) -> None:
+    """Quando import_history lanca ValueError, clear_history e chamado e o fluxo segue."""
+    override_dependencies()
+    saved_history = [
+        {"role": "user", "content": "Pergunta anterior", "sql": None},
+        {"role": "assistant", "content": "Resposta anterior", "sql": "SELECT 1"},
+    ]
+    persisted: list[str] = []
+    clear_called: list[bool] = []
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return SimpleNamespace(history_json=json.dumps(saved_history))
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        persisted.append(history_json)
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            raise ValueError("historico invalido")
+
+        def clear_history(self) -> None:
+            clear_called.append(True)
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return build_agent_response()
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert clear_called == [True]
+    assert len(persisted) == 1
+
+
+def test_ask_error_status_replaces_answer_text_and_skips_persistence(monkeypatch) -> None:
+    """status='error' com codigo conhecido sobrescreve answer_text e nao persiste."""
+    override_dependencies()
+    persisted: list[str] = []
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return None
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        persisted.append(history_json)
+
+    @dataclass
+    class FakeError:
+        code: str = "LLM_RATE_LIMIT_ERROR"
+        message: str = "rate limit"
+        stage: str = "llm"
+        retryable: bool = True
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            pass
+
+        def clear_history(self) -> None:
+            pass
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                status="error",
+                user_response=FakeUserResponse(
+                    answer_text="texto original",
+                    sources_text=None,
+                    data=None,
+                    chart=None,
+                    truncated=False,
+                ),
+                developer_debug=FakeDeveloperDebug(error=FakeError()),
+            )
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "error"
+    assert body["user_response"]["answer_text"] == (
+        "Muitas requisições no momento. Aguarde um instante e tente novamente."
+    )
+    assert persisted == []
+
+
+def test_ask_error_unknown_code_uses_fallback_message(monkeypatch) -> None:
+    """Code de erro nao mapeado em _ERROR_MESSAGES cai no fallback generico."""
+    override_dependencies()
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return None
+
+    @dataclass
+    class FakeError:
+        code: str = "CODIGO_INEXISTENTE"
+        message: str = "x"
+        stage: str = "llm"
+        retryable: bool = False
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            pass
+
+        def clear_history(self) -> None:
+            pass
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                status="error",
+                user_response=FakeUserResponse(
+                    answer_text="original",
+                    sources_text=None,
+                    data=None,
+                    chart=None,
+                    truncated=False,
+                ),
+                developer_debug=FakeDeveloperDebug(error=FakeError()),
+            )
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["user_response"]["answer_text"] == (
+        "Ocorreu uma falha no processamento. Tente novamente ou contate o suporte."
+    )
+
+
+def test_ask_out_of_scope_replaces_answer_text_and_skips_persistence(monkeypatch) -> None:
+    """status='out_of_scope' sem error usa a mensagem padrao e nao persiste."""
+    override_dependencies()
+    persisted: list[str] = []
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return None
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        persisted.append(history_json)
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            pass
+
+        def clear_history(self) -> None:
+            pass
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                status="out_of_scope",
+                user_response=FakeUserResponse(
+                    answer_text="texto original",
+                    sources_text=None,
+                    data=None,
+                    chart=None,
+                    truncated=False,
+                ),
+                developer_debug=FakeDeveloperDebug(error=None),
+            )
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Qual?", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "out_of_scope"
+    assert body["user_response"]["answer_text"].startswith("Desculpe, meu escopo é")
+    assert persisted == []
+
+
+def test_ask_serializes_chart_in_response(monkeypatch) -> None:
+    """O campo chart e propagado para o JSON tal como retornado pelo agente."""
+    override_dependencies()
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return None
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        return None
+
+    chart_payload = {
+        "type": "bar",
+        "x_axis": "produto",
+        "y_axis": "quantidade",
+        "title": "Top produtos",
+        "y_axis_format": "number",
+    }
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            pass
+
+        def clear_history(self) -> None:
+            pass
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                status="success",
+                user_response=FakeUserResponse(
+                    answer_text="Top produtos vendidos.",
+                    sources_text="Fonte: base Gold.",
+                    data=[{"produto": "X", "quantidade": 10}],
+                    chart=chart_payload,
+                    truncated=False,
+                ),
+                developer_debug=FakeDeveloperDebug(),
+            )
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={
+                "question": "Quais os produtos mais vendidos?",
+                "session_id": "session-1",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["user_response"]["chart"] == chart_payload
+
+
+# ---------------------------------------------------------------------
+# Helper _derive_title: cobertura parametrizada de casos extremos.
+# ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "history_json, expected",
+    [
+        (None, "Sessão sem título"),
+        ("", "Sessão sem título"),
+        ("{not json", "Sessão sem título"),
+        ('"oi"', "Sessão sem título"),
+        ("[]", "Sessão sem título"),
+        (
+            json.dumps([{"role": "assistant", "content": "resposta"}]),
+            "Sessão sem título",
+        ),
+        (json.dumps([{"role": "user", "content": ""}]), "Sessão sem título"),
+        (json.dumps([{"role": "user", "content": "   "}]), "Sessão sem título"),
+        (
+            json.dumps([{"role": "user", "content": "Qual a receita?"}]),
+            "Qual a receita?",
+        ),
+        (
+            json.dumps([{"role": "user", "content": "a" * 100}]),
+            "a" * 60 + "…",
+        ),
+    ],
+)
+def test_derive_title_parametrized(history_json: str | None, expected: str) -> None:
+    assert ai_agent._derive_title(history_json) == expected
+
+
+# ---------------------------------------------------------------------
+# GET /sessions e GET /sessions/{id}: tolerancia a historicos corrompidos.
+# ---------------------------------------------------------------------
+
+
+def test_list_sessions_uses_default_title_for_corrupted_history(monkeypatch) -> None:
+    override_dependencies()
+    rows = [
+        SimpleNamespace(
+            session_id="session-1",
+            history_json="{not json",
+            updated_at=datetime(2026, 5, 17, 12, 0, 0),
+        )
+    ]
+
+    async def fake_list_sessions_by_user(db, user_id: str):
+        return rows
+
+    monkeypatch.setattr(ai_agent, "list_sessions_by_user", fake_list_sessions_by_user)
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/ai-agent/sessions")
+
+    assert response.status_code == 200
+    assert response.json()["sessions"][0]["title"] == "Sessão sem título"
+
+
+def test_get_session_detail_with_corrupted_history_returns_empty_history(monkeypatch) -> None:
+    override_dependencies()
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return SimpleNamespace(history_json="{not json")
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/ai-agent/sessions/session-1")
+
+    assert response.status_code == 200
+    assert response.json() == {"session_id": "session-1", "history": []}
+
+
+def test_get_session_detail_with_non_list_history_returns_empty(monkeypatch) -> None:
+    override_dependencies()
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return SimpleNamespace(history_json='"oi"')
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/ai-agent/sessions/session-1")
+
+    assert response.status_code == 200
+    assert response.json() == {"session_id": "session-1", "history": []}

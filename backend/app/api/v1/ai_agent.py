@@ -198,7 +198,7 @@ async def ask_agent(
     lock = _get_lock(user_id, payload.session_id)
     async with lock:
         db_session = await get_session(db, user_id, payload.session_id)
-        history: list[dict[str, str | None]] = []
+        history: list[dict[str, Any]] = []
         if db_session and db_session.history_json:
             try:
                 history = json.loads(db_session.history_json)
@@ -338,7 +338,7 @@ async def get_suggestions(
     existe, gera 5 perguntas de follow-up contextuais via LLM.
     """
     user_id = current_user["sub"]
-    history: list[dict[str, str | None]] = []
+    history: list[dict[str, Any]] = []
 
     if payload.session_id:
         async with _get_lock(user_id, payload.session_id):

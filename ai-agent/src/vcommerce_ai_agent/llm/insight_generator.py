@@ -182,7 +182,7 @@ _MAX_ROWS_FOR_INSIGHT_PROMPT = 100
 """Número máximo de linhas enviadas ao prompt da Chamada 2 para evitar estouro de context window."""
 
 
-def format_history_for_insight(history: list[dict[str, str | None]] | None) -> str:
+def format_history_for_insight(history: list[dict[str, Any]] | None) -> str:
     """Formata o histórico de conversa para injeção no prompt da Chamada 2."""
     if not history:
         return ""
@@ -211,7 +211,7 @@ async def generate_insight(
     question: str,
     data: list[dict[str, Any]],
     sql: str,
-    history: list[dict[str, str | None]] | None = None,
+    history: list[dict[str, Any]] | None = None,
     model: str | None = None,
 ) -> tuple[dict[str, Any], int | None]:
     """

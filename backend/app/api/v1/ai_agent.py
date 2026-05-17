@@ -208,7 +208,7 @@ async def ask_agent(
 
         agent = VCommerceAgent(
             db_path=settings.DB_PATH,
-            schema_descriptions_path=settings.SCHEMA_DESCRIPTIONS_PATH,
+            schema_descriptions_path=settings.AI_AGENT_SCHEMA_DESCRIPTIONS_PATH,
             excluded_tables=_EXCLUDED_TABLES,
         )
 
@@ -352,7 +352,7 @@ async def get_suggestions(
 
     agent = VCommerceAgent(
         db_path=settings.DB_PATH,
-        schema_descriptions_path=settings.SCHEMA_DESCRIPTIONS_PATH,
+        schema_descriptions_path=settings.AI_AGENT_SCHEMA_DESCRIPTIONS_PATH,
         excluded_tables=_EXCLUDED_TABLES,
     )
 

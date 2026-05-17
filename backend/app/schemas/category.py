@@ -15,7 +15,7 @@ class CategoryUpdate(BaseModel):
 class CategoryResponse(CategoryBase):
     id_categoria: str
     
-    total_produtos: Optional[int] = 0
+    total_estoque_disponivel: Optional[int] = 0
     total_produtos_ativos: Optional[int] = 0
     total_com_estoque: Optional[int] = 0
     preco_medio: Optional[float] = None

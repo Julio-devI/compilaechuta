@@ -331,6 +331,10 @@
         "pct_recomendacoes_sim": {
           "description": "Percentual de avaliacoes do produto que recomendaram (0 a 100).",
           "examples": [75.71, 71.22]
+        },
+        "comentario_consistente": {
+          "description": "Determina a consistencia de um comentario.",
+          "examples": ["True", "False"]
         }
       }
     },
@@ -381,6 +385,10 @@
         "nota_avaliacao": {
           "description": "Nota de satisfacao dada pelo cliente apos a resolucao (1 a 5).",
           "examples": [4, 5, 2]
+        },
+        "registro_consistente": {
+          "description": "Determina a consistencia de um ticket, associada ao fato de um usuario conseguir criar tickets nos pedidos de outros usuarios.",
+          "examples": ["True", "False"]
         }
       }
     },
@@ -450,9 +458,9 @@
           "description": "URL da imagem representativa da categoria.",
           "examples": ["https://exemplo.com/img/eletronicos.jpg"]
         },
-        "total_produtos": {
-          "description": "Quantidade total de produtos na categoria.",
-          "examples": [25, 10, 5]
+        "total_estoque_disponivel": {
+          "description": "Quantidade total de itens em estoque disponivel na categoria.",
+          "examples": [13318, 13472, 14022]
         },
         "total_produtos_ativos": {
           "description": "Quantidade de produtos ativos na categoria.",

@@ -4,7 +4,7 @@ export interface Categoria {
   id_categoria: string
   nome_categoria: string
   imagem_url: string | null
-  total_produtos: number
+  total_estoque_disponivel: number
   total_produtos_ativos: number
   total_com_estoque: number
   preco_medio: number | null

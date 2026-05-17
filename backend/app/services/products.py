@@ -8,18 +8,8 @@ from app.schemas.products import ProductCreate, ProductUpdate, ProductListOut
 from app.models.products import Produto
 
 async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto:
-    try:
-        return await crud_products.create_product(db=db, product_in=product_in)
-    except IntegrityError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Erro de integridade: Verifique se a Categoria informada realmente existe."
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao criar produto: {str(e)}"
-        )
+
+    return await crud_products.create_product(db=db, product_in=product_in)
 
 async def get_productById(db: AsyncSession, id_produto: str) -> Produto:
     product = await crud_products.get_productById(db=db, id_produto=id_produto)

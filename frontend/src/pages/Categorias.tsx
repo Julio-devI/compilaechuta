@@ -4,13 +4,14 @@ import {
   ChevronDown,
   ChevronUp,
   Layers,
-  Filter,
   AlertCircle,
   RefreshCw,
   Maximize2,
   Minimize2,
   Pencil,
   Plus,
+  DollarSign,
+  ArrowUpDown,
 } from "lucide-react";
 import {
   getCategorias,
@@ -185,9 +186,11 @@ export function Categorias() {
   const [filtroRevisao, setFiltroRevisao] = useState<
     "todas" | "com_revisao" | "regularizadas"
   >("todas");
-  const [filtroVolume, setFiltroVolume] = useState<
-    "todos" | "alto_estoque" | "sem_estoque"
-  >("todos");
+  const [precoMin, setPrecoMin] = useState("");
+  const [precoMax, setPrecoMax] = useState("");
+  const [ordenacao, setOrdenacao] = useState<
+    "nome" | "mais_revisoes" | "maior_estoque" | "maior_preco"
+  >("nome");
 
   useEffect(() => {
     async function carregarDados() {
@@ -204,29 +207,44 @@ export function Categorias() {
     carregarDados();
   }, []);
 
-  const categoriasFiltradas = categorias.filter((cat) => {
-    const termNormalizado = normalizeCategoriaSearch(searchTerm);
-    const idNormalizado = normalizeCategoriaSearch(cat.id_categoria);
+  const categoriasFiltradas = categorias
+    .filter((cat) => {
+      const termNormalizado = normalizeCategoriaSearch(searchTerm);
+      const idNormalizado = normalizeCategoriaSearch(cat.id_categoria);
 
-    const matchesSearch =
-      !termNormalizado ||
-      idNormalizado.includes(termNormalizado) ||
-      cat.nome_categoria
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase().trim());
+      const matchesSearch =
+        !termNormalizado ||
+        idNormalizado.includes(termNormalizado) ||
+        cat.nome_categoria
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase().trim());
 
-    const matchesRevisao =
-      filtroRevisao === "todas" ||
-      (filtroRevisao === "com_revisao" && cat.total_precisa_revisao > 0) ||
-      (filtroRevisao === "regularizadas" && cat.total_precisa_revisao === 0);
+      const matchesRevisao =
+        filtroRevisao === "todas" ||
+        (filtroRevisao === "com_revisao" && cat.total_precisa_revisao > 0) ||
+        (filtroRevisao === "regularizadas" && cat.total_precisa_revisao === 0);
 
-    const matchesVolume =
-      filtroVolume === "todos" ||
-      (filtroVolume === "alto_estoque" && cat.total_com_estoque >= 100) ||
-      (filtroVolume === "sem_estoque" && cat.total_com_estoque === 0);
+      const min = precoMin ? parseFloat(precoMin) : null;
+      const max = precoMax ? parseFloat(precoMax) : null;
+      const matchesPreco =
+        (min === null || (cat.preco_medio ?? 0) >= min) &&
+        (max === null || (cat.preco_medio ?? 0) <= max);
 
-    return matchesSearch && matchesRevisao && matchesVolume;
-  });
+      return matchesSearch && matchesRevisao && matchesPreco;
+    })
+    .sort((a, b) => {
+      switch (ordenacao) {
+        case "mais_revisoes":
+          return b.total_precisa_revisao - a.total_precisa_revisao;
+        case "maior_estoque":
+          return b.total_com_estoque - a.total_com_estoque;
+        case "maior_preco":
+          return (b.preco_medio ?? 0) - (a.preco_medio ?? 0);
+        case "nome":
+        default:
+          return a.nome_categoria.localeCompare(b.nome_categoria, "pt-BR");
+      }
+    });
 
   const renderRows = () => {
     if (isLoading) {
@@ -316,8 +334,6 @@ export function Categorias() {
           </div>
         </td>
 
-        {/* Coluna: Peso Médio — REMOVIDA */}
-
         {/* Coluna: Status Revisão */}
         <td className="py-4 px-6 border-0 text-center">
           {cat.total_precisa_revisao > 0 ? (
@@ -351,9 +367,9 @@ export function Categorias() {
               setCategoriaEditando(cat);
               setModalAberto("editar");
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black bg-background border border-border text-muted-foreground hover:bg-[#020854] hover:text-white hover:border-[#020854] transition-all"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition-colors group/edit hover:text-blue-900"
           >
-            <Pencil className="w-3.5 h-3.5" />
+            <Pencil className="w-4 h-4 text-orange-500 group-hover/edit:text-orange-700 transition-colors" />
             Editar
           </button>
         </td>
@@ -387,15 +403,18 @@ export function Categorias() {
           <span className="bg-sky-100 text-sky-700 px-3 py-1 rounded-full text-sm font-black border border-sky-200">
             {categoriasFiltradas.length} de {categorias.length}
           </span>
+          {/* Botão Nova Categoria — padrão do projeto */}
           <button
             onClick={() => {
               setCategoriaEditando(null);
               setModalAberto("criar");
             }}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-black bg-[#020854] text-white hover:bg-[#0a1a7a] transition-all shadow-sm"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
           >
-            <Plus className="w-4 h-4" />
             Nova Categoria
+            <span className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-800 flex items-center justify-center transition-colors">
+              <Plus className="w-4 h-4 text-white" />
+            </span>
           </button>
         </div>
       </div>
@@ -423,89 +442,135 @@ export function Categorias() {
 
         {isFiltrosOpen && (
           <div className="px-8 pb-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
-            {/* Coluna Esquerda */}
-            <div className="space-y-6">
-              <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
-                  <AlertCircle className="w-4 h-4" /> Estado de Revisão
-                </label>
-                <div className="flex flex-wrap gap-2">
+            {/* Revisão */}
+            <div>
+              <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
+                <AlertCircle className="w-4 h-4" /> Revisão de Produtos
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    {
+                      value: "todas",
+                      label: "Todas",
+                      active: "bg-[#020854] text-white shadow-md",
+                      dot: null,
+                    },
+                    {
+                      value: "com_revisao",
+                      label: "Com pendências",
+                      active:
+                        "bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]",
+                      dot: "#B91C1C",
+                    },
+                    {
+                      value: "regularizadas",
+                      label: "Regularizadas",
+                      active:
+                        "bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]",
+                      dot: "#15803D",
+                    },
+                  ] as {
+                    value: "todas" | "com_revisao" | "regularizadas";
+                    label: string;
+                    active: string;
+                    dot: string | null;
+                  }[]
+                ).map(({ value, label, active, dot }) => (
                   <button
-                    onClick={() => setFiltroRevisao("todas")}
+                    key={value}
+                    onClick={() => setFiltroRevisao(value)}
                     className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${
-                      filtroRevisao === "todas"
-                        ? "bg-[#020854] text-white shadow-md"
+                      filtroRevisao === value
+                        ? active
                         : "bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border"
                     }`}
                   >
-                    Todas
+                    {dot && (
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: dot }}
+                      />
+                    )}
+                    {label}
                   </button>
-                  <button
-                    onClick={() => setFiltroRevisao("com_revisao")}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${
-                      filtroRevisao === "com_revisao"
-                        ? "bg-[#FEE2E2] text-[#B91C1C] shadow-md border border-[#FECACA]"
-                        : "bg-background text-muted-foreground hover:bg-[#FEE2E2] hover:text-[#B91C1C]"
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-[#B91C1C]"></span>
-                    Precisa de Revisão
-                  </button>
-                  <button
-                    onClick={() => setFiltroRevisao("regularizadas")}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${
-                      filtroRevisao === "regularizadas"
-                        ? "bg-[#DCFCE7] text-[#15803D] shadow-md border border-[#BBF7D0]"
-                        : "bg-background text-muted-foreground hover:bg-[#DCFCE7] hover:text-[#15803D]"
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-[#15803D]"></span>
-                    Regularizadas
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Coluna Direita */}
-            <div className="space-y-6">
-              <div>
-                <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
-                  <Filter className="w-4 h-4" /> Volume de Estoque
-                </label>
-                <div className="flex flex-wrap gap-2">
+            {/* Faixa de Preço Médio */}
+            <div>
+              <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
+                <DollarSign className="w-4 h-4" /> Faixa de Preço Médio
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">
+                    R$
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="Mín"
+                    value={precoMin}
+                    onChange={(e) => setPrecoMin(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-background rounded-2xl border border-border text-foreground font-medium outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                <span className="text-muted-foreground font-bold text-sm">
+                  —
+                </span>
+                <div className="relative flex-1">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">
+                    R$
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="Máx"
+                    value={precoMax}
+                    onChange={(e) => setPrecoMax(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-background rounded-2xl border border-border text-foreground font-medium outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                {(precoMin || precoMax) && (
                   <button
-                    onClick={() => setFiltroVolume("todos")}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${
-                      filtroVolume === "todos"
+                    onClick={() => {
+                      setPrecoMin("");
+                      setPrecoMax("");
+                    }}
+                    className="text-muted-foreground hover:text-foreground text-xs font-black px-3 py-2 rounded-xl bg-background border border-border transition-colors"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Ordenação */}
+            <div>
+              <label className="flex items-center gap-2 font-black text-[#020854] dark:text-foreground mb-3 text-sm">
+                <ArrowUpDown className="w-4 h-4" /> Ordenar por
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { value: "nome", label: "Nome A–Z" },
+                    { value: "mais_revisoes", label: "Mais revisões" },
+                    { value: "maior_estoque", label: "Maior estoque" },
+                    { value: "maior_preco", label: "Maior preço médio" },
+                  ] as const
+                ).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setOrdenacao(value)}
+                    className={`px-4 py-2 rounded-full text-xs font-black transition-all ${
+                      ordenacao === value
                         ? "bg-[#020854] text-white shadow-md"
                         : "bg-background text-muted-foreground hover:bg-slate-200 dark:hover:bg-border"
                     }`}
                   >
-                    Todos
+                    {label}
                   </button>
-                  <button
-                    onClick={() => setFiltroVolume("alto_estoque")}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${
-                      filtroVolume === "alto_estoque"
-                        ? "bg-sky-100 text-sky-700 shadow-md border border-sky-200"
-                        : "bg-background text-muted-foreground hover:bg-sky-100 hover:text-sky-700"
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-sky-500"></span>
-                    Alto Estoque (≥100)
-                  </button>
-                  <button
-                    onClick={() => setFiltroVolume("sem_estoque")}
-                    className={`px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all ${
-                      filtroVolume === "sem_estoque"
-                        ? "bg-[#FEE2E2] text-[#B91C1C] shadow-md border border-[#FECACA]"
-                        : "bg-background text-muted-foreground hover:bg-[#FEE2E2] hover:text-[#B91C1C]"
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-[#B91C1C]"></span>
-                    Esgotadas (0 un)
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
           </div>
@@ -552,6 +617,7 @@ export function Categorias() {
           </table>
         )}
       </div>
+
       {/* Modal Revisões */}
       {categoriaRevisando && (
         <ModalRevisoesCategoria

@@ -156,7 +156,7 @@ export function ModalDetalhesProduto({ isOpen, onClose, produto }: ModalProps) {
 
                       <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded-md">
                         <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                        <span className="text-lg font-black text-slate-800">{produto.avaliacao || '4.8'}</span>
+                        <span className="text-lg font-black text-slate-800">{produto.avaliacao || 'N/A'}</span>
                       </div>
                     </div>
 

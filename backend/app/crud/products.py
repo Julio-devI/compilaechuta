@@ -1,4 +1,6 @@
 from typing import List, Optional
+import re
+import unicodedata
 from sqlalchemy import func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -8,8 +10,71 @@ from app.models.products import Produto
 from app.models.orders import Pedido
 from app.schemas.products import ProductCreate, ProductUpdate
 
+
+async def generate_product_id(db: AsyncSession) -> str:
+    query = select(Produto.id_produto).order_by(
+        Produto.id_produto.desc()).limit(1)
+    result = await db.execute(query)
+    last_id = result.scalar_one_or_none()
+
+    if last_id is None:
+        next_number = 1
+    else:
+        try:
+            current_number = int(last_id.split('-')[1])
+            next_number = current_number + 1
+        except (IndexError, ValueError):
+            next_number = 1
+
+    return f"PROD-{str(next_number).zfill(4)}"
+
+
+def _limpar_e_maiusculo(texto: str) -> str:
+    if not texto:
+        return ""
+    texto_sem_acento = "".join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+    texto_limpo = re.sub(r'[^a-zA-Z0-9\s]', '', texto_sem_acento)
+    return texto_limpo.upper().strip()
+
+def generate_sku(id_produto: str, categoria: str, nome_produto: str, fornecedor: str) -> str:
+    # 1. Categoria (4 primeiras letras)
+    cat_limpa = _limpar_e_maiusculo(categoria).replace(" ", "")
+    comp_categoria = cat_limpa[:4] if cat_limpa else "UNKN"
+
+    # 2. Produto (Primeira palavra)
+    palavras_produto = _limpar_e_maiusculo(nome_produto).split()
+    comp_produto = palavras_produto[0] if palavras_produto else "PROD"
+
+    # 3. Fornecedor (Primeira palavra)
+    palavras_fornecedor = _limpar_e_maiusculo(fornecedor).split()
+    comp_fornecedor = palavras_fornecedor[0] if palavras_fornecedor else "FORN"
+
+    # 4. Extrai os números do id_produto (ex: "PROD-0001" -> "0001")
+    try:
+        comp_id = id_produto.split('-')[1]
+    except (IndexError, ValueError):
+        comp_id = "".join(c for c in id_produto if c.isdigit()).zfill(4)
+
+    if not comp_id:
+        comp_id = "0001"
+
+    return f"{comp_categoria}-{comp_produto}-{comp_fornecedor}-{comp_id}"
+
 async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto:
+    id_produto = await generate_product_id(db)
+    sku_produto = await generate_sku(
+        id_produto=id_produto,
+        categoria=str(product_in.categoria or "Outros"),
+        nome_produto=product_in.nome_produto,
+        fornecedor=product_in.fornecedor or "Desconhecido"
+        )
+
     product_data = product_in.model_dump()
+    product_data["id_produto"] = id_produto
+    product_data["sku"] = sku_produto
     
     db_product = Produto(**product_data)
     db.add(db_product)
@@ -24,7 +89,6 @@ async def get_productById(db: AsyncSession, id_produto: str) -> Optional[Produto
         .filter(Produto.id_produto == id_produto)
     )
     return result.scalars().first()
-
 
 async def get_all_products(
         db: AsyncSession,
@@ -100,7 +164,6 @@ async def delete_product(db: AsyncSession, id_produto: str) -> bool:
     await db.delete(db_product)
     await db.commit()
     return True
-
 
 async def get_products_by_cliente(
     db: AsyncSession,

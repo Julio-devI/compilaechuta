@@ -4,23 +4,27 @@ import { Users } from 'lucide-react'
 import type { SatisfactionItem } from '../services/dashboardService'
 import { getSatisfactionData } from '../services/dashboardService'
 
-export function SatisfactionChart() {
+interface Props {
+  tabId?: string
+}
+
+export function SatisfactionChart({ tabId = 'ultimos-30-dias' }: Props) {
   const [data, setData] = useState<SatisfactionItem[]>([])
 
   useEffect(() => {
-    getSatisfactionData().then(setData)
-  }, [])
+    getSatisfactionData(tabId).then(setData)
+  }, [tabId])
 
-  const barChartData = data.length > 0
-    ? [{ category: 'Satisfação', Promotores: data[0].value, Neutros: data[1].value, Detratores: data[2].value }]
-    : []
+  const barChartData =
+    data.length > 0
+      ? [{ category: 'Satisfação', Promotores: data[0].value, Neutros: data[1].value, Detratores: data[2].value }]
+      : []
 
   return (
     <div
       className="flex flex-col items-start p-4 gap-1.5 rounded-3xl bg-card border border-border"
       style={{ boxShadow: '0 4px 24px -8px rgba(2, 2, 85, 0.08)' }}
     >
-      {/* Header */}
       <div className="flex items-center gap-2">
         <Users className="w-3.5 h-3.5 text-muted" />
         <span className="text-xs font-medium text-muted uppercase tracking-wider">Clientes</span>

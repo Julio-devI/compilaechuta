@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Search,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Layers,
   AlertCircle,
   RefreshCw,
@@ -12,11 +14,15 @@ import {
   Plus,
   DollarSign,
   ArrowUpDown,
+  Trash2,
+  ImageUp,
+  X,
 } from "lucide-react";
 import {
   getCategorias,
   createCategoria,
   updateCategoria,
+  deleteCategoria,
   normalizeCategoriaSearch,
   Categoria,
   formatBRL,
@@ -41,7 +47,43 @@ function ModalCategoria({
   const [nome, setNome] = useState(categoria?.nome_categoria ?? "");
   const [imagemUrl, setImagemUrl] = useState(categoria?.imagem_url ?? "");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Cloudinary upload ───────────────────────────────────────────────────────
+  // Substitua pelos seus valores do Cloudinary Dashboard
+  const CLOUD_NAME = "SEU_CLOUD_NAME";
+  const UPLOAD_PRESET = "SEU_UPLOAD_PRESET";
+
+  async function handleImagemSelecionada(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setErro(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", UPLOAD_PRESET);
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData },
+      );
+      if (!res.ok) throw new Error("Falha no upload");
+      const data = await res.json();
+      setImagemUrl(data.secure_url);
+    } catch {
+      setErro("Erro ao fazer upload da imagem. Tente novamente.");
+    } finally {
+      setIsUploading(false);
+      // Limpa o input para permitir re-selecionar o mesmo arquivo
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function handleSalvar() {
     if (!nome.trim()) {
@@ -81,24 +123,75 @@ function ModalCategoria({
       onClick={onClose}
     >
       <div
-        className="bg-card rounded-3xl shadow-xl border border-border w-full max-w-md p-8 flex flex-col gap-6"
+        className="bg-card rounded-3xl shadow-xl border border-border w-full max-w-2xl p-8 flex gap-8"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-black text-[#020854] dark:text-foreground">
-            {modo === "criar" ? "Nova Categoria" : "Editar Categoria"}
-          </h2>
+        {/* ── Painel Esquerdo: Preview da Imagem ───────────────────────────── */}
+        <div className="flex flex-col gap-4 w-52 flex-shrink-0">
+          {/* Quadrado de preview */}
+          <div className="w-full aspect-square rounded-2xl border-2 border-dashed border-border bg-background flex items-center justify-center overflow-hidden relative">
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="text-xs font-bold">Enviando...</span>
+              </div>
+            ) : imagemUrl ? (
+              <>
+                <img
+                  src={imagemUrl}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+                {/* Botão remover imagem */}
+                <button
+                  onClick={() => setImagemUrl("")}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground text-center px-4">
+                <Layers className="w-10 h-10 opacity-20" />
+                <span className="text-xs font-bold">Sem imagem</span>
+              </div>
+            )}
+          </div>
+
+          {/* Botão de upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImagemSelecionada}
+          />
           <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-background flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors border border-border"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-black bg-background border border-border text-muted-foreground hover:bg-slate-100 dark:hover:bg-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            ✕
+            <ImageUp className="w-4 h-4" />
+            {imagemUrl ? "Trocar Imagem" : "Importar Imagem"}
           </button>
         </div>
 
-        {/* Campos */}
-        <div className="flex flex-col gap-4">
+        {/* ── Painel Direito: Formulário ────────────────────────────────────── */}
+        <div className="flex flex-col gap-6 flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-[#020854] dark:text-foreground">
+              {modo === "criar" ? "Nova Categoria" : "Editar Categoria"}
+            </h2>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full bg-background flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors border border-border"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Campo nome */}
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
               Nome da Categoria *
@@ -111,57 +204,45 @@ function ModalCategoria({
               className="w-full p-4 bg-background rounded-2xl border border-border text-foreground font-medium outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
-              URL da Imagem
-            </label>
-            <input
-              type="text"
-              value={imagemUrl}
-              onChange={(e) => setImagemUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full p-4 bg-background rounded-2xl border border-border text-foreground font-medium outline-none focus:ring-2 focus:ring-blue-500"
-            />
+
+          {/* Erro */}
+          {erro && (
+            <p className="text-sm font-bold text-[#B91C1C] bg-[#FEE2E2] px-4 py-3 rounded-2xl">
+              {erro}
+            </p>
+          )}
+
+          {/* Ações */}
+          <div className="flex gap-3 justify-end mt-auto">
+            <button
+              onClick={onClose}
+              className="px-5 py-3 rounded-full text-sm font-black bg-background border border-border text-muted-foreground hover:bg-slate-100 dark:hover:bg-border transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSalvar}
+              disabled={isSaving || isUploading}
+              className="px-5 py-3 rounded-full text-sm font-black bg-[#020854] text-white hover:bg-[#0a1a7a] transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : modo === "criar" ? (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Criar
+                </>
+              ) : (
+                <>
+                  <Pencil className="w-4 h-4" />
+                  Salvar
+                </>
+              )}
+            </button>
           </div>
-        </div>
-
-        {/* Erro */}
-        {erro && (
-          <p className="text-sm font-bold text-[#B91C1C] bg-[#FEE2E2] px-4 py-3 rounded-2xl">
-            {erro}
-          </p>
-        )}
-
-        {/* Ações */}
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="px-5 py-3 rounded-full text-sm font-black bg-background border border-border text-muted-foreground hover:bg-slate-100 dark:hover:bg-border transition-all"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSalvar}
-            disabled={isSaving}
-            className="px-5 py-3 rounded-full text-sm font-black bg-[#020854] text-white hover:bg-[#0a1a7a] transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Salvando...
-              </>
-            ) : modo === "criar" ? (
-              <>
-                <Plus className="w-4 h-4" />
-                Criar
-              </>
-            ) : (
-              <>
-                <Pencil className="w-4 h-4" />
-                Salvar
-              </>
-            )}
-          </button>
         </div>
       </div>
     </div>
@@ -191,6 +272,16 @@ export function Categorias() {
   const [ordenacao, setOrdenacao] = useState<
     "nome" | "mais_revisoes" | "maior_estoque" | "maior_preco"
   >("nome");
+
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
+  const [isDeletando, setIsDeletando] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  // Reset página ao mudar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filtroRevisao, precoMin, precoMax, ordenacao]);
 
   useEffect(() => {
     async function carregarDados() {
@@ -246,6 +337,48 @@ export function Categorias() {
       }
     });
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(categoriasFiltradas.length / ITEMS_PER_PAGE),
+  );
+  const firstVisible =
+    categoriasFiltradas.length === 0
+      ? 0
+      : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const lastVisible = Math.min(
+    currentPage * ITEMS_PER_PAGE,
+    categoriasFiltradas.length,
+  );
+  const categoriasPagina = categoriasFiltradas.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
+  const paginationPages = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter(
+    (page) =>
+      page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1,
+  );
+
+  async function handleDeletarSelecionadas() {
+    if (selecionadas.size === 0) return;
+    setIsDeletando(true);
+    try {
+      await Promise.all(
+        Array.from(selecionadas).map((id) => deleteCategoria(id)),
+      );
+      setCategorias((prev) =>
+        prev.filter((c) => !selecionadas.has(c.id_categoria)),
+      );
+      setSelecionadas(new Set());
+    } catch (error) {
+      console.error("Erro ao deletar categorias:", error);
+    } finally {
+      setIsDeletando(false);
+    }
+  }
+
   const renderRows = () => {
     if (isLoading) {
       return Array.from({ length: 5 }, (_, index) => (
@@ -253,11 +386,33 @@ export function Categorias() {
           key={`skeleton-${index}`}
           className="bg-card animate-pulse border-b border-border"
         >
-          {Array.from({ length: 7 }, (__, col) => (
-            <td key={col} className="py-4 px-6 border-0">
-              <div className="h-4 rounded-full bg-slate-200 w-full max-w-[120px]" />
-            </td>
-          ))}
+          <td className="py-4 pl-4 pr-2 rounded-l-2xl border-0">
+            <div className="h-4 w-4 rounded bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-24 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-slate-200 flex-shrink-0" />
+              <div className="h-4 w-32 rounded-full bg-slate-200" />
+            </div>
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-16 rounded-full bg-slate-200 mx-auto" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-16 rounded-full bg-slate-200 mx-auto" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-24 rounded-full bg-slate-200" />
+          </td>
+          <td className="py-4 px-6 border-0">
+            <div className="h-4 w-20 rounded-full bg-slate-200 mx-auto" />
+          </td>
+          <td className="py-4 px-6 rounded-r-2xl border-0">
+            <div className="h-4 w-14 rounded-full bg-slate-200 mx-auto" />
+          </td>
         </tr>
       ));
     }
@@ -265,7 +420,7 @@ export function Categorias() {
     if (categoriasFiltradas.length === 0) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 border-0">
+          <td colSpan={8} className="py-12 border-0">
             <div className="flex flex-col items-center justify-center text-muted-foreground">
               <Layers className="w-12 h-12 mb-4 opacity-30" />
               <p className="font-bold text-lg">Nenhuma categoria encontrada.</p>
@@ -276,13 +431,31 @@ export function Categorias() {
       );
     }
 
-    return categoriasFiltradas.map((cat) => (
+    return categoriasPagina.map((cat) => (
       <tr
         key={cat.id_categoria}
         className="bg-card group hover:bg-background transition-colors border-b border-border"
       >
+        {/* Coluna: Checkbox */}
+        <td className="py-4 pl-4 pr-2 rounded-l-2xl border-0">
+          <input
+            type="checkbox"
+            checked={selecionadas.has(cat.id_categoria)}
+            onChange={(e) => {
+              setSelecionadas((prev) => {
+                const next = new Set(prev);
+                e.target.checked
+                  ? next.add(cat.id_categoria)
+                  : next.delete(cat.id_categoria);
+                return next;
+              });
+            }}
+            className="w-4 h-4 rounded accent-[#020854] cursor-pointer"
+          />
+        </td>
+
         {/* Coluna: Categoria (ID) */}
-        <td className="py-4 px-6 rounded-l-2xl border-0">
+        <td className="py-4 px-6 border-0">
           <span className="font-black text-[#020854] dark:text-foreground text-lg">
             {cat.id_categoria.replace(/^#/, "")}
           </span>
@@ -290,9 +463,22 @@ export function Categorias() {
 
         {/* Coluna: Nome da Categoria */}
         <td className="py-4 px-6 border-0">
-          <span className="font-bold text-foreground text-base">
-            {cat.nome_categoria}
-          </span>
+          <div className="flex items-center gap-3">
+            {cat.imagem_url ? (
+              <img
+                src={cat.imagem_url}
+                alt={cat.nome_categoria}
+                className="w-9 h-9 rounded-lg object-cover border border-border flex-shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-lg bg-background border border-border flex items-center justify-center flex-shrink-0">
+                <Layers className="w-4 h-4 text-muted-foreground opacity-40" />
+              </div>
+            )}
+            <span className="font-bold text-foreground text-base">
+              {cat.nome_categoria}
+            </span>
+          </div>
         </td>
 
         {/* Coluna: Total Produtos */}
@@ -577,6 +763,32 @@ export function Categorias() {
         )}
       </div>
 
+      {/* Contador + Excluir Selecionadas */}
+      <div className="flex items-center gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-[#020854] dark:text-foreground">
+          {categoriasFiltradas.length} Categorias Encontradas
+        </h2>
+        {selecionadas.size > 0 && (
+          <button
+            onClick={handleDeletarSelecionadas}
+            disabled={isDeletando}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#EF4444] hover:bg-[#DC2626] text-white text-sm font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isDeletando ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Excluindo...
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4" />
+                Excluir Selecionadas ({selecionadas.size})
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
       {/* Tabela */}
       <div className="w-full overflow-x-auto bg-card rounded-3xl p-4 shadow-sm border border-border">
         {isLoading ? (
@@ -590,7 +802,28 @@ export function Categorias() {
           <table className="w-full border-separate border-spacing-y-2">
             <thead>
               <tr className="bg-[#020854] text-white">
-                <th className="py-4 px-6 text-left rounded-l-xl text-[10px] font-black uppercase tracking-widest border-none">
+                <th className="py-4 pl-4 pr-2 rounded-l-xl border-none">
+                  <input
+                    type="checkbox"
+                    checked={
+                      categoriasFiltradas.length > 0 &&
+                      categoriasFiltradas.every((c) =>
+                        selecionadas.has(c.id_categoria),
+                      )
+                    }
+                    onChange={(e) => {
+                      setSelecionadas(
+                        e.target.checked
+                          ? new Set(
+                              categoriasFiltradas.map((c) => c.id_categoria),
+                            )
+                          : new Set(),
+                      );
+                    }}
+                    className="w-4 h-4 rounded accent-white cursor-pointer"
+                  />
+                </th>
+                <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">
                   Categoria
                 </th>
                 <th className="py-4 px-6 text-left text-[10px] font-black uppercase tracking-widest border-none">
@@ -615,6 +848,61 @@ export function Categorias() {
             </thead>
             <tbody>{renderRows()}</tbody>
           </table>
+        )}
+
+        {/* Paginação */}
+        {!isLoading && categoriasFiltradas.length > 0 && (
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-2 py-4 border-t border-border">
+            <p className="text-sm font-bold text-muted-foreground">
+              Mostrando {firstVisible}–{lastVisible} de{" "}
+              {categoriasFiltradas.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-10 h-10 rounded-full bg-background text-muted-foreground border border-border flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-border transition-colors"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {paginationPages.map((page, index) => {
+                const prev = paginationPages[index - 1];
+                const showGap = prev !== undefined && page - prev > 1;
+                return (
+                  <div key={page} className="flex items-center gap-2">
+                    {showGap && (
+                      <span className="text-muted-foreground font-bold px-1">
+                        ...
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-10 h-10 rounded-full px-3 text-sm font-black transition-colors ${
+                        currentPage === page
+                          ? "bg-[#020854] text-white shadow-md"
+                          : "bg-background text-muted-foreground border border-border hover:bg-slate-100 dark:hover:bg-border"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="w-10 h-10 rounded-full bg-background text-muted-foreground border border-border flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-border transition-colors"
+                aria-label="Próxima página"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

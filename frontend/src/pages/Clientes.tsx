@@ -146,7 +146,7 @@ export function Clientes() {
 
   const getNPS = (estrelas: number) => {
     if (estrelas >= 4) return 'Promotor';
-    if (estrelas === 3) return 'Neutro';
+    if (estrelas >= 3) return 'Neutro';
     return 'Detrator';
   };
 

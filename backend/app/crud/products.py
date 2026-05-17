@@ -65,7 +65,7 @@ def generate_sku(id_produto: str, categoria: str, nome_produto: str, fornecedor:
 
 async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto:
     id_produto = await generate_product_id(db)
-    sku_produto = await generate_sku(
+    sku_produto = generate_sku(
         id_produto=id_produto,
         categoria=str(product_in.categoria or "Outros"),
         nome_produto=product_in.nome_produto,
@@ -73,14 +73,40 @@ async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto
         )
 
     product_data = product_in.model_dump()
+    nome_categoria = product_data.pop("categoria", None)
+
     product_data["id_produto"] = id_produto
     product_data["sku"] = sku_produto
-    
+
+    id_categoria_encontrado = None
+    if nome_categoria:
+        from app.models.category import Categoria
+
+        print("Categoria que veio: ", nome_categoria)
+
+        stmt = select(Categoria.id_categoria).where(
+            func.lower(Categoria.nome_categoria) == func.lower(nome_categoria)
+        )
+        result = await db.execute(stmt)
+        id_categoria_encontrado = result.scalar_one_or_none()
+
+    if id_categoria_encontrado:
+        product_data["id_categoria"] = id_categoria_encontrado
+
     db_product = Produto(**product_data)
+
     db.add(db_product)
     await db.commit()
-    await db.refresh(db_product)
-    return db_product
+
+    query = (
+        select(Produto)
+        .options(joinedload(Produto.categoria))
+        .filter(Produto.id_produto == id_produto)
+    )
+    result = await db.execute(query)
+    db_product_completo = result.scalars().first()
+
+    return db_product_completo
 
 async def get_productById(db: AsyncSession, id_produto: str) -> Optional[Produto]:
     result = await db.execute(

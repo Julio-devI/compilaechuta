@@ -5,7 +5,6 @@ import {
   ShoppingCart,
   Package,
   HeadphonesIcon,
-  BarChart3,
   MessageSquare,
   Settings,
   LogOut,
@@ -28,7 +27,6 @@ const navItems: NavItem[] = [
   { icon: ShoppingCart, label: 'Pedidos', path: '/pedidos' },
   { icon: Package, label: 'Produtos', path: '/produtos' },
   { icon: HeadphonesIcon, label: 'Suporte', path: '/suporte' },
-  { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
   { icon: MessageSquare, label: 'Chat IA', path: '/chat-ia' },
   { icon: ShieldCheck, label: 'Operadores', path: '/operadores', roles: ['admin', 'super_admin'] },
 ]

@@ -5,15 +5,15 @@ from typing import Optional, List, Dict, Any
 
 from app.models.orders import Pedido
 from app.models.tickets import Ticket
-from app.models.products import Produto  # ADICIONADO: Necessário para o JOIN do filtro de categoria
-# NOTA PARA O CRUD: Descomente a importação abaixo quando criar a model para a fato_avaliacoes_pedido
-# from app.models.reviews import Avaliacao 
+from app.models.products import Produto
+from app.models.orders_evaluation import AvaliacaoPedido as Avaliacao
+from app.models.clients import Cliente
 
 
-def _calculate_percentage_change(current: float, previous: float) -> float:
-    """Calcula a variação percentual entre dois períodos."""
+def _calculate_percentage_change(current: float, previous: float) -> Optional[float]:
+    """Retorna None quando não há dados no período anterior (evita 100% enganoso)."""
     if previous == 0:
-        return 100.0 if current > 0 else 0.0
+        return None
     return round(((current - previous) / previous) * 100, 2)
 
 
@@ -116,6 +116,11 @@ async def get_kpis(
     prev_total_evals = row_csat_ant.total or 0 if row_csat_ant else 0
     prev_csat = (prev_promoters / prev_total_evals * 100) if prev_total_evals > 0 else 0.0
 
+    # 5. LTV Médio global (média de total_gasto_brl em dim_cliente)
+    stmt_ltv = select(func.avg(Cliente.total_gasto_brl))
+    res_ltv = await db.execute(stmt_ltv)
+    current_ltv = float(res_ltv.scalar_one() or 0.0)
+
     return {
         "total_revenue": {
             "current_value": current_revenue,
@@ -132,6 +137,10 @@ async def get_kpis(
         "active_clients": {
             "current_value": current_active,
             "percentage_change": _calculate_percentage_change(current_active, prev_active)
+        },
+        "ltv_medio": {
+            "current_value": round(current_ltv, 2),
+            "percentage_change": None
         }
     }
 
@@ -225,12 +234,64 @@ async def get_order_status_distribution(
 
 async def get_quick_actions(db: AsyncSession):
     stmt = select(func.count(func.distinct(Ticket.id_cliente)).label("clients_with_open_tickets"))
-    # NOTA PARA O CRUD: Certifique-se de que a string de status bate com o que está no banco.
-    stmt = stmt.filter(Ticket.status == "Aberto") 
-    
+    stmt = stmt.filter(Ticket.status == "aberto")
+
     result = await db.execute(stmt)
     row = result.first()
-    
+
     return {
         "clients_with_open_tickets": int(row.clients_with_open_tickets or 0)
     }
+
+
+async def get_revenue_by_category(
+    db: AsyncSession,
+    data_inicio: date,
+    data_fim: date,
+    limit: int = 6,
+):
+    from app.models.category import Categoria
+
+    stmt = select(
+        Categoria.nome_categoria.label("category"),
+        func.sum(Pedido.valor_total_venda).label("revenue"),
+    )
+    stmt = stmt.join(Produto, Pedido.id_produto == Produto.id_produto)
+    stmt = stmt.join(Categoria, Produto.id_categoria == Categoria.id_categoria)
+    stmt = _apply_filters(stmt, Pedido.id_data, data_inicio, data_fim)
+    stmt = (
+        stmt.filter(Categoria.nome_categoria.is_not(None))
+        .group_by(Categoria.nome_categoria)
+        .order_by(func.sum(Pedido.valor_total_venda).desc())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [{"category": row.category, "revenue": float(row.revenue or 0)} for row in rows]
+
+
+async def get_clients_by_region(db: AsyncSession):
+    stmt = (
+        select(Cliente.regiao, func.count(Cliente.id_cliente).label("clientes"))
+        .filter(Cliente.regiao.is_not(None))
+        .group_by(Cliente.regiao)
+        .order_by(func.count(Cliente.id_cliente).desc())
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [{"regiao": row.regiao, "clientes": int(row.clientes)} for row in rows]
+
+
+async def get_orders_by_weekday(
+    db: AsyncSession,
+    data_inicio: date,
+    data_fim: date,
+):
+    weekday = func.strftime('%w', Pedido.id_data).label('weekday')
+    stmt = select(weekday, func.count(Pedido.id_pedido).label("pedidos"))
+    stmt = _apply_filters(stmt, Pedido.id_data, data_inicio, data_fim)
+    stmt = stmt.group_by(weekday).order_by(weekday)
+    result = await db.execute(stmt)
+    rows = result.all()
+    day_map = {'0': 'Dom', '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb'}
+    return [{"dia": day_map.get(row.weekday, row.weekday), "pedidos": int(row.pedidos)} for row in rows]

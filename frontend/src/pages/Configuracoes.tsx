@@ -6,7 +6,6 @@ const menuItems = [
   { id: 'perfil', icon: User, label: 'Perfil' },
   { id: 'seguranca', icon: Shield, label: 'Segurança' },
   { id: 'aparencia', icon: Palette, label: 'Aparência' },
-  { id: 'empresa', icon: Building, label: 'Empresa' },
 ]
 
 const TEMA_OPTIONS: { label: string; value: Theme; preview: string }[] = [
@@ -23,9 +22,6 @@ export function Configuracoes() {
     email: 'joao.silva@vcommerce.com',
     telefone: '(11) 99999-9999',
     cargo: 'Administrador',
-    empresa: 'V-Commerce Brasil',
-    cnpj: '12.345.678/0001-90',
-    endereco: 'Av. Paulista, 1000 - São Paulo, SP',
     notificacoesEmail: true,
     notificacoesPush: true,
     notificacoesSMS: false,
@@ -182,7 +178,6 @@ export function Configuracoes() {
 
                 {[
                   { label: 'Alterar Senha', sub: 'Última alteração há 30 dias', action: 'Alterar' },
-                  { label: 'Sessões Ativas', sub: '3 dispositivos conectados', action: 'Gerenciar' },
                 ].map((item) => (
                   <div key={item.label} className="p-4 border border-border rounded-xl">
                     <div className="flex items-center justify-between">
@@ -224,50 +219,6 @@ export function Configuracoes() {
                     </button>
                   ))}
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Empresa */}
-          {activeSection === 'empresa' && (
-            <div>
-              <h2 className="text-xl font-bold text-foreground mb-6">Informações da Empresa</h2>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Nome da Empresa</label>
-                  <input
-                    type="text"
-                    value={formData.empresa}
-                    onChange={(e) => handleChange('empresa', e.target.value)}
-                    className="w-full px-4 py-3 bg-background text-foreground rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">CNPJ</label>
-                  <input
-                    type="text"
-                    value={formData.cnpj}
-                    onChange={(e) => handleChange('cnpj', e.target.value)}
-                    className="w-full px-4 py-3 bg-background text-foreground rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-foreground mb-2">Endereço</label>
-                  <input
-                    type="text"
-                    value={formData.endereco}
-                    onChange={(e) => handleChange('endereco', e.target.value)}
-                    className="w-full px-4 py-3 bg-background text-foreground rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <button className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-medium hover:bg-primary/90 transition-colors">
-                  <Save className="w-5 h-5" />
-                  Salvar Alterações
-                </button>
               </div>
             </div>
           )}

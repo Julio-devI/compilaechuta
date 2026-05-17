@@ -11,7 +11,6 @@ import { Clientes } from './pages/Clientes'
 import { Pedidos } from './pages/Pedidos'
 import { Produtos } from './pages/Produtos'
 import { Suporte } from './pages/Suporte'
-import { Relatorios } from './pages/Relatorios'
 import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
@@ -84,7 +83,7 @@ function App() {
                 <Route path="/produtos/novo" element={<CadastroProduto />} />
                 <Route path="/produtos/editar/:id" element={<EditarProduto />} />
                 <Route path="/suporte" element={<Suporte />} />
-                <Route path="/relatorios" element={<Relatorios />} />
+                <Route path="/relatorios" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/chat-ia" element={<ChatIA />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
               </Route>

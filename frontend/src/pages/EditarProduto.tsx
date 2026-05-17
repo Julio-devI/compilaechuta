@@ -16,12 +16,10 @@ export function EditarProduto() {
 
   const [formData, setFormData] = useState({
     nome: '',
-    sku: '',
     categoria: '',
     preco: '',
     estoque: '',
     status: 'Ativo',
-    descricao: ''
   })
 
   useEffect(() => {
@@ -47,12 +45,10 @@ export function EditarProduto() {
 
           setFormData({
             nome: produtoData.nome,
-            sku: produtoData.sku,
             categoria: produtoData.categoria,
             preco: precoLimpo,
             estoque: produtoData.estoque.toString(),
             status: produtoData.status === 'inativo' ? 'Inativo' : 'Ativo',
-            descricao: produtoData.descricao || ''
           })
         } else {
           alert('Produto não encontrado!')
@@ -87,12 +83,10 @@ export function EditarProduto() {
 
     const payload: Partial<ProdutoPayload> = {
       nome_produto: formData.nome,
-      sku: formData.sku,
       categoria: formData.categoria,
       preco: precoNumerico,
       estoque_disponivel: parseInt(formData.estoque) || 0,
       ativo: formData.status === 'Ativo' ? 'Sim' : 'Não',
-      descricao: formData.descricao
 
     }
 
@@ -165,17 +159,6 @@ export function EditarProduto() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">SKU *</label>
-                  <input
-                    type="text"
-                    name="sku"
-                    value={formData.sku}
-                    onChange={handleChange}
-                    className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700"
-                    required
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Categoria</label>
                   <select name="categoria" value={formData.categoria} onChange={handleChange} className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700 appearance-none">
                     <option value="">Selecione uma categoria</option>
@@ -184,17 +167,6 @@ export function EditarProduto() {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
-                <textarea
-                  name="descricao"
-                  value={formData.descricao}
-                  onChange={handleChange}
-                  rows={4}
-                  className="w-full p-4 bg-[#F8FAFC] rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-slate-700 resize-none"
-                />
               </div>
             </div>
           </div>

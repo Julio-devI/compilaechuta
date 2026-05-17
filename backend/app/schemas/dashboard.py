@@ -4,7 +4,7 @@ from typing import List, Optional
 class KPIVariation(BaseModel):
 
     current_value: float = Field(..., description="Valor atual no período filtrado")
-    percentage_change: float = Field(..., description="Variação percentual (ex: 3.14 ou -0.21)")
+    percentage_change: Optional[float] = Field(None, description="Variação percentual. None quando não há dados no período anterior.")
     # NOTA PARA O CRUD: Para calcular a variação, a entidade `Pedido` precisa
     # ter a coluna `id_data` convertida para `Date` (atualmente está como `String`),
     # permitindo filtros de datas dinâmicos no SQLAlchemy.
@@ -69,7 +69,20 @@ class ChartRevenueByCategory(BaseModel):
     revenue: float = Field(..., description="Valor consolidado na categoria")
 
 class RevenueByCategoryResponse(BaseModel):
-    data: List[ChartRevenueByCategory] = Field(
-        default_factory=list, 
-        description="Lista de faturamento agregado por categoria"
-    )
+    data: List[ChartRevenueByCategory] = Field(default_factory=list)
+
+
+class ChartClientByRegion(BaseModel):
+    regiao: str
+    clientes: int
+
+class ClientsByRegionResponse(BaseModel):
+    data: List[ChartClientByRegion] = Field(default_factory=list)
+
+
+class ChartOrderByWeekday(BaseModel):
+    dia: str
+    pedidos: int
+
+class OrdersByWeekdayResponse(BaseModel):
+    data: List[ChartOrderByWeekday] = Field(default_factory=list)

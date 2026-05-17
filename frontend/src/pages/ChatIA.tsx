@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Plus,
   Lightbulb,
+  ChevronDown,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,12 +22,18 @@ import {
   getSuggestions,
   listSessions,
   getSessionDetail,
+  type ChartSuggestion,
   type SessionSummary,
 } from '@/services/aiAgentService'
 import {
   SLASH_COMMANDS,
   SlashCommandMenu,
 } from '@/components/SlashCommandMenu'
+import { AgentChart } from '@/components/AgentChart'
+import {
+  AGENT_PLACEHOLDERS,
+  useRotatingPlaceholder,
+} from '@/lib/useRotatingPlaceholder'
 
 interface Message {
   id: number
@@ -35,6 +42,8 @@ interface Message {
   timestamp: string
   suggestions?: string[]
   sources_text?: string | null
+  data?: Array<Record<string, unknown>> | null
+  chart?: ChartSuggestion | null
 }
 
 interface ConversaHistorico {
@@ -96,8 +105,23 @@ export function ChatIA() {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [sessionId, setSessionId] = useState<string>(() => crypto.randomUUID())
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
+  const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messageIdRef = useRef(0)
+  const { text: placeholder, opacity: placeholderOpacity } =
+    useRotatingPlaceholder(AGENT_PLACEHOLDERS)
+
+  const toggleChart = (messageId: number) => {
+    setExpandedCharts(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) {
+        next.delete(messageId)
+      } else {
+        next.add(messageId)
+      }
+      return next
+    })
+  }
 
   const nextMessageId = () => {
     messageIdRef.current += 1
@@ -180,6 +204,8 @@ export function ChatIA() {
           content: assistantText,
           timestamp: nowHHmm(),
           sources_text: response.user_response.sources_text,
+          data: response.user_response.data,
+          chart: response.user_response.chart,
         },
       ])
 
@@ -270,6 +296,8 @@ export function ChatIA() {
     setInputValue('')
     setSlashMenuOpen(false)
     setSessionId(crypto.randomUUID())
+    setExpandedCharts(new Set())
+    setIsTyping(false)
     loadInitialSuggestions()
     sessionStorage.removeItem('ai_agent_last_session')
   }
@@ -279,6 +307,7 @@ export function ChatIA() {
     setSessionId(id)
     setInputValue('')
     setSlashMenuOpen(false)
+    setIsTyping(false)
     sessionStorage.setItem('ai_agent_last_session', id)
     try {
       const detail = await getSessionDetail(id)
@@ -288,8 +317,11 @@ export function ChatIA() {
         content: entry.content,
         timestamp: '',
         sources_text: entry.sources_text,
+        data: entry.data,
+        chart: entry.chart,
       }))
       setMensagens(mapped)
+      setExpandedCharts(new Set())
     } catch (err) {
       toast.error((err as Error).message)
     }
@@ -364,7 +396,7 @@ export function ChatIA() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <div className="flex-1 overflow-y-auto themed-scrollbar p-2 space-y-0.5">
             {filteredConversas.map(conversa => (
               <button
                 key={conversa.id}
@@ -492,7 +524,7 @@ export function ChatIA() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto themed-scrollbar p-6 space-y-5">
               {mensagens.map(msg => (
                 <div
                   key={msg.id}
@@ -548,6 +580,32 @@ export function ChatIA() {
                         >
                           {msg.content}
                         </ReactMarkdown>
+                      )}
+
+                      {msg.type === 'assistant' && msg.chart && msg.data && msg.data.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
+                          <button
+                            type="button"
+                            onClick={() => toggleChart(msg.id)}
+                            className="flex items-center gap-1.5 text-xs font-semibold w-full transition-colors"
+                            style={{ color: 'var(--chat-accent)' }}
+                          >
+                            <ChevronDown
+                              className="w-3.5 h-3.5 transition-transform"
+                              style={{
+                                transform: expandedCharts.has(msg.id)
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                              }}
+                            />
+                            Visualizar gráfico
+                          </button>
+                          {expandedCharts.has(msg.id) && (
+                            <div className="mt-3">
+                              <AgentChart chart={msg.chart} data={msg.data} />
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {msg.sources_text && (
@@ -670,8 +728,9 @@ export function ChatIA() {
                   value={inputValue}
                   onChange={handleInputChange}
                   onKeyDown={handleInputKeyDown}
-                  placeholder="Pergunte à V-Commerce..."
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                  placeholder={placeholder}
+                  style={{ '--ph-opacity': placeholderOpacity } as React.CSSProperties}
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none agent-placeholder-fade"
                 />
                 <button
                   onClick={handleEnviar}

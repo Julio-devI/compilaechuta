@@ -2,11 +2,14 @@ import { getAuthHeaders } from './authService'
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1'
 
+export type ChartValueFormat = 'percent' | 'currency' | 'number'
+
 export interface ChartSuggestion {
   type: 'bar' | 'line' | 'pie' | 'area'
   x_axis: string | null
   y_axis: string | null
   title: string
+  y_axis_format?: ChartValueFormat | null
 }
 
 export interface UserResponse {
@@ -42,6 +45,8 @@ export interface SessionHistoryEntry {
   content: string
   sql: string | null
   sources_text?: string | null
+  data?: Array<Record<string, unknown>> | null
+  chart?: ChartSuggestion | null
 }
 
 export interface SessionDetail {

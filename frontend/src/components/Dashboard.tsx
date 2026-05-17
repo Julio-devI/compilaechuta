@@ -7,7 +7,6 @@ import { RevenueChart } from './RevenueChart'
 import { SatisfactionChart } from './SatisfactionChart'
 import { OperationsChart } from './OperationsChart'
 import { QuickActions } from './QuickActions'
-import { ChatIADrawer } from './ChatIADrawer'
 import type { KpiItem } from '../services/dashboardService'
 import { getKpiData } from '../services/dashboardService'
 
@@ -70,8 +69,6 @@ export function Dashboard() {
         <OperationsChart />
         <QuickActions />
       </div>
-
-      <ChatIADrawer />
     </div>
   )
 }

@@ -3,7 +3,7 @@ import {
   Routes,
   Route,
   Outlet,
-  Navigate,
+  Navigate, useNavigate, useLocation,
 } from "react-router-dom";
 
 import { Sidebar } from "./components/Sidebar";
@@ -23,9 +23,12 @@ import { Operadores } from "./pages/Operadores";
 import { CadastroProduto } from "./pages/CadastroProduto";
 import { EditarProduto } from "./pages/EditarProduto";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { AuthProvider } from "./contexts/AuthContext";
+import {AuthProvider, useAuth} from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { Toaster } from "sonner";
+import {toast, Toaster} from "sonner";
+import {useEffect} from "react";
+import {AUTH_EXPIRED_EVENT} from "@/services/setupFetchInterceptor.ts";
+import {ChatIADrawer} from "@/components/ChatIADrawer.tsx";
 
 function AuthExpirationGuard() {
   const navigate = useNavigate()

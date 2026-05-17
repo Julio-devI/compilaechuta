@@ -6,11 +6,11 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Line,
   LineChart,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -36,6 +36,13 @@ const PALETTE = [
 
 const MAX_CATEGORICAL_ITEMS = 30
 const MAX_LABEL_CHARS = 14
+const Y_AXIS_DOMAIN: [
+  (dataMin: number) => number,
+  (dataMax: number) => number,
+] = [
+  (dataMin: number) => Math.min(0, dataMin),
+  (dataMax: number) => Math.max(0, dataMax),
+]
 
 const numberFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
@@ -92,6 +99,17 @@ function truncateLabel(value: unknown): string {
   return str.slice(0, MAX_LABEL_CHARS - 1) + '…'
 }
 
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
 function isValidAxis(data: Array<Record<string, unknown>>, key: string | null): boolean {
   if (!key) return false
   return data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], key)
@@ -117,8 +135,104 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
   const yKey = chart.y_axis as string
 
   const shouldCap = (chart.type === 'bar' || chart.type === 'pie') && data.length > MAX_CATEGORICAL_ITEMS
-  const renderData = shouldCap ? data.slice(0, MAX_CATEGORICAL_ITEMS) : data
+  const visibleData = shouldCap ? data.slice(0, MAX_CATEGORICAL_ITEMS) : data
+  const renderData = visibleData.map(row => {
+    const numericValue = toFiniteNumber(row[yKey])
+    if (numericValue === null || row[yKey] === numericValue) return row
+    return { ...row, [yKey]: numericValue }
+  })
+  const numericYValues = renderData
+    .map(row => toFiniteNumber(row[yKey]))
+    .filter((value): value is number => value !== null)
+  if (numericYValues.length === 0) {
+    return <Fallback message="Não foi possível renderizar o gráfico porque o eixo Y não contém valores numéricos." />
+  }
+
+  const hasNegativeYValue = numericYValues.some(value => value < 0)
+  const shouldRotateBarXAxis =
+    chart.type === 'bar' &&
+    (renderData.length > 4 ||
+      renderData.some(row => String(row[xKey] ?? '').length > MAX_LABEL_CHARS))
+  const yAxisWidth = Math.min(
+    80,
+    Math.max(
+      48,
+      Math.max(
+        ...numericYValues.map(value => compactNumberFormatter.format(value).length),
+      ) * 7 + 12,
+    ),
+  )
   const tooltipLabelFormatter = (label: unknown) => String(label ?? '')
+  const zeroReferenceLine = hasNegativeYValue ? (
+    <ReferenceLine
+      y={0}
+      stroke="var(--chat-border)"
+      strokeDasharray="4 4"
+      ifOverflow="extendDomain"
+    />
+  ) : null
+
+  if (chart.type === 'pie') {
+    const pieChartHeight = Math.max(120, height - 60)
+
+    return (
+      <div className="w-full" style={{ minHeight: shouldCap ? height + 20 : height }}>
+        <p className="text-xs font-semibold mb-1 text-foreground">{chart.title}</p>
+        {shouldCap && (
+          <p className="text-[10px] text-muted-foreground mb-2">
+            Exibindo os primeiros {MAX_CATEGORICAL_ITEMS} de {data.length} registros.
+          </p>
+        )}
+        <div style={{ height: pieChartHeight }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <Pie
+                data={renderData}
+                dataKey={yKey}
+                nameKey={xKey}
+                cx="50%"
+                cy="50%"
+                outerRadius="78%"
+              >
+                {renderData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                labelFormatter={tooltipLabelFormatter}
+                formatter={(value: unknown, name: unknown) => [
+                  formatValueByType(value, chart.y_axis_format ?? null),
+                  prettifyColumnName(String(name ?? '')),
+                ]}
+                contentStyle={{
+                  background: 'var(--chat-msg-ai-bg)',
+                  border: '1px solid var(--chat-border)',
+                  borderRadius: '0.5rem',
+                  fontSize: 12,
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[10px] leading-tight text-muted-foreground">
+          {renderData.map((row, index) => {
+            const label = String(row[xKey] ?? '')
+            return (
+              <div key={`${label}-${index}`} className="flex min-w-0 max-w-[45%] items-center gap-1">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-[2px]"
+                  style={{ background: PALETTE[index % PALETTE.length] }}
+                />
+                <span className="truncate" title={label}>
+                  {truncateLabel(label)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full" style={{ height: shouldCap ? height + 20 : height }}>
@@ -130,7 +244,10 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
       )}
       <ResponsiveContainer width="100%" height="85%">
         {chart.type === 'bar' ? (
-          <BarChart data={renderData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <BarChart
+            data={renderData}
+            margin={{ top: hasNegativeYValue ? 16 : 8, right: 16, left: 4, bottom: 0 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chat-border)" />
             <XAxis
               dataKey={xKey}
@@ -139,17 +256,19 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
               axisLine={false}
               interval={0}
               tickFormatter={truncateLabel}
-              angle={renderData.length > 6 ? -35 : 0}
-              textAnchor={renderData.length > 6 ? 'end' : 'middle'}
-              height={renderData.length > 6 ? 70 : 30}
+              angle={shouldRotateBarXAxis ? -35 : 0}
+              textAnchor={shouldRotateBarXAxis ? 'end' : 'middle'}
+              height={shouldRotateBarXAxis ? 70 : 30}
             />
             <YAxis
               tick={{ fill: '#94A3B8', fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={value => compactNumberFormatter.format(value as number)}
-              width={48}
+              width={yAxisWidth}
+              domain={Y_AXIS_DOMAIN}
             />
+            {zeroReferenceLine}
             <Tooltip
               cursor={{ fill: 'rgba(30, 94, 255, 0.08)' }}
               labelFormatter={tooltipLabelFormatter}
@@ -167,7 +286,10 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
             <Bar dataKey={yKey} fill={PALETTE[0]} radius={[6, 6, 0, 0]} />
           </BarChart>
         ) : chart.type === 'line' ? (
-          <LineChart data={renderData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <LineChart
+            data={renderData}
+            margin={{ top: hasNegativeYValue ? 16 : 8, right: 16, left: 4, bottom: 0 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chat-border)" />
             <XAxis
               dataKey={xKey}
@@ -182,8 +304,10 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
               tickLine={false}
               axisLine={false}
               tickFormatter={value => compactNumberFormatter.format(value as number)}
-              width={48}
+              width={yAxisWidth}
+              domain={Y_AXIS_DOMAIN}
             />
+            {zeroReferenceLine}
             <Tooltip
               labelFormatter={tooltipLabelFormatter}
               formatter={(value: unknown, name: unknown) => [
@@ -205,8 +329,11 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
               dot={renderData.length <= 30 ? { r: 3 } : false}
             />
           </LineChart>
-        ) : chart.type === 'area' ? (
-          <AreaChart data={renderData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        ) : (
+          <AreaChart
+            data={renderData}
+            margin={{ top: hasNegativeYValue ? 16 : 8, right: 16, left: 4, bottom: 0 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chat-border)" />
             <XAxis
               dataKey={xKey}
@@ -221,8 +348,10 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
               tickLine={false}
               axisLine={false}
               tickFormatter={value => compactNumberFormatter.format(value as number)}
-              width={48}
+              width={yAxisWidth}
+              domain={Y_AXIS_DOMAIN}
             />
+            {zeroReferenceLine}
             <Tooltip
               labelFormatter={tooltipLabelFormatter}
               formatter={(value: unknown, name: unknown) => [
@@ -239,47 +368,13 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
             <Area
               type="monotone"
               dataKey={yKey}
+              baseValue={0}
               stroke={PALETTE[0]}
               fill={PALETTE[0]}
               fillOpacity={0.25}
               strokeWidth={2}
             />
           </AreaChart>
-        ) : (
-          <PieChart>
-            <Pie
-              data={renderData}
-              dataKey={yKey}
-              nameKey={xKey}
-              cx="50%"
-              cy="50%"
-              outerRadius="80%"
-              label={({ name }: { name?: unknown }) => truncateLabel(name)}
-              labelLine={false}
-            >
-              {renderData.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              labelFormatter={tooltipLabelFormatter}
-              formatter={(value: unknown, name: unknown) => [
-                formatValueByType(value, chart.y_axis_format ?? null),
-                prettifyColumnName(String(name ?? '')),
-              ]}
-              contentStyle={{
-                background: 'var(--chat-msg-ai-bg)',
-                border: '1px solid var(--chat-border)',
-                borderRadius: '0.5rem',
-                fontSize: 12,
-              }}
-            />
-            <Legend
-              wrapperStyle={{ fontSize: 11 }}
-              iconSize={8}
-              formatter={value => truncateLabel(value)}
-            />
-          </PieChart>
         )}
       </ResponsiveContainer>
     </div>

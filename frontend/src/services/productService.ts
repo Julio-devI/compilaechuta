@@ -1,4 +1,5 @@
 const API_URL = 'http://localhost:8000/api/v1/products/'
+const EVAL_API_URL = 'http://localhost:8000/api/v1/orders-evaluation/'
 
 // 1. Interface de como o dado CHEGA da sua nova API (Backend)
 export interface ProdutoDaAPI {
@@ -43,7 +44,9 @@ export interface Produto {
   // Campos extras úteis para os cards do dashboard
   ticketMedio?: string
   total_tickets?: number
+  receitaTotal?: string
   descricao?: string;
+  comentarios?: string[];
 }
 
 export interface FiltrosProdutos {
@@ -97,6 +100,7 @@ function mapearProduto(p: ProdutoDaAPI): Produto {
     tendencia: 'stable', 
     ticketMedio: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.ticket_medio || 0),
     total_tickets: p.total_tickets || 0,
+    receitaTotal: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.receita_total || 0),
     descricao: p.descricao || ''
   }
 }
@@ -157,6 +161,17 @@ export async function getTopSellingProduct(): Promise<string> {
     } catch (error) {
         console.error('Erro ao buscar produto mais vendido:', error)
         return "Nenhum"
+    }
+}
+
+export async function getProductComments(id: string): Promise<string[]> {
+    try {
+        const response = await fetch(`${EVAL_API_URL}product/${id}/comments`)
+        if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+        return await response.json()
+    } catch (error) {
+        console.error('Erro ao buscar comentários:', error)
+        return []
     }
 }
 

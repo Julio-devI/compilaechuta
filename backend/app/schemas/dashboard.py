@@ -14,16 +14,9 @@ class KPIResponse(BaseModel):
 
     total_revenue: KPIVariation = Field(..., description="Receita total (soma de valor_total_venda)")
     total_orders: KPIVariation = Field(..., description="Quantidade total de pedidos")
-    
     csat_promoters: KPIVariation = Field(..., description="Percentual de CSAT Promotores")
-    # NOTA PARA O CRUD: Você ainda NÃO possui a model SQLAlchemy para `fato_avaliacoes_pedido` 
-    # mapeada no back-end. Para calcular o CSAT por período, será necessário criar 
-    # essa model com os campos `data_avaliacao` e `categoria_nps`.
-
     active_clients: KPIVariation = Field(..., description="Quantidade de clientes distintos que realizaram ação")
-    # NOTA PARA O CRUD: Para calcular clientes ativos por período, você precisará usar um COUNT DISTINCT 
-    # do `id_cliente` na `fato_vendas` (com base na data do pedido) ou criar a model da
-    # `fato_clickstream_navegacao` que possui a `data_ultima_sessao`.
+    ltv_medio: KPIVariation = Field(..., description="Média de lifetime value (total_gasto_brl) dos clientes")
 
 class ChartRevenueOverTime(BaseModel):
     time_period: str = Field(..., description='Rótulo do eixo X (ex: "Jan", "Fev" ou "2026-01-15")')

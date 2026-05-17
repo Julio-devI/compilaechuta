@@ -22,6 +22,7 @@ class ClienteOut(ClienteBase):
     data_ultima_compra:     Optional[datetime.datetime] = None
     media_estrelas_dadas:   Optional[float] = Field(None, ge=0, le=5)
     segmento_rfm:           Optional[str] = None
+    categoria_interesse:    Optional[str] = None
 
     @field_validator("media_estrelas_dadas", mode="before")
     @classmethod

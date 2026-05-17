@@ -28,6 +28,15 @@ class ChartSuggestionSchema(BaseModel):
         ),
     )
     title: str = Field(..., description="Título sugerido para o gráfico.")
+    y_axis_format: Optional[Literal["percent", "currency", "number"]] = Field(
+        None,
+        description=(
+            "Formato sugerido para a métrica do eixo Y, usado pelo frontend "
+            "para formatar tooltip e rótulos. 'percent' aplica sufixo %, "
+            "'currency' formata como R$, 'number' usa separador de milhar "
+            "padrão. None equivale a 'number'."
+        ),
+    )
 
 
 class UserResponseSchema(BaseModel):
@@ -104,6 +113,7 @@ class AgentResponseSchema(BaseModel):
                         "x_axis": "produto",
                         "y_axis": "quantidade",
                         "title": "Top 3 produtos mais vendidos",
+                        "y_axis_format": "number",
                     },
                     "truncated": False,
                 },
@@ -186,14 +196,50 @@ class SessionsListResponse(BaseModel):
     )
 
 
+class SessionHistoryEntry(BaseModel):
+    """Entrada do histórico de uma sessão.
+
+    Os campos data e chart são preenchidos apenas em turnos com role
+    assistant quando a resposta do agente envolve dados tabulares
+    e/ou sugestão de gráfico. Sessões antigas anteriores à introdução
+    desses campos os trazem como None.
+    """
+
+    role: Literal["user", "assistant"] = Field(..., description="Papel da mensagem.")
+    content: str = Field(..., description="Texto da mensagem.")
+    sql: Optional[str] = Field(
+        None,
+        description="SQL gerado pelo agente (apenas em turnos assistant).",
+    )
+    sources_text: Optional[str] = Field(
+        None,
+        description="Descrição das fontes consultadas (apenas em turnos assistant).",
+    )
+    data: Optional[list[dict[str, Any]]] = Field(
+        None,
+        description=(
+            "Linhas tabulares retornadas pela query, idênticas ao "
+            "user_response.data do turno original. Apenas em turnos assistant."
+        ),
+    )
+    chart: Optional[ChartSuggestionSchema] = Field(
+        None,
+        description=(
+            "Sugestão de gráfico associada ao turno, idêntica ao "
+            "user_response.chart do turno original. Apenas em turnos assistant."
+        ),
+    )
+
+
 class SessionDetailResponse(BaseModel):
     """Resposta de GET /ai-agent/sessions/{session_id}."""
 
     session_id: str = Field(..., description="Identificador da sessão.")
-    history: list[dict[str, Optional[str]]] = Field(
+    history: list[SessionHistoryEntry] = Field(
         ...,
         description=(
-            "Histórico alternado user/assistant no formato exportado pelo agente: "
-            "lista de dicts com chaves role, content e sql."
+            "Histórico alternado user/assistant. Cada entrada traz role, "
+            "content, sql, sources_text e, quando aplicável, data e chart "
+            "para restauração de visualizações no frontend."
         ),
     )

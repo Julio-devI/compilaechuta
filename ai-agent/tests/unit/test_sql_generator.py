@@ -10,6 +10,7 @@ import pytest
 from vcommerce_ai_agent.core import config
 from vcommerce_ai_agent.llm.sql_generator import (
     _extract_out_of_scope,
+    _load_system_prompt,
     _strip_sql_comments,
     _validate_sql_response,
     _validate_syntax,
@@ -140,3 +141,11 @@ def test_validate_sql_response_accepts_wrapped_out_of_scope():
     _validate_sql_response(
         f"```text\n{config.OUT_OF_SCOPE_MARKER} Tabelas ocultas não estão disponíveis.\n```"
     )
+
+
+def test_sql_system_prompt_guides_temporal_follow_ups():
+    prompt = _load_system_prompt("schema", "historico")
+
+    assert "comparado com os anteriores" in prompt
+    assert "períodos anteriores comparáveis" in prompt
+    assert "vedas" in prompt

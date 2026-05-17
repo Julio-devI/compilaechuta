@@ -159,7 +159,7 @@
           "examples": [2023, 2024, 2025]
         },
         "mes": {
-          "description": "Numero do mes (1 a 12).",
+          "description": "Numero do mes no ano (1 a 12). Ciclico: para ordenar ou comparar meses entre anos diferentes, use a chave composta (ano, mes) com ORDER BY ano, mes, ou use a coluna ano_mes (AAAA-MM), que ja e diretamente ordenavel.",
           "examples": [1, 6, 12]
         },
         "dia": {
@@ -167,7 +167,7 @@
           "examples": [1, 15, 31]
         },
         "trimestre": {
-          "description": "Trimestre do ano (1, 2, 3, 4).",
+          "description": "Trimestre do ano (1, 2, 3, 4). Ciclico: para ordenar ou comparar trimestres entre anos diferentes, use a chave composta (ano, trimestre) com ORDER BY ano, trimestre. Nao existe coluna de trimestre absoluto; sempre combine com ano em qualquer comparacao temporal.",
           "examples": [1, 2, 4]
         },
         "dia_semana_num": {
@@ -183,7 +183,7 @@
           "examples": [1, 26, 52]
         },
         "nome_mes": {
-          "description": "Nome do mes em ingles.",
+          "description": "Nome do mes em ingles. Tambem ciclico por ano: para comparacao entre anos diferentes, combine com ano ou use ano_mes.",
           "examples": ["January", "June", "December"]
         },
         "nome_dia_semana": {
@@ -191,11 +191,11 @@
           "examples": ["Sunday", "Monday", "Friday"]
         },
         "ano_mes": {
-          "description": "Ano e mes concatenados no formato AAAA-MM.",
+          "description": "Ano e mes concatenados no formato AAAA-MM. Coluna ja ordenavel; recomendada para comparacao temporal mensal entre anos diferentes (mais simples que combinar ano e mes manualmente).",
           "examples": ["2023-01", "2024-06", "2025-12"]
         },
         "trimestre_label": {
-          "description": "Label do trimestre (ex: Q1, Q2, Q3, Q4).",
+          "description": "Label textual do trimestre (Q1, Q2, Q3, Q4). Tambem ciclico por ano: para comparacao entre anos diferentes, combine com ano.",
           "examples": ["Q1", "Q2", "Q4"]
         },
         "fim_de_semana": {

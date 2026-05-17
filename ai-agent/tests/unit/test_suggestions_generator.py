@@ -267,7 +267,10 @@ async def test_generate_suggestions_calls_llm_agent_with_correct_settings(monkey
             captured["model"] = model
 
         async def run(self, question: str, validator=None):
-            return MagicMock(output='{"suggestions":["A?","B?","C?","D?","E?"]}', tokens_used=42)
+            raw = '{"suggestions":["A?","B?","C?","D?","E?"]}'
+            if validator is not None:
+                validator(raw)
+            return MagicMock(output=raw, tokens_used=42)
 
     monkeypatch.setattr(
         "vcommerce_ai_agent.llm.suggestions_generator.LLMAgent", FakeLLMAgent
@@ -295,10 +298,10 @@ async def test_generate_suggestions_injects_history_into_prompt(monkeypatch):
             captured["system_prompt"] = kwargs["system_prompt"]
 
         async def run(self, question: str, validator=None):
-            return MagicMock(
-                output='{"suggestions":["A?","B?","C?","D?","E?"]}',
-                tokens_used=42,
-            )
+            raw = '{"suggestions":["A?","B?","C?","D?","E?"]}'
+            if validator is not None:
+                validator(raw)
+            return MagicMock(output=raw, tokens_used=42)
 
     monkeypatch.setattr(
         "vcommerce_ai_agent.llm.suggestions_generator.LLMAgent", FakeLLMAgent
@@ -322,7 +325,10 @@ async def test_generate_suggestions_returns_tokens_when_none(monkeypatch):
             pass
 
         async def run(self, question: str, validator=None):
-            return MagicMock(output='{"suggestions":["A?","B?","C?","D?","E?"]}', tokens_used=None)
+            raw = '{"suggestions":["A?","B?","C?","D?","E?"]}'
+            if validator is not None:
+                validator(raw)
+            return MagicMock(output=raw, tokens_used=None)
 
     monkeypatch.setattr(
         "vcommerce_ai_agent.llm.suggestions_generator.LLMAgent", FakeLLMAgent

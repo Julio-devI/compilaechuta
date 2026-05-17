@@ -48,7 +48,8 @@ Retorne APENAS um objeto JSON válido, sem markdown, sem explicações fora do J
     "type": "bar",
     "x_axis": "nome_da_coluna_no_data",
     "y_axis": "nome_da_coluna_no_data",
-    "title": "Título sugerido para o gráfico"
+    "title": "Título sugerido para o gráfico",
+    "y_axis_format": "number"
   }
 }
 
@@ -56,25 +57,38 @@ Use `chart: null` quando não fizer sentido sugerir gráfico.
 
 ## Regras para o campo chart
 
-O campo `chart` é **opcional e decisão do agente**. Retorne `chart: null` por padrão, a menos que uma das condições abaixo seja verdadeira:
+O campo `chart` é **preenchido por padrão sempre que houver padrão visual claro nos dados**. O frontend usa essa sugestão para oferecer ao usuário a opção de visualizar o resultado como gráfico. Retorne `chart: null` apenas nos casos listados como exceção abaixo.
 
-1. O usuário solicitou explicitamente uma visualização, gráfico ou plot (verbos como "mostre", "exiba", "plote", "gráfico de", "visualização de"). Neste caso, preencha `chart` obrigatoriamente com o tipo mais adequado, mesmo que os dados retornem poucas categorias ou um único valor. A intenção explícita do usuário tem prioridade sobre a avaliação visual dos dados.
-2. Os dados retornados possuem padrão visual claro e um gráfico agregaria valor real à resposta.
+Preencha `chart` quando os dados retornados atenderem aos dois critérios simultaneamente:
 
-Critérios por tipo de resposta:
+1. Existem ao menos uma coluna categórica ou temporal (dimensão de agrupamento) e ao menos uma coluna numérica (métrica).
+2. O resultado possui ao menos duas linhas de dados.
 
-- **Resposta escalar** (valor único, total, média, contagem sem agrupamento): use `chart: null`.
-- **Listagem detalhada** de registros sem agregação (ex.: lista de clientes, pedidos, tickets): use `chart: null`. O frontend renderiza como tabela.
+Retorne `chart: null` apenas em uma das situações abaixo:
+
+- **Resposta escalar**: valor único, total, média ou contagem sem agrupamento (ex.: receita total do ano).
+- **Listagem detalhada** de registros sem agregação (ex.: lista de clientes, pedidos ou tickets com múltiplos atributos heterogêneos). Quando houver muitas colunas e nenhuma métrica clara para o eixo Y, prefira `null`.
+- **Dados vazios**: zero linhas retornadas.
+- **Ranking com colunas heterogêneas** sem eixo Y numérico claro: prefira `null`.
+
+Critérios por tipo de gráfico:
+
 - **Ranking ou comparação entre categorias** (top N, ordenação por métrica): use `type: "bar"`.
 - **Série temporal** (evolução por dia, mês, ano): use `type: "line"` ou `type: "area"`.
-- **Distribuição ou proporção** com até 6 categorias distintas: use `type: "pie"`.
-- **Dados vazios ou sem eixos claros**: use `chart: null`.
+- **Distribuição ou proporção** com até 6 categorias distintas: use `type: "pie"`. Sinalizadores como "distribuição", "proporção", "participação", "share", "percentual entre", "fatias" ou "qual a fatia" devem priorizar `pie` mesmo quando há métrica numérica que isoladamente sugeriria `bar`.
 
 Regras técnicas:
 
 - `type` deve ser exatamente um destes valores: "bar", "line", "pie" ou "area".
 - `x_axis` e `y_axis` devem corresponder exatamente a chaves presentes nos dados retornados pelo banco.
-- Quando o usuário pedir gráfico explicitamente, preencha `chart` obrigatoriamente com o tipo mais adequado.
+- `y_axis` DEVE apontar para uma coluna numérica: resultado de `SUM`, `COUNT`, `AVG`, `ROUND`, percentual ou métrica calculada. NUNCA use colunas do tipo data, texto, identificador ou categórico como `y_axis`. Quando a consulta retornar apenas listagem detalhada (atributos sem métrica clara), retorne `chart: null` em vez de inventar um eixo numérico.
+- Quando o usuário pedir gráfico explicitamente (verbos como "mostre", "exiba", "plote", "gráfico de", "visualização de"), preencha `chart` obrigatoriamente com o tipo mais adequado, mesmo que os dados retornem poucas categorias. A intenção explícita do usuário tem prioridade sobre a avaliação visual dos dados.
+- Quando o usuário nomear o tipo de gráfico desejado, `chart.type` DEVE obedecer ao mapeamento: "barras" ou "barra" -> `bar`; "pizza", "pie", "redondo" ou "setores" -> `pie`; "linha" ou "linhas" -> `line`; "área", "area" ou "preenchido" -> `area`. A intenção nomeada pelo usuário tem prioridade absoluta sobre os critérios visuais acima. Se o tipo nomeado não existir, escolha o mais próximo entre bar, line, pie e area.
+- `y_axis_format` declara o formato de exibição da métrica do eixo Y, usado pelo frontend para renderizar tooltip e rótulos. Valores permitidos: "percent", "currency", "number" ou null. Use:
+  - "percent" quando a métrica é razão em escala de 0 a 100 (colunas que começam com `pct_`, `perc_`, `taxa_`, `porcentagem_`, `percentual_`; ou alias com esse sentido). Exemplo: `pct_recomendacoes_sim`, `porcentagem_clientes_satisfeitos`.
+  - "currency" quando a métrica é valor monetário em BRL (colunas que terminam com `_brl`; ou contêm `receita`, `faturamento`, `valor_`, `preco`, `gasto`, `custo`, `lucro`, `ticket_medio`). Exemplo: `total_gasto_brl`, `receita_total`, `preco_medio`, `ticket_medio`.
+  - "number" para contagens, médias de nota, tempos, scores e qualquer métrica numérica sem unidade especial. Exemplo: `qtd_pedidos_realizados`, `media_nota_produto`, `tempo_medio_resolucao`.
+  - null quando o eixo Y não é numérico ou quando não é possível classificar com segurança.
 
 ## Tratamento de Dados Sensíveis
 

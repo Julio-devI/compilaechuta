@@ -411,7 +411,7 @@
 
 - **Justificativa:** Tira a responsabilidade do frontend de sempre produzir um gráfico. Remove o clutter visual para o usuário; perguntas simples (valor único, listagem detalhada) não precisam de gráfico como resposta. O agente respeita a intenção explícita do usuário quando solicita visualizações.
 
-- **Implicações:** O frontend deve sempre tratar `chart` como opcional; quando `chart=None` e `data` existe, renderiza como tabela. O orçamento de chamadas LLM não muda (Chamada 2 já existia). O smoke test `smoke_test_chart_decision.py` valida a decisão do agente em cenários variados.
+- **Implicações:** O frontend deve sempre tratar `chart` como opcional. Quando `chart=None`, a interface não deve inventar visualização nem renderizar fallback automático de tabela apenas por haver `data`; deve exibir a resposta textual e omitir o bloco de gráfico. Quando `chart` vier preenchido, o frontend valida `type`, `x_axis` e `y_axis` contra as chaves presentes em `data` antes de renderizar com Recharts. O campo `y_axis_format`, quando presente, orienta a formatação visual do eixo ou tooltip, sem alterar os dados retornados pelo agente. O orçamento de chamadas LLM não muda (Chamada 2 já existia). O smoke test `smoke_test_chart_decision.py` valida a decisão do agente em cenários variados.
 
 ---
 
@@ -424,3 +424,21 @@
 - **Justificativa:** Delegar a responsabilidade de tradução de nomenclatura inteiramente ao artefato de configuração (schema JSON) e garantir que o código Python se mantenha agnóstico quanto às práticas de nomenclatura do pipeline de engenharia de dados. Essa mudança simplifica o código, tornando a apresentação previsível e garantindo robustez a longo prazo quando novos prefixos não mapeados previamente (ex: `mart_`) forem criados.
 
 - **Implicações:** O preenchimento da propriedade `display_name` em `schema_descriptions.json` torna-se praticamente um requisito de interface visual.
+
+---
+
+## Decisões de Frontend
+
+Esta seção agrupa decisões arquiteturais que pertencem primariamente ao frontend da aplicação principal, mas que impactam a integração com o `ai-agent` ou com o backend.
+
+---
+
+### DF-01: Tratamento Global de Expiração de Sessão
+
+- **Contexto:** Múltiplos serviços do frontend consomem endpoints protegidos via `fetch`, incluindo os endpoints do agente de IA. Tratar respostas HTTP 401 individualmente em cada serviço duplicaria lógica de autenticação e criaria comportamentos inconsistentes de logout, navegação e feedback ao usuário.
+
+- **Decisão:** Instalar um interceptor global de `window.fetch` no bootstrap da aplicação. Quando uma resposta 401 ocorre fora das rotas públicas de autenticação e ainda existe token local, o interceptor dispara o evento `auth:expired`. O componente raiz escuta esse evento, executa logout, exibe feedback de sessão expirada e redireciona para `/login`.
+
+- **Justificativa:** Centralizar o tratamento de expiração de sessão garante comportamento uniforme para todas as telas e serviços, sem exigir que cada chamada HTTP conheça detalhes de autenticação. O evento desacopla a camada de transporte (`fetch`) da camada de UI, permitindo que o redirecionamento e o toast permaneçam no React.
+
+- **Implicações:** Novas chamadas que usem `fetch` herdam automaticamente o tratamento de 401. Rotas públicas de autenticação precisam permanecer na allowlist do interceptor para evitar logout durante login, recuperação ou redefinição de senha. Se algum serviço futuro trocar `fetch` por outro cliente HTTP, ele precisa preservar esse contrato de expiração de sessão.

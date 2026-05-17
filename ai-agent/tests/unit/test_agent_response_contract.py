@@ -762,6 +762,43 @@ async def test_invalid_chart_is_discarded(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_chart_discarded_when_y_axis_not_numeric(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+
+    async def fake_generate_sql(*args, **kwargs):
+        return "SELECT nome_cliente, data_ultima_compra FROM dim_cliente", None
+
+    async def fake_execute_query(sql):
+        return [
+            {"nome_cliente": "Ana", "data_ultima_compra": "2023-01-02"},
+            {"nome_cliente": "Yuri", "data_ultima_compra": "2023-01-04"},
+        ], False
+
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(
+            chart={
+                "type": "bar",
+                "x_axis": "nome_cliente",
+                "y_axis": "data_ultima_compra",
+                "title": "Clientes Inativos",
+            }
+        ), None
+
+    monkeypatch.setattr(agent, "_load_schema", _fake_load_schema)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_args: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+
+    response = await agent.ask(
+        "Quais clientes não fazem pedidos há mais de 90 dias?"
+    )
+
+    assert response.status == "success"
+    assert response.user_response.chart is None
+
+
+@pytest.mark.asyncio
 async def test_insight_parse_error_returns_structured_debug_error(monkeypatch):
     agent = VCommerceAgent(db_path=":memory:")
 
@@ -1154,3 +1191,91 @@ async def test_pipeline_chart_title_restored_but_axes_unchanged(monkeypatch):
     assert response.user_response.chart.title == "Vendas por João Silva"
     assert response.user_response.chart.x_axis == "cliente"
     assert response.user_response.chart.y_axis == "total"
+
+
+@pytest.mark.parametrize(
+    "y_axis_format, expected",
+    [
+        ("percent", "percent"),
+        ("currency", "currency"),
+        ("number", "number"),
+        (None, None),
+    ],
+)
+def test_build_chart_preserves_valid_y_axis_format(y_axis_format, expected):
+    agent = VCommerceAgent(db_path=":memory:")
+    chart_data = {
+        "type": "bar",
+        "x_axis": "categoria",
+        "y_axis": "porcentagem",
+        "title": "Distribuicao",
+        "y_axis_format": y_axis_format,
+    }
+    rows = [
+        {"categoria": "A", "porcentagem": 10.0},
+        {"categoria": "B", "porcentagem": 20.0},
+    ]
+
+    chart = agent._build_chart(chart_data, rows)
+
+    assert chart is not None
+    assert chart.y_axis_format == expected
+
+
+def test_build_chart_normalizes_invalid_y_axis_format_to_none():
+    agent = VCommerceAgent(db_path=":memory:")
+    chart_data = {
+        "type": "bar",
+        "x_axis": "categoria",
+        "y_axis": "porcentagem",
+        "title": "Distribuicao",
+        "y_axis_format": "bogus",
+    }
+    rows = [
+        {"categoria": "A", "porcentagem": 10.0},
+        {"categoria": "B", "porcentagem": 20.0},
+    ]
+
+    chart = agent._build_chart(chart_data, rows)
+
+    assert chart is not None
+    assert chart.y_axis_format is None
+
+
+def test_validate_chart_sanitizes_invalid_y_axis_format():
+    from vcommerce_ai_agent.llm.insight_generator import _validate_chart
+
+    insight = {
+        "chart": {
+            "type": "bar",
+            "x_axis": "categoria",
+            "y_axis": "valor",
+            "title": "T",
+            "y_axis_format": "money",
+        }
+    }
+    data = [{"categoria": "A", "valor": 10.0}]
+
+    _validate_chart(insight, data)
+
+    assert insight["chart"] is not None
+    assert insight["chart"]["y_axis_format"] is None
+
+
+def test_validate_chart_preserves_valid_y_axis_format():
+    from vcommerce_ai_agent.llm.insight_generator import _validate_chart
+
+    insight = {
+        "chart": {
+            "type": "bar",
+            "x_axis": "categoria",
+            "y_axis": "valor",
+            "title": "T",
+            "y_axis_format": "currency",
+        }
+    }
+    data = [{"categoria": "A", "valor": 10.0}]
+
+    _validate_chart(insight, data)
+
+    assert insight["chart"]["y_axis_format"] == "currency"

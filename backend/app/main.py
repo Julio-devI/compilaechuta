@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -12,6 +13,8 @@ os.environ.setdefault(
     "LLM_TEMPERATURE_INSIGHT", str(settings.LLM_TEMPERATURE_INSIGHT)
 )
 
+from app.api.v1.ai_agent import cleanup_session_locks_loop
+
 import app.models.ai_agent  # noqa: F401
 import app.models.clients  # noqa: F401
 import app.models.tickets  # noqa: F401
@@ -23,23 +26,33 @@ import app.models.operator  # noqa: F401
 from app.api.v1.api import api_router
 
 # Configura logger do agente de IA
+import json
+class ExtraFormatter(logging.Formatter):
+    def format(self, record):
+        s = super().format(record)
+        extra = {k: v for k, v in record.__dict__.items() if k not in logging.LogRecord('', 0, '', 0, '', (), None).__dict__ and k != 'message'}
+        if extra:
+            s += f" | {json.dumps(extra, default=str, ensure_ascii=False)}"
+        return s
+
 vcommerce_ai_logger = logging.getLogger("vcommerce_ai_agent")
 vcommerce_ai_logger.setLevel(logging.INFO)
 if not vcommerce_ai_logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
+    handler.setFormatter(ExtraFormatter("%(name)s - %(levelname)s - %(message)s"))
     vcommerce_ai_logger.addHandler(handler)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Preaquece as sugestões do agente no startup (dispara a primeira geração de IA)
+    cleanup_task = asyncio.create_task(cleanup_session_locks_loop())
     try:
-        from app.api.v1.ai_agent import get_suggestions
-        await get_suggestions()
-        vcommerce_ai_logger.info("Sugestões preaquecidas com sucesso no startup.")
-    except Exception as e:
-        vcommerce_ai_logger.error(f"Falha ao preaquecer sugestões no startup: {e}")
-    yield
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title="V-Commerce CRM 360",

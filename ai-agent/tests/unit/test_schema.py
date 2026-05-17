@@ -213,6 +213,14 @@ def test_load_descriptions_accepts_external_file(tmp_path):
     assert result["tables"]["dim_cliente"]["display_name"] == "clientes"
 
 
+@pytest.mark.parametrize("empty_path", ["", "   "])
+def test_load_descriptions_uses_packaged_file_for_empty_path(empty_path):
+    result = load_descriptions(empty_path)
+
+    assert "tables" in result
+    assert "dim_cliente" in result["tables"]
+
+
 def test_load_descriptions_rejects_external_file_with_invalid_structure(tmp_path):
     descriptions_path = tmp_path / "schema_descriptions.json"
     descriptions_path.write_text('{"tables": []}', encoding="utf-8")

@@ -1,3 +1,4 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -33,6 +34,19 @@ class Settings(BaseSettings):
             import os
             return os.path.abspath(path)
         return self.DATABASE_URL
+
+    @property
+    def AI_AGENT_SCHEMA_DESCRIPTIONS_PATH(self) -> str | None:
+        """Resolve o JSON de descrições do schema usado pelo agente de IA."""
+        if self.SCHEMA_DESCRIPTIONS_PATH and self.SCHEMA_DESCRIPTIONS_PATH.strip():
+            return self.SCHEMA_DESCRIPTIONS_PATH
+
+        default_path = (
+            Path(__file__).resolve().parents[2]
+            / "config"
+            / "schema_descriptions.json"
+        )
+        return str(default_path) if default_path.exists() else None
 
     RESET_TOKEN_EXPIRE_MINUTES: int = 15
 

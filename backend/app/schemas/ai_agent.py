@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal, Optional, Any
 
@@ -27,6 +28,15 @@ class ChartSuggestionSchema(BaseModel):
         ),
     )
     title: str = Field(..., description="Título sugerido para o gráfico.")
+    y_axis_format: Optional[Literal["percent", "currency", "number"]] = Field(
+        None,
+        description=(
+            "Formato sugerido para a métrica do eixo Y, usado pelo frontend "
+            "para formatar tooltip e rótulos. 'percent' aplica sufixo %, "
+            "'currency' formata como R$, 'number' usa separador de milhar "
+            "padrão. None equivale a 'number'."
+        ),
+    )
 
 
 class UserResponseSchema(BaseModel):
@@ -63,9 +73,8 @@ class UserResponseSchema(BaseModel):
 class AgentResponseSchema(BaseModel):
     """Resposta pública do agente para um POST /ai-agent/ask.
 
-    Os dados técnicos do agente (SQL gerado, tempos de execução, tokens,
-    detalhes de erro) ficam restritos ao backend e são registrados nos logs
-    do logger `vcommerce_ai_agent`. Eles não trafegam para o frontend.
+    Os dados técnicos da execução do agente ficam restritos ao backend e
+    são registrados nos logs internos. Eles não trafegam para o frontend.
     """
 
     status: Literal["success", "error", "out_of_scope"] = Field(
@@ -87,6 +96,7 @@ class AgentResponseSchema(BaseModel):
         json_schema_extra={
             "example": {
                 "status": "success",
+                "session_id": "sessao-usuario-123",
                 "user_response": {
                     "answer_text": (
                         "Os 3 produtos mais vendidos foram Camiseta Básica, "
@@ -103,6 +113,7 @@ class AgentResponseSchema(BaseModel):
                         "x_axis": "produto",
                         "y_axis": "quantidade",
                         "title": "Top 3 produtos mais vendidos",
+                        "y_axis_format": "number",
                     },
                     "truncated": False,
                 },
@@ -128,17 +139,107 @@ class AskRequest(BaseModel):
         description=(
             "Identificador da conversa. Use o mesmo valor entre requisições "
             "para encadear follow-ups (o backend recupera o histórico salvo). "
-            "Requisições simultâneas na mesma `session_id` são serializadas "
-            "por lock em memória."
+            "Requisições simultâneas na mesma `session_id` são processadas "
+            "em ordem."
+        ),
+        examples=["sessao-usuario-123"],
+    )
+
+
+class SuggestionsRequest(BaseModel):
+    """Payload para POST /ai-agent/suggestions."""
+
+    session_id: str = Field(
+        default="",
+        description=(
+            "Identificador da conversa. Quando informado, o backend recupera "
+            "o histórico da sessão e gera sugestões contextuais de follow-up. "
+            "Quando vazio ou ausente, retorna a lista fixa inicial."
         ),
         examples=["sessao-usuario-123"],
     )
 
 
 class SuggestionsResponse(BaseModel):
-    """Resposta de GET /ai-agent/suggestions."""
+    """Resposta de POST /ai-agent/suggestions."""
 
     suggestions: list[str] = Field(
         ...,
         description="Lista de 5 perguntas sugeridas em PT-BR, baseadas no schema real do banco.",
+    )
+
+
+class SessionSummary(BaseModel):
+    """Resumo de uma sessão do agente para listagem na sidebar do frontend."""
+
+    session_id: str = Field(..., description="Identificador da sessão.")
+    title: str = Field(
+        ...,
+        description=(
+            "Título derivado da primeira pergunta do usuário no histórico, "
+            "truncado em 60 caracteres. Fallback para 'Sessão sem título' "
+            "quando o histórico está vazio ou corrompido."
+        ),
+    )
+    updated_at: datetime = Field(
+        ...,
+        description="Timestamp da última atualização da sessão (ISO 8601).",
+    )
+
+
+class SessionsListResponse(BaseModel):
+    """Resposta de GET /ai-agent/sessions."""
+
+    sessions: list[SessionSummary] = Field(
+        ...,
+        description="Sessões do usuário autenticado, ordenadas por updated_at decrescente.",
+    )
+
+
+class SessionHistoryEntry(BaseModel):
+    """Entrada do histórico de uma sessão.
+
+    Os campos data e chart são preenchidos apenas em turnos com role
+    assistant quando a resposta do agente envolve dados tabulares
+    e/ou sugestão de gráfico. Sessões antigas anteriores à introdução
+    desses campos os trazem como None.
+    """
+
+    role: Literal["user", "assistant"] = Field(..., description="Papel da mensagem.")
+    content: str = Field(..., description="Texto da mensagem.")
+    sql: Optional[str] = Field(
+        None,
+        description="SQL gerado pelo agente (apenas em turnos assistant).",
+    )
+    sources_text: Optional[str] = Field(
+        None,
+        description="Descrição das fontes consultadas (apenas em turnos assistant).",
+    )
+    data: Optional[list[dict[str, Any]]] = Field(
+        None,
+        description=(
+            "Linhas tabulares retornadas pela query, idênticas ao "
+            "user_response.data do turno original. Apenas em turnos assistant."
+        ),
+    )
+    chart: Optional[ChartSuggestionSchema] = Field(
+        None,
+        description=(
+            "Sugestão de gráfico associada ao turno, idêntica ao "
+            "user_response.chart do turno original. Apenas em turnos assistant."
+        ),
+    )
+
+
+class SessionDetailResponse(BaseModel):
+    """Resposta de GET /ai-agent/sessions/{session_id}."""
+
+    session_id: str = Field(..., description="Identificador da sessão.")
+    history: list[SessionHistoryEntry] = Field(
+        ...,
+        description=(
+            "Histórico alternado user/assistant. Cada entrada traz role, "
+            "content, sql, sources_text e, quando aplicável, data e chart "
+            "para restauração de visualizações no frontend."
+        ),
     )

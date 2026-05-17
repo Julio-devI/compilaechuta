@@ -1,12 +1,16 @@
-import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
+import { ChatIADrawer } from './components/ChatIADrawer'
 import { Dashboard } from './components/Dashboard'
+import { AUTH_EXPIRED_EVENT } from './services/setupFetchInterceptor'
+import { useAuth } from './contexts/AuthContext'
 import { Clientes } from './pages/Clientes'
 import { Pedidos } from './pages/Pedidos'
 import { Produtos } from './pages/Produtos'
 import { Suporte } from './pages/Suporte'
-import { Relatorios } from './pages/Relatorios'
 import { ChatIA } from './pages/ChatIA'
 import { Configuracoes } from './pages/Configuracoes'
 import { Login } from './pages/Login'
@@ -20,7 +24,25 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Toaster } from 'sonner'
 
+function AuthExpirationGuard() {
+  const navigate = useNavigate()
+  const { logout, isAuthenticated } = useAuth()
+  useEffect(() => {
+    const handler = () => {
+      if (!isAuthenticated) return
+      logout()
+      toast.error('Sua sessão expirou. Faça login novamente.')
+      navigate('/login', { replace: true })
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, handler)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
+  }, [isAuthenticated, logout, navigate])
+  return null
+}
+
 function AppLayout() {
+  const location = useLocation()
+  const showDrawer = location.pathname !== '/chat-ia'
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -30,6 +52,7 @@ function AppLayout() {
           <Outlet />
         </main>
       </div>
+      {showDrawer && <ChatIADrawer />}
     </div>
   )
 }
@@ -40,6 +63,7 @@ function App() {
       <AuthProvider>
         <Toaster position="top-right" richColors />
         <BrowserRouter>
+          <AuthExpirationGuard />
           <Routes>
             {/* Redireciona raiz para login */}
             <Route index element={<Navigate to="/login" replace />} />
@@ -59,7 +83,7 @@ function App() {
                 <Route path="/produtos/novo" element={<CadastroProduto />} />
                 <Route path="/produtos/editar/:id" element={<EditarProduto />} />
                 <Route path="/suporte" element={<Suporte />} />
-                <Route path="/relatorios" element={<Relatorios />} />
+                <Route path="/relatorios" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/chat-ia" element={<ChatIA />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
               </Route>

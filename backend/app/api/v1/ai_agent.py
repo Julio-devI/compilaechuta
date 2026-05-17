@@ -3,18 +3,26 @@ import json
 import logging
 import time
 from dataclasses import asdict
+from datetime import timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from vcommerce_ai_agent import VCommerceAgent
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.crud.ai_agent import create_or_update_session, get_session_by_session_id
+from app.crud.ai_agent import (
+    create_or_update_session,
+    get_session,
+    list_sessions_by_user,
+)
 from app.schemas.ai_agent import (
     AgentResponseSchema,
     AskRequest,
+    SessionDetailResponse,
+    SessionSummary,
+    SessionsListResponse,
     SuggestionsRequest,
     SuggestionsResponse,
 )
@@ -22,9 +30,14 @@ from app.schemas.ai_agent import (
 router = APIRouter()
 
 # Tabelas operacionais do backend que nao devem ser expostas ao LLM nem
-# permitidas pelos guardrails do agente (alembic_version e ai_agent_sessions
-# contem dados internos e historico de outras conversas).
-_EXCLUDED_TABLES: set[str] = {"ai_agent_sessions", "alembic_version"}
+# permitidas pelos guardrails do agente. ai_agent_sessions e alembic_version
+# contem dados internos do agente e historico de outras conversas;
+# gold_operador contem credenciais (senha_hash) e PII dos operadores.
+_EXCLUDED_TABLES: set[str] = {
+    "ai_agent_sessions",
+    "alembic_version",
+    "gold_operador",
+}
 
 _ERROR_MESSAGES: dict[str, str] = {
     "EMPTY_INPUT": "Por favor, digite uma pergunta válida.",
@@ -53,35 +66,42 @@ _ERROR_MESSAGES: dict[str, str] = {
 }
 
 # Locks em memoria do processo: garantem serializacao de requisicoes
-# concorrentes na mesma session_id em /ask e leitura consistente em
-# /suggestions. Sao limpos periodicamente para evitar vazamento, ja que
-# o dicionario cresce monotonicamente com novas sessoes.
+# concorrentes no mesmo par (user_id, session_id) em /ask e leitura
+# consistente em /suggestions. A chave composta evita colisoes entre
+# usuarios distintos que escolham o mesmo session_id. Sao limpos
+# periodicamente para evitar vazamento, ja que o dicionario cresce
+# monotonicamente com novas sessoes.
 _session_locks: dict[str, asyncio.Lock] = {}
 _session_lock_last_used: dict[str, float] = {}
 _LOCK_IDLE_TTL_SECONDS = 1800
 _LOCK_CLEANUP_INTERVAL_SECONDS = 300
 
 
-def _get_lock(session_id: str) -> asyncio.Lock:
-    _session_lock_last_used[session_id] = time.monotonic()
-    if session_id not in _session_locks:
-        _session_locks[session_id] = asyncio.Lock()
-    return _session_locks[session_id]
+def _lock_key(user_id: str, session_id: str) -> str:
+    return f"{user_id}:{session_id}"
+
+
+def _get_lock(user_id: str, session_id: str) -> asyncio.Lock:
+    key = _lock_key(user_id, session_id)
+    _session_lock_last_used[key] = time.monotonic()
+    if key not in _session_locks:
+        _session_locks[key] = asyncio.Lock()
+    return _session_locks[key]
 
 
 def _evict_stale_session_locks() -> int:
     now = time.monotonic()
     stale: list[str] = []
-    for session_id, last_used in list(_session_lock_last_used.items()):
+    for key, last_used in list(_session_lock_last_used.items()):
         if now - last_used < _LOCK_IDLE_TTL_SECONDS:
             continue
-        lock = _session_locks.get(session_id)
+        lock = _session_locks.get(key)
         if lock is None or lock.locked():
             continue
-        stale.append(session_id)
-    for session_id in stale:
-        _session_locks.pop(session_id, None)
-        _session_lock_last_used.pop(session_id, None)
+        stale.append(key)
+    for key in stale:
+        _session_locks.pop(key, None)
+        _session_lock_last_used.pop(key, None)
     return len(stale)
 
 
@@ -103,6 +123,31 @@ async def cleanup_session_locks_loop() -> None:
             logger.exception("Falha no loop de limpeza de locks de sessao")
 
 
+def _derive_title(history_json: str | None) -> str:
+    """Deriva o título da sessão a partir da primeira pergunta do usuário."""
+    if not history_json:
+        return "Sessão sem título"
+    try:
+        history = json.loads(history_json)
+    except json.JSONDecodeError:
+        return "Sessão sem título"
+    if not isinstance(history, list):
+        return "Sessão sem título"
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("role") != "user":
+            continue
+        content = entry.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        stripped = content.strip()
+        if len(stripped) <= 60:
+            return stripped
+        return stripped[:60].rstrip() + "…"
+    return "Sessão sem título"
+
+
 @router.post(
     "/ask",
     response_model=AgentResponseSchema,
@@ -113,14 +158,16 @@ async def cleanup_session_locks_loop() -> None:
         "out_of_scope."
     ),
     responses={
+        401: {"description": "Token JWT ausente ou inválido."},
         422: {
             "description": "Payload inválido (faltam `question` ou `session_id`)."
-        }
+        },
     },
 )
 async def ask_agent(
     payload: AskRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """
     Envia uma pergunta em linguagem natural (PT-BR) ao agente Text-to-SQL.
@@ -131,9 +178,10 @@ async def ask_agent(
     de gráfico em `user_response.chart`.
 
     O histórico da conversa é persistido automaticamente no backend apenas
-    quando `status == 'success'`, permitindo follow-ups na mesma
-    `session_id`. Requisições simultâneas para a mesma sessão são
-    processadas em ordem.
+    quando `status == 'success'`, atrelado ao par (user_id, session_id),
+    permitindo follow-ups na mesma `session_id` sem misturar conversas de
+    usuários distintos. Requisições simultâneas para a mesma sessão do
+    mesmo usuário são processadas em ordem.
 
     Erros técnicos (falhas no processamento da pergunta, timeout, validações
     de segurança etc.) chegam como HTTP 200 com `status == 'error'` e
@@ -145,10 +193,10 @@ async def ask_agent(
     Os detalhes técnicos da execução ficam restritos ao backend, registrados
     nos logs internos, e não são enviados ao frontend.
     """
-    lock = _get_lock(payload.session_id)
+    user_id = current_user["sub"]
+    lock = _get_lock(user_id, payload.session_id)
     async with lock:
-        # Recupera historico persistido
-        db_session = await get_session_by_session_id(db, payload.session_id)
+        db_session = await get_session(db, user_id, payload.session_id)
         history: list[dict[str, str | None]] = []
         if db_session and db_session.history_json:
             try:
@@ -169,9 +217,12 @@ async def ask_agent(
                 agent.import_history(history)
             except ValueError as exc:
                 logging.getLogger(__name__).warning(
-                    "Falha ao importar historico da sessao %s: %s",
-                    payload.session_id,
-                    exc,
+                    "Falha ao importar historico",
+                    extra={
+                        "user_id": user_id,
+                        "session_id": payload.session_id,
+                        "error": str(exc),
+                    },
                 )
                 agent.clear_history()
 
@@ -180,6 +231,7 @@ async def ask_agent(
         if response.status == "success":
             await create_or_update_session(
                 db,
+                user_id=user_id,
                 session_id=payload.session_id,
                 history_json=json.dumps(
                     agent.export_history(), ensure_ascii=False
@@ -189,17 +241,26 @@ async def ask_agent(
             if response.developer_debug:
                 logging.getLogger("vcommerce_ai_agent").error(
                     "Erro ao processar pergunta no agente de IA",
-                    extra={"developer_debug": asdict(response.developer_debug)}
+                    extra={
+                        "user_id": user_id,
+                        "session_id": payload.session_id,
+                        "developer_debug": asdict(response.developer_debug),
+                    },
                 )
 
             if response.developer_debug and response.developer_debug.error:
                 code = response.developer_debug.error.code
                 response.user_response.answer_text = _ERROR_MESSAGES.get(
                     code,
-                    "Ocorreu uma falha no processamento. Tente novamente ou contate o suporte."
+                    "Ocorreu uma falha no processamento. Tente novamente ou contate o suporte.",
                 )
             elif response.status == "out_of_scope":
-                response.user_response.answer_text = "Desculpe, não consigo responder essa pergunta com os dados disponíveis no momento."
+                response.user_response.answer_text = (
+                    "Desculpe, meu escopo é **focado na visão do cliente e operações "
+                    "comerciais**, portanto não tenho acesso a dados financeiros internos, "
+                    "de recursos humanos ou fluxo de caixa da V-Commerce, mas posso "
+                    "ajudar com indicadores de vendas e operações."
+                )
 
     return {
         "status": response.status,
@@ -253,6 +314,7 @@ async def ask_agent(
                 }
             },
         },
+        401: {"description": "Token JWT ausente ou inválido."},
         422: {
             "description": (
                 "Payload inválido. Como `session_id` é opcional e tem default "
@@ -265,6 +327,7 @@ async def ask_agent(
 async def get_suggestions(
     payload: SuggestionsRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ) -> SuggestionsResponse:
     """
     Retorna 5 sugestões de perguntas que o usuário pode fazer ao agente.
@@ -273,11 +336,12 @@ async def get_suggestions(
     a lista fixa inicial sem chamar o LLM. Quando o histórico da sessão
     existe, gera 5 perguntas de follow-up contextuais via LLM.
     """
+    user_id = current_user["sub"]
     history: list[dict[str, str | None]] = []
 
     if payload.session_id:
-        async with _get_lock(payload.session_id):
-            db_session = await get_session_by_session_id(db, payload.session_id)
+        async with _get_lock(user_id, payload.session_id):
+            db_session = await get_session(db, user_id, payload.session_id)
             if db_session and db_session.history_json:
                 try:
                     history = json.loads(db_session.history_json)
@@ -297,3 +361,64 @@ async def get_suggestions(
     )
 
     return SuggestionsResponse(suggestions=suggestions)
+
+
+@router.get(
+    "/sessions",
+    response_model=SessionsListResponse,
+    summary="Lista as sessões de chat do usuário autenticado",
+    response_description=(
+        "Sessões do usuário ordenadas por updated_at decrescente. "
+        "Cada item traz session_id, title derivado da primeira pergunta "
+        "e updated_at."
+    ),
+    responses={401: {"description": "Token JWT ausente ou inválido."}},
+)
+async def list_user_sessions(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> SessionsListResponse:
+    user_id = current_user["sub"]
+    rows = await list_sessions_by_user(db, user_id)
+    summaries = [
+        SessionSummary(
+            session_id=row.session_id,
+            title=_derive_title(row.history_json),
+            updated_at=row.updated_at.replace(tzinfo=timezone.utc) if row.updated_at else None,
+        )
+        for row in rows
+    ]
+    return SessionsListResponse(sessions=summaries)
+
+
+@router.get(
+    "/sessions/{session_id}",
+    response_model=SessionDetailResponse,
+    summary="Recupera o histórico completo de uma sessão",
+    response_description=(
+        "Histórico alternado user/assistant no formato exportado pelo agente."
+    ),
+    responses={
+        401: {"description": "Token JWT ausente ou inválido."},
+        404: {"description": "Sessão não encontrada para este usuário."},
+    },
+)
+async def get_user_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+) -> SessionDetailResponse:
+    user_id = current_user["sub"]
+    row = await get_session(db, user_id, session_id)
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sessão não encontrada.",
+        )
+    try:
+        history = json.loads(row.history_json) if row.history_json else []
+        if not isinstance(history, list):
+            history = []
+    except json.JSONDecodeError:
+        history = []
+    return SessionDetailResponse(session_id=session_id, history=history)

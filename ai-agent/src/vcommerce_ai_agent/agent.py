@@ -340,6 +340,7 @@ class VCommerceAgent:
                     "role": "user",
                     "content": content,
                     "sql": None,
+                    "sources_text": None,
                 })
                 continue
 
@@ -351,6 +352,7 @@ class VCommerceAgent:
                 "role": "assistant",
                 "content": content,
                 "sql": sql,
+                "sources_text": entry.get("sources_text"),
             })
 
         if len(normalized_history) % 2 != 0:
@@ -368,12 +370,13 @@ class VCommerceAgent:
     ) -> None:
         """Adiciona a interação ao histórico e aplica truncamento."""
         self._history.append(
-            {"role": "user", "content": question, "sql": None}
+            {"role": "user", "content": question, "sql": None, "sources_text": None}
         )
         self._history.append({
             "role": "assistant",
             "content": response.user_response.answer_text,
             "sql": response.developer_debug.sql,
+            "sources_text": response.user_response.sources_text,
         })
         max_entries = config.MAX_HISTORY_TURNS * 2
         if len(self._history) > max_entries:

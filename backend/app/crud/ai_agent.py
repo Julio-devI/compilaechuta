@@ -46,3 +46,13 @@ async def create_or_update_session(
     await db.commit()
     await db.refresh(new_session)
     return new_session
+
+
+async def delete_session(db: AsyncSession, user_id: str, session_id: str) -> bool:
+    existing = await get_session(db, user_id, session_id)
+    if not existing:
+        return False
+
+    await db.delete(existing)
+    await db.commit()
+    return True

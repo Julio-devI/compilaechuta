@@ -108,3 +108,11 @@ export async function getSessionDetail(
   if (!res.ok) await parseError(res, 'Erro ao carregar a conversa')
   return res.json()
 }
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/ai-agent/sessions/${encodeURIComponent(sessionId)}`,
+    { method: 'DELETE', headers: buildHeaders() },
+  )
+  if (!res.ok) await parseError(res, 'Erro ao apagar a conversa')
+}

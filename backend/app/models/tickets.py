@@ -10,8 +10,12 @@ class Ticket(Base):
     id_ticket              = Column(String, primary_key=True, index=True)
     id_cliente             = Column(String, ForeignKey("dim_cliente.id_cliente"), nullable=False, index=True)
     id_pedido              = Column(String, ForeignKey("fato_vendas.id_pedido"), nullable=True, index=True)
-    id_produto = Column(String, ForeignKey(
-        "dim_produto.id_produto"), nullable=True, index=True)
+    id_produto = Column(
+        String, 
+        ForeignKey("dim_produto.id_produto", ondelete="SET NULL"), 
+        nullable=True, 
+        index=True
+    )
     data_abertura          = Column(DateTime, nullable=True)
     data_resolucao         = Column(DateTime, nullable=True)
     tempo_resolucao_horas  = Column(Float, nullable=True)

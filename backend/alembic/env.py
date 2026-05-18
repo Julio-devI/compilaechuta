@@ -52,10 +52,12 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection: Connection) -> None:
-    """Esta função executa as migrações de fato."""
-    context.configure(connection=connection, target_metadata=target_metadata)
-
+def do_run_migrations(connection: Connection):
+    context.configure(
+        connection=connection, 
+        target_metadata=target_metadata,
+        render_as_batch=True, 
+    )
 
     with context.begin_transaction():
         context.run_migrations()

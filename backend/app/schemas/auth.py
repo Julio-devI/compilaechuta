@@ -17,21 +17,36 @@ class ResetPasswordRequest(BaseModel):
 
 
 class UserInfo(BaseModel):
-    id_operador: str
-    nome: str
-    username: str
-    email: str
-    telefone: Optional[str] = None
-    role: str
+    id_operador:    str
+    nome:           str
+    username:       str
+    email:          str
+    telefone:       Optional[str] = None
+    role:           str
+    two_fa_enabled: bool = False
 
 
 class TokenResponse(BaseModel):
     access_token: str
-    token_type: str = "bearer"
-    user: UserInfo
+    token_type:   str = "bearer"
+    user:         UserInfo
+
+
+class TwoFARequiredResponse(BaseModel):
+    requires_2fa: bool = True
+    temp_token:   str
+
+
+class TwoFAVerifyRequest(BaseModel):
+    temp_token: str
+    code:       str
+
+
+class Toggle2FARequest(BaseModel):
+    enabled: bool
 
 
 class UpdateMeRequest(BaseModel):
-    nome: Optional[str] = None
-    email: Optional[str] = None
+    nome:     Optional[str] = None
+    email:    Optional[str] = None
     telefone: Optional[str] = None

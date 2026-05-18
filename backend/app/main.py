@@ -25,9 +25,12 @@ import app.models.tickets  # noqa: F401
 import app.models.products  # noqa: F401
 import app.models.category  # noqa: F401
 import app.models.orders  # noqa: F401
+import app.models.orders_evaluation  # noqa: F401
 import app.models.operator  # noqa: F401
 import app.models.satisfaction_agents  # noqa: F401
 import app.models.problem_satisfaction  # noqa: F401
+import app.models.time  # noqa: F401
+import app.models.clickstream  # noqa: F401
 
 # Configura logger do agente de IA
 import json
@@ -81,7 +84,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

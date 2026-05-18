@@ -13,6 +13,7 @@ class Operador(Base):
     email       = Column(String, nullable=False, unique=True, index=True)
     telefone    = Column(String, nullable=True)
     role        = Column(String, nullable=False, default="user")  # super_admin | admin | user
-    active      = Column(Boolean, nullable=False, default=True)
+    active          = Column(Boolean, nullable=False, default=True)
+    two_fa_enabled  = Column(Boolean, nullable=False, default=False)
     senha_hash  = Column(String, nullable=True)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())

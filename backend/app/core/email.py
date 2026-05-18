@@ -158,3 +158,100 @@ async def send_reset_password_email(email: str, nome: str, token: str) -> None:
     )
 
     await _get_fast_mail().send_message(message)
+
+
+async def send_2fa_code_email(email: str, nome: str, code: str) -> None:
+    primeiro_nome = nome.split()[0].capitalize()
+
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Código de verificação</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F0F4FF;font-family:'Segoe UI',Arial,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F0F4FF;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0"
+               style="max-width:520px;background:#ffffff;border-radius:16px;
+                      box-shadow:0 4px 24px rgba(21,101,192,0.10);overflow:hidden;">
+
+          <tr>
+            <td style="background:linear-gradient(135deg,#0a1172 0%,#1565C0 60%,#1E88E5 100%);
+                        padding:36px 40px 32px;text-align:center;">
+              <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:3px;
+                         color:rgba(255,255,255,0.65);text-transform:uppercase;">
+                V-Commerce CRM 360
+              </p>
+              <div style="display:inline-block;background:rgba(255,255,255,0.15);
+                           border-radius:50%;width:64px;height:64px;line-height:64px;
+                           text-align:center;margin-bottom:16px;">
+                <span style="font-size:28px;">🔐</span>
+              </div>
+              <h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;">
+                Verificação em dois fatores
+              </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:36px 40px 24px;text-align:center;">
+              <p style="margin:0 0 8px;font-size:16px;color:#1A237E;font-weight:600;">
+                Olá, {primeiro_nome}!
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#37474F;line-height:1.6;">
+                Use o código abaixo para concluir seu login no
+                <strong style="color:#1565C0;">V-Commerce CRM 360</strong>.
+              </p>
+
+              <div style="background:#EFF6FF;border-radius:16px;padding:28px 40px;
+                           margin-bottom:24px;display:inline-block;">
+                <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:3px;
+                            color:#1565C0;text-transform:uppercase;">Código de acesso</p>
+                <p style="margin:0;font-size:42px;font-weight:900;letter-spacing:12px;
+                            color:#0a1172;font-family:monospace;">{code}</p>
+              </div>
+
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#FFF8E1;border-left:4px solid #FFA000;
+                             border-radius:0 8px 8px 0;margin-bottom:24px;text-align:left;">
+                <tr>
+                  <td style="padding:12px 16px;font-size:13px;color:#E65100;font-weight:500;">
+                    ⏱ Este código expira em <strong>2 minutos</strong>. Não compartilhe com ninguém.
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:13px;color:#90A4AE;line-height:1.6;">
+                Se você não tentou fazer login, ignore este email e sua conta estará segura.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#F8FAFF;padding:20px 40px;text-align:center;
+                        border-top:1px solid #EEF2FF;">
+              <p style="margin:0;font-size:11px;color:#B0BEC5;">
+                © 2025 V-Commerce CRM 360 &nbsp;·&nbsp; Email automático, não responda.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>"""
+
+    message = MessageSchema(
+        subject="Seu código de verificação — V-Commerce CRM 360",
+        recipients=[email],
+        body=html,
+        subtype=MessageType.html,
+    )
+    await _get_fast_mail().send_message(message)

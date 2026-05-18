@@ -1,11 +1,17 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { loginRequest, UserInfo } from '@/services/authService'
+import { loginRequest, verify2faCode, UserInfo } from '@/services/authService'
+
+interface LoginResult {
+  requires2fa: boolean
+  tempToken?: string
+}
 
 interface AuthContextType {
   user: UserInfo | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (username: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<LoginResult>
+  completeLogin: (tempToken: string, code: string) => Promise<void>
   logout: () => void
   hasRole: (...roles: string[]) => boolean
   updateUser: (data: Partial<UserInfo>) => void
@@ -31,11 +37,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<LoginResult> => {
     const data = await loginRequest(username, password)
-    localStorage.setItem('access_token', data.access_token)
+    if (data.requires_2fa) {
+      return { requires2fa: true, tempToken: data.temp_token }
+    }
+    localStorage.setItem('access_token', data.access_token!)
     localStorage.setItem('user', JSON.stringify(data.user))
-    setUser(data.user)
+    setUser(data.user!)
+    return { requires2fa: false }
+  }
+
+  const completeLogin = async (tempToken: string, code: string): Promise<void> => {
+    const data = await verify2faCode(tempToken, code)
+    localStorage.setItem('access_token', data.access_token!)
+    localStorage.setItem('user', JSON.stringify(data.user))
+    setUser(data.user!)
   }
 
   const logout = () => {
@@ -59,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, hasRole, updateUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, completeLogin, logout, hasRole, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

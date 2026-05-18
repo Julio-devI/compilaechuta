@@ -15,36 +15,46 @@ from app.schemas.products import ProductListOut
 class ClientFilters:
     def __init__(
         self,
-        ticket_min: Optional[float] = None,
-        ticket_max: Optional[float] = None,
-        lvt_min: Optional[float] = None,
-        lvt_max: Optional[float] = None,
-        data_inicio: Optional[date] = None,
-        data_fim: Optional[date] = None,
-        regiao: Optional[str] = None,
-        status: Optional[str] = None,
+        ticket_min:  Optional[float] = None,
+        ticket_max:  Optional[float] = None,
+        lvt_min:     Optional[float] = None,
+        lvt_max:     Optional[float] = None,
+        data_inicio: Optional[date]  = None,
+        data_fim:    Optional[date]  = None,
+        regiao:      Optional[str]   = None,
+        status:      Optional[str]   = None,
+        sem_ticket:  Optional[bool]  = None,
+        nps:         Optional[str]   = None,
+        csat:        Optional[str]   = None,
+        sku:         Optional[str]   = None,
+        categoria:   Optional[str]   = None,
     ):
-        self.ticket_min = ticket_min
-        self.ticket_max = ticket_max
-        self.lvt_min = lvt_min
-        self.lvt_max = lvt_max
+        self.ticket_min  = ticket_min
+        self.ticket_max  = ticket_max
+        self.lvt_min     = lvt_min
+        self.lvt_max     = lvt_max
         self.data_inicio = data_inicio
-        self.data_fim = data_fim
-        self.regiao = regiao
-        self.status = status
+        self.data_fim    = data_fim
+        self.regiao      = regiao
+        self.status      = status
+        self.sem_ticket  = sem_ticket
+        self.nps         = nps
+        self.csat        = csat
+        self.sku         = sku
+        self.categoria   = categoria
 
 
 async def listar_clientes(
     db: AsyncSession,
     filters: ClientFilters,
-    cidade: Optional[str] = None,
-    status_ticket: Optional[str] = None,
+    cidade:            Optional[str] = None,
+    status_ticket:     Optional[str] = None,
     frequencia_minima: Optional[int] = None,
-    skip: int = 0,
-    limit: int = 100,
-    search: str = None
+    skip:              int = 0,
+    limit:             int = 100,
+    search:            str = None,
 ) -> ClienteListOut:
-    total, data = await crud.get_clients(
+    total, clientes = await crud.get_clients(
         db=db,
         filters=filters,
         cidade=cidade,
@@ -54,6 +64,18 @@ async def listar_clientes(
         limit=limit,
         search=search,
     )
+
+    # Busca a categoria de interesse principal de cada cliente em uma só query
+    client_ids = [c.id_cliente for c in clientes]
+    categorias = await crud.get_top_categories(db, client_ids)
+
+    # Constrói ClienteOut com categoria_interesse anexada
+    data = []
+    for c in clientes:
+        out = ClienteOut.model_validate(c)
+        out.categoria_interesse = categorias.get(c.id_cliente)
+        data.append(out)
+
     return ClienteListOut(total=total, skip=skip, limit=limit, data=data)
 
 
@@ -65,29 +87,23 @@ async def buscar_cliente(db: AsyncSession, cliente_id: str) -> ClienteOut:
 
 
 async def listar_tickets_cliente(db: AsyncSession, cliente_id: str, status: str) -> list:
-    await buscar_cliente(db, cliente_id)  # valida existência
+    await buscar_cliente(db, cliente_id)
     return await crud.get_tickets_by_status(db, cliente_id, status)
 
 
-async def exportar_clientes_csv(
-        db: AsyncSession,
-        filters: ClientFilters
-    ) -> io.StringIO:
-    
-    clients = await crud.get_all_clients_for_export(
-        db=db,
-        filters=filters
-    )
 async def listar_produtos_cliente(
     db: AsyncSession, cliente_id: str, skip: int = 0, limit: int = 100
 ) -> ProductListOut:
-    await buscar_cliente(db, cliente_id)  # valida existência
+    await buscar_cliente(db, cliente_id)
     total, data = await crud_products.get_products_by_cliente(db, cliente_id, skip=skip, limit=limit)
     return ProductListOut(total=total, skip=skip, limit=limit, data=data)
 
 
-async def exportar_clientes_csv(db: AsyncSession) -> io.StringIO:
-    clientes = await crud.get_all_clients_for_export(db)
+async def exportar_clientes_csv(
+    db: AsyncSession,
+    filters: ClientFilters,
+) -> io.StringIO:
+    clientes = await crud.get_all_clients_for_export(db=db, filters=filters)
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
@@ -95,19 +111,11 @@ async def exportar_clientes_csv(db: AsyncSession) -> io.StringIO:
         "qtd_pedidos_realizados", "total_gasto_brl", "qtd_tickets_suporte",
         "data_ultima_compra", "media_estrelas_dadas", "segmento_rfm",
     ])
-    for c in clients:
+    for c in clientes:
         writer.writerow([
-            c.id_cliente,
-            c.nome_cliente,
-            c.cidade,
-            c.estado,
-            c.regiao,
-            c.qtd_pedidos_realizados,
-            c.total_gasto_brl,
-            c.qtd_tickets_suporte,
-            c.data_ultima_compra,
-            c.media_estrelas_dadas,
-            c.segmento_rfm,
+            c.id_cliente, c.nome_cliente, c.cidade, c.estado, c.regiao,
+            c.qtd_pedidos_realizados, c.total_gasto_brl, c.qtd_tickets_suporte,
+            c.data_ultima_compra, c.media_estrelas_dadas, c.segmento_rfm,
         ])
     output.seek(0)
     return output

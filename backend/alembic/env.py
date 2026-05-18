@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from logging.config import fileConfig
 from sqlalchemy import pool
@@ -8,6 +9,7 @@ from dotenv import load_dotenv
 from alembic import context
 
 
+from app.core.config import settings
 from app.core.database import Base
 from app.models.ai_agent import AIAgentSession  # noqa: F401
 from app.models.clients import Cliente   # noqa: F401
@@ -25,13 +27,12 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
 config = context.config
 
 
-database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URL)
 
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+if config.config_file_name is not None and not logging.getLogger().handlers:
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 
 target_metadata = Base.metadata

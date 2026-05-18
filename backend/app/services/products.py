@@ -36,8 +36,9 @@ async def get_all_products(
     limit: int = 100, 
     categoria: Optional[str] = None,
     status: Optional[str] = None,       # <-- Filtro novo
-    preco_min: Optional[float] = None,  # <-- Filtro novo
-    preco_max: Optional[float] = None   # <-- Filtro novo
+    preco_min: Optional[float] = None,  # <-- Filtro novo    
+    preco_max: Optional[float] = None,  # <-- Filtro novo
+    precisa_revisao: Optional[str] = None,
 ) -> List[Produto]:
     
     return await crud_products.get_all_products(
@@ -47,7 +48,8 @@ async def get_all_products(
         categoria=categoria,
         status=status,
         preco_min=preco_min,
-        preco_max=preco_max
+        preco_max=preco_max,
+        precisa_revisao=precisa_revisao,  
     )
 
 async def update_product(db: AsyncSession, id_produto: str, product_in: ProductUpdate) -> Produto:

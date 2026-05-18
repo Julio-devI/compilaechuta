@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer, Index
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer, Index, Boolean
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -19,6 +19,7 @@ class Ticket(Base):
     tipo_problema          = Column(String, nullable=True)
     agente_suporte         = Column(String, nullable=True)
     nota_avaliacao         = Column(Float, nullable=True)
+    registro_consistente   = Column(Boolean, nullable=True)
 
     # Alterado para lazy="select" para evitar LEFT OUTER JOIN massivos nas listagens
     pedido = relationship("Pedido", back_populates="tickets", lazy="select")

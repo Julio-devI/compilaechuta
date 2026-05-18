@@ -208,15 +208,15 @@
 
 ---
 
-### DA-16: Histórico de Conversa Inclui SQL Gerado
+### DA-16: Histórico de Conversa Inclui Snapshot da Resposta
 
 - **Contexto:** A memória de conversa (US-II-05) exige que o agente entenda perguntas de follow-up como "E no mês passado?" ou "Filtre por eletrônicos". Para que a Chamada 1 (geração de SQL) resolva essas referências corretamente, ela precisa saber não apenas o que o usuário perguntou antes, mas também qual SQL foi gerado e executado.
 
-- **Decisão:** O campo `content` do role `assistant` no histórico passado a `ask()` inclui o SQL gerado (`sql`) além do insight textual (`text`). O formato do histórico é `[{"role": "user"|"assistant", "content": str, "sql": str | None}]`.
+- **Decisão:** O campo `content` do role `assistant` no histórico passado a `ask()` inclui o SQL gerado (`sql`) além do insight textual (`text`). O formato do histórico é `[{"role": "user"|"assistant", "content": str, "sql": str | None, "sources_text": str | None, "data": list[dict] | None, "chart": dict | None}]`. Para `role: "user"` todos os campos além de `content` ficam em `None`; para `role: "assistant"` o snapshot completo é preservado.
 
 - **Justificativa:** Sem o agente entender o histórico completo (incluindo o SQL), não faz sentido implementar a memória. O SQL é o artefato técnico que conecta a pergunta anterior ao resultado concreto. Se o usuário pergunta "Qual a receita do mês?" e depois "E do mês passado?", a Chamada 1 precisa ver o SQL anterior (`SELECT SUM(...) WHERE mes = ...`) para saber exatamente qual filtro temporal alterar. Apenas o insight textual ("A receita foi R$ 125.340") não contém informação suficiente para gerar o SQL de follow-up com precisão.
 
-- **Implicações:** O backend precisa armazenar o campo `sql` do `AgentResponse` junto ao histórico da sessão. O volume de dados por interação no histórico aumenta, mas o impacto é desprezível frente ao custo de falhas na resolução de follow-ups.
+- **Implicações:** O backend precisa armazenar o snapshot completo da interação (`sql`, `sources_text`, `data`, `chart`) junto ao histórico da sessão. O volume por interação cresce proporcionalmente ao tamanho de `data`; o controle continua sendo `MAX_HISTORY_TURNS`. Valores textuais livres em `data` são sanitizados para `<valor_textual_omitido>` antes da injeção no prompt da Chamada 1, mantendo apenas valores numéricos, booleanos, nulos e temporais.
 
 ---
 
@@ -226,7 +226,7 @@
 
 - **Decisão:** O histórico de conversa é injetado como texto estruturado nos prompts de **ambas** as chamadas:
 
-  - **Chamada 1 (SQL):** recebe perguntas anteriores + SQLs gerados, permitindo resolver referências como "E no mês passado?" (sabe qual filtro temporal alterar).
+  - **Chamada 1 (SQL):** recebe perguntas anteriores + SQLs gerados + texto de fontes + perfil compacto dos dados retornados (contagem de linhas, colunas e valores temporais/numéricos/booleanos; texto livre omitido) + sugestão de gráfico anterior (type, eixos, formato). Permite resolver referências como "E no mês passado?", comparações multi-período como "e nos anteriores?" e pedidos de revisualização como "agora em barras".
 
   - **Chamada 2 (Insight):** recebe perguntas anteriores + insights textuais, mantendo coerência narrativa entre respostas.
 

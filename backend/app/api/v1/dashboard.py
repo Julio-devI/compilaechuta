@@ -5,11 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.schemas.dashboard import (
-    KPIResponse, 
+    KPIResponse,
     RevenueOverTimeResponse,
     CSATDistributionResponse,
     OrderStatusDistributionResponse,
-    QuickActionsResponse
+    QuickActionsResponse,
+    RevenueByCategoryResponse,
+    ClientsByRegionResponse,
+    OrdersByWeekdayResponse,
 )
 from app.crud import dashboard as crud_dashboard
 
@@ -125,10 +128,33 @@ async def get_order_status_distribution(
 
 
 @router.get("/quick-actions", response_model=QuickActionsResponse)
-async def get_quick_actions(
-    db: AsyncSession = Depends(get_db)
-):
-    # NOTA PARA A API: Ações rápidas geralmente olham pro estado "agora" do banco,
-    # por isso não passei os filtros de data nem de categoria aqui. Se a regra de negócio for ver 
-    # "tickets abertos APENAS de pedidos desta categoria", precisará de adicionar os filtros.
+async def get_quick_actions(db: AsyncSession = Depends(get_db)):
     return await crud_dashboard.get_quick_actions(db=db)
+
+
+@router.get("/charts/revenue-by-category", response_model=RevenueByCategoryResponse)
+async def get_revenue_by_category(
+    db: AsyncSession = Depends(get_db),
+    data_inicio: Optional[str] = Query(None, description="Data de início (YYYY-MM-DD)"),
+    data_fim: Optional[str] = Query(None, description="Data de fim (YYYY-MM-DD)"),
+):
+    inicio, fim = _parse_dates(data_inicio, data_fim)
+    result = await crud_dashboard.get_revenue_by_category(db=db, data_inicio=inicio, data_fim=fim)
+    return {"data": result}
+
+
+@router.get("/charts/clients-by-region", response_model=ClientsByRegionResponse)
+async def get_clients_by_region(db: AsyncSession = Depends(get_db)):
+    result = await crud_dashboard.get_clients_by_region(db=db)
+    return {"data": result}
+
+
+@router.get("/charts/orders-by-weekday", response_model=OrdersByWeekdayResponse)
+async def get_orders_by_weekday(
+    db: AsyncSession = Depends(get_db),
+    data_inicio: Optional[str] = Query(None, description="Data de início (YYYY-MM-DD)"),
+    data_fim: Optional[str] = Query(None, description="Data de fim (YYYY-MM-DD)"),
+):
+    inicio, fim = _parse_dates(data_inicio, data_fim)
+    result = await crud_dashboard.get_orders_by_weekday(db=db, data_inicio=inicio, data_fim=fim)
+    return {"data": result}

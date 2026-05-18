@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.category import Categoria
 from app.models.orders_evaluation import AvaliacaoPedido
 
 async def get_evaluation_by_id(db: AsyncSession, id_avaliacao: str) -> Optional[AvaliacaoPedido]:
@@ -48,7 +49,8 @@ async def get_all_evaluations(
     if id_cliente:
         stmt = stmt.where(AvaliacaoPedido.id_cliente == id_cliente)
     if categoria:
-        stmt = stmt.where(AvaliacaoPedido.categoria.ilike(f"%{categoria}%"))
+        stmt = stmt.join(Categoria, AvaliacaoPedido.id_categoria == Categoria.id_categoria)
+        stmt = stmt.where(Categoria.nome_categoria.ilike(f"%{categoria}%"))
     if metodo_pagamento:
         stmt = stmt.where(AvaliacaoPedido.metodo_pagamento == metodo_pagamento)
     if status:

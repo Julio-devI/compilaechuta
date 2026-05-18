@@ -1,7 +1,7 @@
 """add_composite_indexes_to_orders_and_clients
 
 Revision ID: 94c520ebfa91
-Revises: 132523f1bc82
+Revises: 12cccac924f4
 Create Date: 2026-05-18 15:30:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '94c520ebfa91'
-down_revision = '132523f1bc82'
+down_revision = '12cccac924f4'
 branch_labels = None
 depends_on = None
 

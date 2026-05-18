@@ -429,11 +429,18 @@ export function Suporte() {
             )}
             {areFiltersOpen ? "Esconder Filtros" : "Mostrar Filtros"}
           </button>
-          {areFiltersOpen ? (
-            <Minimize2 className="w-5 h-5 text-slate-400" />
-          ) : (
-            <Maximize2 className="w-5 h-5 text-slate-400" />
-          )}
+          
+          <button
+            onClick={() => setAreFiltersOpen(!areFiltersOpen)}
+            className="border-none bg-transparent cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors flex items-center justify-center"
+            title={areFiltersOpen ? "Minimizar Filtros" : "Maximizar Filtros"}
+          >
+            {areFiltersOpen ? (
+              <Minimize2 className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <Maximize2 className="w-5 h-5 text-muted-foreground" />
+            )}
+          </button>
         </div>
 
         {areFiltersOpen && (

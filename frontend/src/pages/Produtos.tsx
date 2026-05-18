@@ -148,6 +148,23 @@ export function Produtos() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-background p-8 font-sans text-foreground">
+      <div className="flex items-center justify-between">
+        <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground mb-8">Produtos</h1>
+        <ExportCsvButton<ProductFilters>
+          type="product"
+          filters={{
+            productName: searchTerm || undefined,
+            category: filtroCategoria || undefined,
+            status: filtroStatus || undefined,
+            price_min: filtroPreco === 'R$ 100 - R$ 500' || filtroPreco === 'Acima de R$ 500' ? (filtroPreco === 'R$ 100 - R$ 500' ? 100 : 500) : undefined,
+            price_max: filtroPreco === 'Até R$ 100' || filtroPreco === 'R$ 100 - R$ 500' ? (filtroPreco === 'Até R$ 100' ? 100 : 500) : undefined,
+          }}
+          endpoint="http://localhost:8000/api/v1/products/exportar"
+          onSuccess={(msg) => toast.success(msg)}
+          onError={(err) => toast.error(err)}
+        />
+        <Toaster position="top-right" />
+      </div>
 
       {/* 🚀 FILEIRA DE CARDS DE MÉTRICAS COMPATÍVEL COM A IMAGEM */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -264,16 +281,17 @@ export function Produtos() {
             <ExportCsvButton<ProductFilters>
               type="product"
               filters={{
-                  productName: searchTerm || undefined,
-                  category: filtroCategoria || undefined,
-                  status: filtroStatus || undefined,
-                  price_min: filtroPreco === 'R$ 100 - R$ 500' || filtroPreco === 'Acima de R$ 500' ? (filtroPreco === 'R$ 100 - R$ 500' ? 100 : 500) : undefined,
-                  price_max: filtroPreco === 'Até R$ 100' || filtroPreco === 'R$ 100 - R$ 500' ? (filtroPreco === 'Até R$ 100' ? 100 : 500) : undefined,
+                productName: searchTerm || undefined,
+                category: filtroCategoria || undefined,
+                status: filtroStatus || undefined,
+                price_min: filtroPreco === 'R$ 100 - R$ 500' || filtroPreco === 'Acima de R$ 500' ? (filtroPreco === 'R$ 100 - R$ 500' ? 100 : 500) : undefined,
+                price_max: filtroPreco === 'Até R$ 100' || filtroPreco === 'R$ 100 - R$ 500' ? (filtroPreco === 'Até R$ 100' ? 100 : 500) : undefined,
               }}
               endpoint="http://localhost:8000/api/v1/products/exportar"
               onSuccess={(msg) => toast.success(msg)}
               onError={(err) => toast.error(err)}
             />
+            <Toaster position="top-right" />
           </div>
         </div>
       </div>

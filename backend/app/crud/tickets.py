@@ -75,6 +75,7 @@ async def get_all_tickets(
     agente: Optional[str] = None,
     tipo: Optional[str] = None,
     search: Optional[str] = None,
+    id_cliente: Optional[str] = None,
 ) -> list[TicketModel]:
     subquery = (
         select(
@@ -113,6 +114,9 @@ async def get_all_tickets(
                 Cliente.nome_cliente.ilike(f"%{search}%")
             )
         )
+
+    if id_cliente:
+        query = query.where(TicketModel.id_cliente == id_cliente)
 
     result = await db.execute(query.offset(skip).limit(limit))
     records = result.all()

@@ -37,11 +37,13 @@ export interface Pedido {
 export interface FiltrosPedidos {
   status?: string;
   id_produto?: string;
+  id_pedido_display?: string;
   data_inicio?: string;
   data_fim?: string;
   tipo_cliente?: string;
   nome_produto?: string;
   status_ticket?: string;
+  id_cliente?: string;
 }
 
 const API_URL = 'http://localhost:8000/api/v1/orders'
@@ -82,11 +84,13 @@ export async function getPedidos(
 
     if (filtros?.status) params.append('status', filtros.status);
     if (filtros?.id_produto) params.append('id_produto', filtros.id_produto);
+    if (filtros?.id_pedido_display) params.append('id_pedido_display', filtros.id_pedido_display);
     if (filtros?.data_inicio) params.append('data_inicio', filtros.data_inicio);
     if (filtros?.data_fim) params.append('data_fim', filtros.data_fim);
     if (filtros?.tipo_cliente) params.append('tipo_cliente', filtros.tipo_cliente);
     if (filtros?.nome_produto) params.append('nome_produto', filtros.nome_produto);
     if (filtros?.status_ticket) params.append('status_ticket', filtros.status_ticket);
+    if (filtros?.id_cliente) params.append('id_cliente', filtros.id_cliente);
 
     const response = await fetch(`${API_URL}/?${params.toString()}`);
 

@@ -3,11 +3,21 @@ from datetime import datetime
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.category import Categoria
 from app.models.orders_evaluation import AvaliacaoPedido
 
 async def get_evaluation_by_id(db: AsyncSession, id_avaliacao: str) -> Optional[AvaliacaoPedido]:
     result = await db.execute(select(AvaliacaoPedido).where(AvaliacaoPedido.id_avaliacao == id_avaliacao))
     return result.scalars().first()
+
+async def get_evaluations_by_product_id(db: AsyncSession, id_produto: str, limit: int = 5) -> List[str]:
+    result = await db.execute(
+        select(AvaliacaoPedido.comentario)
+        .where(AvaliacaoPedido.id_produto == id_produto, AvaliacaoPedido.comentario.isnot(None))
+        .order_by(AvaliacaoPedido.data_avaliacao.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
 
 async def get_all_evaluations(
     db: AsyncSession,
@@ -48,7 +58,8 @@ async def get_all_evaluations(
     if id_cliente:
         stmt = stmt.where(AvaliacaoPedido.id_cliente == id_cliente)
     if categoria:
-        stmt = stmt.where(AvaliacaoPedido.categoria.ilike(f"%{categoria}%"))
+        stmt = stmt.join(Categoria, AvaliacaoPedido.id_categoria == Categoria.id_categoria)
+        stmt = stmt.where(Categoria.nome_categoria.ilike(f"%{categoria}%"))
     if metodo_pagamento:
         stmt = stmt.where(AvaliacaoPedido.metodo_pagamento == metodo_pagamento)
     if status:

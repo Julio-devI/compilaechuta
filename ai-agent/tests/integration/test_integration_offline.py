@@ -106,6 +106,7 @@ async def test_success_with_chart(agent, monkeypatch):
             "x_axis": "regiao",
             "y_axis": "total",
             "title": "Clientes por regiao",
+            "y_axis_format": "number",
         }
     )
     _patch_sql_and_insight(monkeypatch, sql, insight)
@@ -117,6 +118,7 @@ async def test_success_with_chart(agent, monkeypatch):
     assert response.user_response.chart.type == "bar"
     assert response.user_response.chart.x_axis == "regiao"
     assert response.user_response.chart.y_axis == "total"
+    assert response.user_response.chart.y_axis_format == "number"
 
 
 @pytest.mark.integration
@@ -354,7 +356,55 @@ async def test_import_export_history_roundtrip(agent):
         {"role": "assistant", "content": "Ola", "sql": "SELECT 1"},
     ]
     agent.import_history(snapshot)
-    assert agent.export_history() == snapshot
+    exported = agent.export_history()
+    assert exported == [
+        {
+            "role": "user",
+            "content": "Oi",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+        {
+            "role": "assistant",
+            "content": "Ola",
+            "sql": "SELECT 1",
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+    ]
+
+
+@pytest.mark.integration
+async def test_import_export_history_preserves_data_and_chart(agent):
+    snapshot = [
+        {"role": "user", "content": "Oi", "sql": None},
+        {
+            "role": "assistant",
+            "content": "Ola",
+            "sql": "SELECT 1",
+            "sources_text": "Fonte X",
+            "data": [{"a": 1}],
+            "chart": {
+                "type": "bar",
+                "x_axis": "a",
+                "y_axis": "a",
+                "title": "T",
+            },
+        },
+    ]
+    agent.import_history(snapshot)
+    exported = agent.export_history()
+    assert exported[1]["data"] == [{"a": 1}]
+    assert exported[1]["chart"] == {
+        "type": "bar",
+        "x_axis": "a",
+        "y_axis": "a",
+        "title": "T",
+        "y_axis_format": None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -363,14 +413,7 @@ async def test_import_export_history_roundtrip(agent):
 
 
 @pytest.mark.integration
-async def test_initial_suggestions_fallback_when_llm_fails(agent, monkeypatch):
-    async def fake_generate_suggestions(*args, **kwargs):
-        raise RuntimeError("LLM indisponivel")
-
-    monkeypatch.setattr(
-        "vcommerce_ai_agent.agent.generate_suggestions", fake_generate_suggestions
-    )
-
+async def test_initial_suggestions_returns_fixed_list_without_history(agent):
     suggestions = await agent.initial_suggestions()
 
     assert isinstance(suggestions, list)
@@ -379,9 +422,9 @@ async def test_initial_suggestions_fallback_when_llm_fails(agent, monkeypatch):
 
 
 @pytest.mark.integration
-async def test_initial_suggestions_avoids_repeats(agent, monkeypatch):
-    previous = ["Qual a receita total?", "Quantos clientes existem?"]
-
+async def test_initial_suggestions_fallback_when_llm_fails_with_history(
+    agent, monkeypatch
+):
     async def fake_generate_suggestions(*args, **kwargs):
         raise RuntimeError("LLM indisponivel")
 
@@ -389,10 +432,16 @@ async def test_initial_suggestions_avoids_repeats(agent, monkeypatch):
         "vcommerce_ai_agent.agent.generate_suggestions", fake_generate_suggestions
     )
 
-    suggestions = await agent.initial_suggestions(previous_suggestions=previous)
+    history = [
+        {"role": "user", "content": "Qual a receita total?", "sql": None},
+        {"role": "assistant", "content": "A receita total é...", "sql": "SELECT ..."},
+    ]
 
-    for s in suggestions:
-        assert s not in previous
+    suggestions = await agent.initial_suggestions(history=history)
+
+    assert isinstance(suggestions, list)
+    assert len(suggestions) == 5
+    assert all(isinstance(s, str) and s.strip() for s in suggestions)
 
 
 # ---------------------------------------------------------------------------

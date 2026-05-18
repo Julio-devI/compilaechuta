@@ -23,6 +23,7 @@ export interface SupportTicketFilters {
   endDate?: string;
   skip?: number;
   limit?: number;
+  customer_id?: string;
 }
 
 export interface SupportTicketSummary {
@@ -86,10 +87,22 @@ function formatTicketDisplayId(ticketId: string) {
 }
 
 function normalizeTicketSearch(search: string) {
-  const trimmedSearch = search.trim();
-  return trimmedSearch.toLowerCase().startsWith("tk-")
-    ? trimmedSearch.slice(3)
-    : trimmedSearch;
+  return (
+    search
+      .toLowerCase()
+      .trim()
+
+      // remove espaços
+      .replace(/\s+/g, "")
+
+      // remove separadores
+      .replace(/[-_]/g, "")
+
+      // remove prefixos conhecidos apenas no início
+      .replace(/^ticket/, "")
+      .replace(/^tk/, "")
+      .replace(/^t(?=\d)/, "")
+  );
 }
 
 export type Ticket = {
@@ -198,6 +211,7 @@ function buildTicketParams(
   if (filters.problemType) params.append("tipo", filters.problemType);
   if (filters.startDate) params.append("start_date", filters.startDate);
   if (filters.endDate) params.append("end_date", filters.endDate);
+  if (filters.customer_id) params.append("id_cliente", filters.customer_id);
 
   return params;
 }

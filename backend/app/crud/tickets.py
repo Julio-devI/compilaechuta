@@ -34,7 +34,8 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> Optional[dict]:
     subquery = (
         select(
             vendas_table.c.id_pedido,
-            func.max(vendas_table.c.id_pedido_display).label("id_pedido_display"),
+            func.max(vendas_table.c.id_pedido_display).label(
+                "id_pedido_display"),
         )
         .group_by(vendas_table.c.id_pedido)
         .subquery()
@@ -55,15 +56,38 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> Optional[dict]:
     ticket, id_pedido_display, nome_cliente = record
     return _map_ticket_to_dict(ticket, id_pedido_display, nome_cliente)
 
-async def get_ticket_by_pedido(db: AsyncSession, id_pedido: str) -> Optional[TicketModel]:
-    # Retorna o ticket mais recente (caso tenha mais de um) associado a este pedido
-    result = await db.execute(
-        select(TicketModel)
+
+async def get_ticket_by_pedido(db: AsyncSession, id_pedido: str, registro_consistente: Optional[bool] = None) -> list[dict]:
+    subquery = (
+        select(
+            vendas_table.c.id_pedido,
+            func.max(vendas_table.c.id_pedido_display).label(
+                "id_pedido_display"),
+        )
+        .group_by(vendas_table.c.id_pedido)
+        .subquery()
+    )
+
+    query = (
+        select(TicketModel, subquery.c.id_pedido_display, Cliente.nome_cliente)
+        .outerjoin(subquery, TicketModel.id_pedido == subquery.c.id_pedido)
+        .outerjoin(Cliente, TicketModel.id_cliente == Cliente.id_cliente)
         .where(TicketModel.id_pedido == id_pedido)
         .order_by(TicketModel.data_abertura.desc())
-        .limit(1)
     )
-    return result.scalar_one_or_none()
+
+    if registro_consistente is not None:
+        query = query.where(
+            TicketModel.registro_consistente == registro_consistente)
+
+    result = await db.execute(query)
+    records = result.all()
+
+    return [
+        _map_ticket_to_dict(ticket, id_pedido_display, nome_cliente)
+        for ticket, id_pedido_display, nome_cliente in records
+    ]
+
 
 async def get_all_tickets(
     db: AsyncSession,
@@ -80,7 +104,8 @@ async def get_all_tickets(
     subquery = (
         select(
             vendas_table.c.id_pedido,
-            func.max(vendas_table.c.id_pedido_display).label("id_pedido_display"),
+            func.max(vendas_table.c.id_pedido_display).label(
+                "id_pedido_display"),
         )
         .group_by(vendas_table.c.id_pedido)
         .subquery()
@@ -164,10 +189,12 @@ async def get_ticket_count(
 async def get_ticket_summary(db: AsyncSession) -> dict:
     total_result = await db.execute(select(func.count(TicketModel.id_ticket)))
     open_result = await db.execute(
-        select(func.count(TicketModel.id_ticket)).where(TicketModel.status == "aberto")
+        select(func.count(TicketModel.id_ticket)).where(
+            TicketModel.status == "aberto")
     )
     resolved_result = await db.execute(
-        select(func.count(TicketModel.id_ticket)).where(TicketModel.status == "resolvido")
+        select(func.count(TicketModel.id_ticket)).where(
+            TicketModel.status == "resolvido")
     )
     average_result = await db.execute(
         select(func.avg(TicketModel.tempo_resolucao_horas)).where(
@@ -197,12 +224,14 @@ async def get_ticket_summary(db: AsyncSession) -> dict:
         "problem_types": list(problem_types_result.scalars().all()),
     }
 
+
 async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketModel:
     dados = ticket.model_dump()
 
     db_ticket = TicketModel(
         id_ticket=str(uuid4()),
-        data_abertura=datetime.now(ZoneInfo("America/Sao_Paulo")).replace(microsecond=0),
+        data_abertura=datetime.now(
+            ZoneInfo("America/Sao_Paulo")).replace(microsecond=0),
         **dados
     )
 
@@ -218,7 +247,7 @@ async def update_ticket(
     db_ticket = await get_ticket_by_id(db, ticket_id)
     if not db_ticket:
         return None
-    
+
     dados = ticket.model_dump(exclude_unset=True)
 
     # Converter UTC → São Paulo
@@ -228,7 +257,6 @@ async def update_ticket(
             .astimezone(ZoneInfo("America/Sao_Paulo"))
             .replace(tzinfo=None, microsecond=0)
         )
-
 
     for field, value in dados.items():
         setattr(db_ticket, field, value)

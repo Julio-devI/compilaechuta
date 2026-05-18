@@ -315,58 +315,68 @@ export function Pedidos() {
       </h1>
 
       {/* 1. Database Search Card */}
-      <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <ExportCsvButton<OrderFilters>
-            type="order"
-            filters={{
-              orderStatus: statusFilter,
-              orderIdDisplay: searchTerm,
-              orderDateFloor: dataInicioFilter,
-              orderDateCeil: dataFimFilter,
-              productName: productNameFilter,
-              ticketStatus:
-                ticketFilter === "Aberto"
-                  ? "aberto"
-                  : ticketFilter === "Finalizado"
-                    ? "resolvido"
-                    : undefined,
-            }}
-            endpoint="http://localhost:8000/api/v1/orders/exportar"
-            onSuccess={(msg) => toast.success(msg)}
-            onError={(err) => toast.error(err)}
-          />
-          <Toaster position="top-right" />
-          <div className="flex items-center gap-2 text-foreground font-bold">
-            <span className="p-1.5 bg-background rounded-lg flex items-center justify-center">
-              <Database className="w-5 h-5 text-muted-foreground" />
-            </span>
-            Consultar Database
+      <div className="bg-white dark:bg-card rounded-3xl p-6 shadow-sm border border-[#E2E8F0] dark:border-none mb-6">
+        {/* Cabeçalho */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-[#0F172A] dark:text-foreground font-bold text-base">
+            <Database className="w-5 h-5" />
+            <span>Consultar no Banco de Dados</span>
           </div>
-          <div className="text-sm font-semibold text-muted-foreground">
+          <div className="text-sm font-medium text-muted-foreground flex items-center">
             Total{" "}
-            <span className="text-blue-700 ml-2 font-black">
+            <span className="bg-[#EFF6FF] text-[#1E5EFF] font-bold px-3 py-1 rounded-xl ml-2">
               {totalItems > 0 ? totalItems.toLocaleString("pt-BR") : 0}
             </span>
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="w-5 h-5 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar por ID do pedido..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-background rounded-2xl border-none text-foreground focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            <span className="text-muted-foreground text-sm">Exibindo</span>
-            <span className="bg-sky-400 text-white px-2 py-0.5 rounded-full text-xs font-bold">
-              {dataSource.length}
-            </span>
+        {/* Linha de Busca e Ações */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="relative w-full max-w-2xl">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar por ID do pedido..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-28 py-2.5 bg-[#F1F5F9] dark:bg-background rounded-full border-none text-sm text-foreground focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400"
+            />
+
+            {/* Badge "Exibindo" embutido no input */}
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none select-none">
+              <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider hidden sm:block">
+                Exibindo
+              </span>
+              <span className="bg-sky-400 text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm">
+                {dataSource.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            {/* Botão de Exportação de Pedidos */}
+            <ExportCsvButton<OrderFilters>
+              type="order"
+              filters={{
+                orderStatus: statusFilter,
+                orderIdDisplay: searchTerm,
+                orderDateFloor: dataInicioFilter,
+                orderDateCeil: dataFimFilter,
+                productName: productNameFilter,
+                ticketStatus:
+                  ticketFilter === "Aberto"
+                    ? "aberto"
+                    : ticketFilter === "Finalizado"
+                      ? "resolvido"
+                      : undefined,
+              }}
+              endpoint="http://localhost:8000/api/v1/orders/exportar"
+              onSuccess={(msg) => toast.success(msg)}
+              onError={(err) => toast.error(err)}
+            />
           </div>
         </div>
+        <Toaster position="top-right" />
       </div>
 
       {/* 2. Seção de Filtros (Conforme Imagem) */}
@@ -383,11 +393,6 @@ export function Pedidos() {
             )}
             {isFiltrosOpen ? "Esconder Filtros" : "Mostrar Filtros"}
           </button>
-          {/* {isFiltrosOpen ? (
-            <Minimize2 className="w-5 h-5 text-muted-foreground" />
-          ) : (
-            <Maximize2 className="w-5 h-5 text-muted-foreground" />
-          )} */}
         </div>
 
         {isFiltrosOpen && (
@@ -758,10 +763,11 @@ export function Pedidos() {
                                   {/* Linha Conectora */}
                                   {index < pipelineSteps.length - 1 && (
                                     <div
-                                      className={`w-3 h-0.5 transition-colors duration-300 ${index < currentStepIndex
-                                        ? "bg-slate-700"
-                                        : "bg-border"
-                                        }`}
+                                      className={`w-3 h-0.5 transition-colors duration-300 ${
+                                        index < currentStepIndex
+                                          ? "bg-slate-700"
+                                          : "bg-border"
+                                      }`}
                                     />
                                   )}
                                 </div>
@@ -839,12 +845,13 @@ export function Pedidos() {
                       <div key={step} className="flex items-center">
                         <div
                           className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 
-                          ${step < pedido.progresso
+                          ${
+                            step < pedido.progresso
                               ? "bg-blue-900 border-blue-900 text-white"
                               : step === pedido.progresso
                                 ? "bg-red-400 border-red-400 text-white"
                                 : "bg-background border-border text-muted-foreground"
-                            }`}
+                          }`}
                         >
                           {step < pedido.progresso ? (
                             <CheckCircle2 className="w-3 h-3" />

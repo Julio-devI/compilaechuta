@@ -116,10 +116,12 @@ export type Ticket = {
 
 export async function getTicketPorPedido(
   idPedido: string,
-): Promise<Ticket | null> {
-  const response = await fetch(
-    `${API_URL}/pedido/${encodeURIComponent(idPedido)}`,
-  );
+  registroConsistente: boolean = true
+): Promise<SupportTicket[] | null> {
+
+  const url = `${API_URL}/pedido/${encodeURIComponent(idPedido)}?registro_consistente=${registroConsistente}`;
+
+  const response = await fetch(url);
 
   if (response.status === 404) {
     return null;
@@ -129,16 +131,8 @@ export async function getTicketPorPedido(
     throw new Error(`Erro ao buscar ticket por pedido: ${response.status}`);
   }
 
-  const result = await response.json();
-
-  return {
-    id: result.id_ticket,
-    status: result.status || "aberto",
-    prioridade: "normal",
-    assunto: result.tipo_problema || "Ticket de suporte",
-    dataAberturaRaw: result.data_abertura ?? null,
-    dataResolucaoRaw: result.data_resolucao ?? null,
-  };
+  const result: SupportTicketApiResponse[] = await response.json();
+  return result.map(mapSupportTicket);
 }
 
 export async function getSupportTickets(

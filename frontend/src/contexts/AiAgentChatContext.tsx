@@ -28,6 +28,7 @@ interface AiAgentChatState {
   activeConversation: string | null
   initialSuggestions: string[]
   isTyping: boolean
+  pendingQuestions: string[]
 }
 
 interface AiAgentChatContextValue {
@@ -53,6 +54,8 @@ interface AiAgentChatActions {
   setInitialSuggestions: Dispatch<SetStateAction<string[]>>
   isTyping: boolean
   setIsTyping: Dispatch<SetStateAction<boolean>>
+  pendingQuestions: string[]
+  setPendingQuestions: Dispatch<SetStateAction<string[]>>
   selectedChatKey: string
   setSelectedChatKey: Dispatch<SetStateAction<string>>
   nextMessageId: () => number
@@ -68,6 +71,7 @@ function createEmptyChatState(): AiAgentChatState {
     activeConversation: null,
     initialSuggestions: [],
     isTyping: false,
+    pendingQuestions: [],
   }
 }
 
@@ -178,6 +182,12 @@ export function useAiAgentChat(chatKey?: string): AiAgentChatActions {
       context.setChatState(resolvedChatKey, current => ({
         ...current,
         isTyping: applyStateAction(current.isTyping, action),
+      })),
+    pendingQuestions: state.pendingQuestions,
+    setPendingQuestions: action =>
+      context.setChatState(resolvedChatKey, current => ({
+        ...current,
+        pendingQuestions: applyStateAction(current.pendingQuestions, action),
       })),
     selectedChatKey: context.selectedChatKey,
     setSelectedChatKey: context.setSelectedChatKey,

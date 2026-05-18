@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAiAgentChat } from '@/contexts/AiAgentChatContext'
 import { getRouteSuggestions } from '@/lib/chatSuggestionsByRoute'
@@ -62,8 +62,11 @@ export function ChatIADrawer() {
     setSelectedChatKey,
     isTyping,
     setIsTyping,
+    pendingQuestions,
+    setPendingQuestions,
     nextMessageId,
   } = useAiAgentChat(chatKey)
+  const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS_COMPACT)
 
@@ -99,7 +102,11 @@ export function ChatIADrawer() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  const sendQuestion = async (rawText: string) => {
+  useEffect(() => {
+    pendingQuestionsRef.current = pendingQuestions
+  }, [pendingQuestions])
+
+  const processQuestion = useCallback(async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
 
@@ -112,8 +119,6 @@ export function ChatIADrawer() {
         timestamp: nowHHmm(),
       },
     ])
-    setInputValue('')
-    setSlashMenuOpen(false)
     setIsTyping(true)
 
     try {
@@ -151,8 +156,47 @@ export function ChatIADrawer() {
         },
       ])
     } finally {
-      setIsTyping(false)
+      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      if (nextQuestion) {
+        pendingQuestionsRef.current = remainingQuestions
+        setPendingQuestions(remainingQuestions)
+        processQuestion(nextQuestion)
+      } else {
+        setIsTyping(false)
+      }
     }
+  }, [
+    nextMessageId,
+    sessionId,
+    setActiveConversation,
+    setIsTyping,
+    setMessages,
+    setPendingQuestions,
+  ])
+
+  const sendQuestion = (rawText: string) => {
+    const text = rawText.trim()
+    if (!text) return
+
+    setInputValue('')
+    setSlashMenuOpen(false)
+
+    if (isTyping) {
+      const nextQuestions = [...pendingQuestionsRef.current, text]
+      pendingQuestionsRef.current = nextQuestions
+      setPendingQuestions(nextQuestions)
+      return
+    }
+
+    processQuestion(text)
+  }
+
+  const removePendingQuestion = (indexToRemove: number) => {
+    const nextQuestions = pendingQuestionsRef.current.filter(
+      (_, index) => index !== indexToRemove,
+    )
+    pendingQuestionsRef.current = nextQuestions
+    setPendingQuestions(nextQuestions)
   }
 
   const runSugestaoCommand = async () => {
@@ -518,6 +562,46 @@ export function ChatIADrawer() {
 
         {/* Input area */}
         <div className="p-4 shrink-0" style={{ borderTop: '1px solid var(--chat-border)' }}>
+          {pendingQuestions.length > 0 && (
+            <div
+              className="mb-3 rounded-xl px-3 py-2"
+              style={{
+                background: 'var(--chat-msg-ai-bg)',
+                border: '1px solid var(--chat-border)',
+              }}
+            >
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Na fila
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {pendingQuestions.length}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {pendingQuestions.map((question, index) => (
+                  <div
+                    key={`${question}-${index}`}
+                    data-testid="queued-question"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+                    style={{ background: 'var(--chat-input-bg)' }}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+                      {question}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removePendingQuestion(index)}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-muted hover:text-foreground transition-colors hover:bg-(--chat-item-hover)"
+                      aria-label={`Remover pergunta da fila: ${question}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="relative">
             {slashMenuOpen && (
               <SlashCommandMenu
@@ -556,7 +640,7 @@ export function ChatIADrawer() {
               </button>
               <button
                 onClick={handleEnviar}
-                disabled={!inputValue.trim() || isTyping}
+                disabled={!inputValue.trim()}
                 className="w-8 h-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ background: '#1E5EFF', opacity: inputValue.trim() ? 1 : 0.3 }}
               >

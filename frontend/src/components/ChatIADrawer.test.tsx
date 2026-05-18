@@ -4,6 +4,7 @@ import {
   render,
   renderWithRouter,
   screen,
+  act,
   waitFor,
   within,
 } from '@/test/test-utils'
@@ -44,6 +45,10 @@ import { askAgent, getSuggestions } from '@/services/aiAgentService'
 
 const askAgentMock = askAgent as unknown as ReturnType<typeof vi.fn>
 const getSuggestionsMock = getSuggestions as unknown as ReturnType<typeof vi.fn>
+
+function compareNodeOrder(first: HTMLElement, second: HTMLElement): number {
+  return first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING
+}
 
 function renderDrawer(route = '/') {
   return renderWithRouter(
@@ -115,6 +120,133 @@ describe('ChatIADrawer', () => {
 
     expect(await screen.findByText('Qual foi a receita?')).toBeInTheDocument()
     expect(await screen.findByText('A receita foi R$ 10.')).toBeInTheDocument()
+  })
+
+  it('enfileira novas perguntas enquanto o agente responde e preserva a ordem visual', async () => {
+    let resolveFirst!: (value: unknown) => void
+    let resolveSecond!: (value: unknown) => void
+
+    askAgentMock
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirst = resolve
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveSecond = resolve
+          }),
+      )
+
+    const user = userEvent.setup()
+    renderDrawer()
+
+    await user.type(findInput(), 'Pergunta 1')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('Pergunta 1')).toBeInTheDocument()
+    expect(askAgentMock).toHaveBeenCalledTimes(1)
+
+    await user.type(findInput(), 'Pergunta 2')
+    await user.keyboard('{Enter}')
+
+    expect(askAgentMock).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Na fila')).toBeInTheDocument()
+    expect(screen.getByTestId('queued-question')).toHaveTextContent('Pergunta 2')
+
+    await act(async () => {
+      resolveFirst({
+        status: 'success',
+        session_id: 'sess-1',
+        user_response: {
+          answer_text: 'Resposta 1',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+    })
+
+    expect(await screen.findByText('Resposta 1')).toBeInTheDocument()
+    expect(await screen.findByText('Pergunta 2')).toBeInTheDocument()
+    expect(screen.queryByTestId('queued-question')).not.toBeInTheDocument()
+    await waitFor(() => expect(askAgentMock).toHaveBeenCalledTimes(2))
+
+    await act(async () => {
+      resolveSecond({
+        status: 'success',
+        session_id: 'sess-1',
+        user_response: {
+          answer_text: 'Resposta 2',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+    })
+
+    const pergunta1 = await screen.findByText('Pergunta 1')
+    const resposta1 = await screen.findByText('Resposta 1')
+    const pergunta2 = await screen.findByText('Pergunta 2')
+    const resposta2 = await screen.findByText('Resposta 2')
+
+    expect(compareNodeOrder(pergunta1, resposta1)).toBeTruthy()
+    expect(compareNodeOrder(resposta1, pergunta2)).toBeTruthy()
+    expect(compareNodeOrder(pergunta2, resposta2)).toBeTruthy()
+  })
+
+  it('remove pergunta enfileirada antes dela ser enviada ao agente', async () => {
+    let resolveFirst!: (value: unknown) => void
+
+    askAgentMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveFirst = resolve
+        }),
+    )
+
+    const user = userEvent.setup()
+    renderDrawer()
+
+    await user.type(findInput(), 'Pergunta principal')
+    await user.keyboard('{Enter}')
+    await user.type(findInput(), 'Pergunta removida')
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByTestId('queued-question')).toHaveTextContent(
+      'Pergunta removida',
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Remover pergunta da fila: Pergunta removida',
+      }),
+    )
+
+    expect(screen.queryByText('Pergunta removida')).not.toBeInTheDocument()
+    expect(screen.queryByText('Na fila')).not.toBeInTheDocument()
+
+    await act(async () => {
+      resolveFirst({
+        status: 'success',
+        session_id: 'sess-1',
+        user_response: {
+          answer_text: 'Resposta principal',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+    })
+
+    expect(await screen.findByText('Resposta principal')).toBeInTheDocument()
+    expect(askAgentMock).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Pergunta removida')).not.toBeInTheDocument()
   })
 
   it('exibe toast e mensagem de fallback quando askAgent rejeita', async () => {

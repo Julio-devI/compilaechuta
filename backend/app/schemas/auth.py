@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 
@@ -20,6 +21,7 @@ class UserInfo(BaseModel):
     nome: str
     username: str
     email: str
+    telefone: Optional[str] = None
     role: str
 
 
@@ -27,3 +29,9 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserInfo
+
+
+class UpdateMeRequest(BaseModel):
+    nome: Optional[str] = None
+    email: Optional[str] = None
+    telefone: Optional[str] = None

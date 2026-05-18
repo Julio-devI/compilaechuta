@@ -83,7 +83,7 @@ DEFAULT_SCENARIOS = [
     SmokeScenario(
         name="pedidos_com_cliente_produto_tempo",
         question=(
-            "Quais pedidos entregues de clientes do segmento Campeões mostram "
+            "Quais pedidos entregues de clientes do segmento Campeão mostram "
             "cliente, email, código do pedido, produto, região, data da venda "
             "e valor total, ordenando pelo maior valor?"
         ),

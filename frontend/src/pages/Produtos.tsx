@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom'
 import { ModalDetalhesProduto } from '../components/ModalDetalhesProduto'
 import { getProdutos, getTotalProdutos, getTopSellingProduct, Produto, exportarProdutosCSV, deleteProduto } from '../services/productService'
 import { getCategorias, getBestSellingCategory, getWorstSellingCategory } from '../services/categoryService'
+import { Toaster, toast } from 'react-hot-toast'
+import { ExportCsvButton, ProductFilters } from '../components/ExportCsvButton'
 
 export function Produtos() {
   const navigate = useNavigate()
@@ -55,16 +57,16 @@ export function Produtos() {
       setCategoriasLista(data.map((c: any) => c.nome_categoria))
     })
     getTotalProdutos().then(total => {
-        setTotalProdutos(total)
+      setTotalProdutos(total)
     })
     getTopSellingProduct().then(top => {
-        setTopSellingProduct(top)
+      setTopSellingProduct(top)
     })
     getBestSellingCategory().then(best => {
-        setBestSellingCategory(best)
+      setBestSellingCategory(best)
     })
     getWorstSellingCategory().then(worst => {
-        setWorstSellingCategory(worst)
+      setWorstSellingCategory(worst)
     })
   }, [])
 
@@ -259,13 +261,19 @@ export function Produtos() {
               </span>
             </button>
 
-            {/* Botão Exportar CSV Ajustado */}
-            <button
-              onClick={exportarProdutosCSV}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E2E8F0] dark:bg-border rounded-xl text-slate-700 dark:text-muted-foreground font-bold text-xs hover:opacity-90 transition-opacity border border-slate-300 dark:border-none"
-            >
-              <Download className="w-3.5 h-3.5" /> Exportar CSV
-            </button>
+            <ExportCsvButton<ProductFilters>
+              type="product"
+              filters={{
+                  productName: searchTerm || undefined,
+                  category: filtroCategoria || undefined,
+                  status: filtroStatus || undefined,
+                  price_min: filtroPreco === 'R$ 100 - R$ 500' || filtroPreco === 'Acima de R$ 500' ? (filtroPreco === 'R$ 100 - R$ 500' ? 100 : 500) : undefined,
+                  price_max: filtroPreco === 'Até R$ 100' || filtroPreco === 'R$ 100 - R$ 500' ? (filtroPreco === 'Até R$ 100' ? 100 : 500) : undefined,
+              }}
+              endpoint="http://localhost:8000/api/v1/products/exportar"
+              onSuccess={(msg) => toast.success(msg)}
+              onError={(err) => toast.error(err)}
+            />
           </div>
         </div>
       </div>
@@ -421,95 +429,95 @@ export function Produtos() {
                 </tr>
               </thead>
               <tbody>
-      {produtosFiltrados.map((produto) => (
-        <tr
-          key={produto.id}
-          className="bg-white dark:bg-card group cursor-pointer hover:bg-slate-50 dark:hover:bg-background/50 transition-colors border-b border-border shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
-          onClick={() => setProdutoSelecionado(produto)}
-        >
-          {/* PRODUTO (Imagem + Nome em bloco cinza) */}
-          <td className="py-4 px-6 rounded-l-2xl border-0">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl border border-slate-200 flex items-center justify-center text-2xl bg-[#F1F5F9] text-slate-400 shrink-0">
-                {produto.imagem || "✕"}
-              </div>
-              <div className="bg-[#F1F5F9] dark:bg-slate-800 px-4 py-2 rounded-2xl min-w-[140px]">
-                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm block leading-tight">
-                  {produto.nome}
-                </span>
-              </div>
-            </div>
-          </td>
+                {produtosFiltrados.map((produto) => (
+                  <tr
+                    key={produto.id}
+                    className="bg-white dark:bg-card group cursor-pointer hover:bg-slate-50 dark:hover:bg-background/50 transition-colors border-b border-border shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+                    onClick={() => setProdutoSelecionado(produto)}
+                  >
+                    {/* PRODUTO (Imagem + Nome em bloco cinza) */}
+                    <td className="py-4 px-6 rounded-l-2xl border-0">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-xl border border-slate-200 flex items-center justify-center text-2xl bg-[#F1F5F9] text-slate-400 shrink-0">
+                          {produto.imagem || "✕"}
+                        </div>
+                        <div className="bg-[#F1F5F9] dark:bg-slate-800 px-4 py-2 rounded-2xl min-w-[140px]">
+                          <span className="font-bold text-slate-700 dark:text-slate-200 text-sm block leading-tight">
+                            {produto.nome}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
 
-          {/* SKU */}
-          <td className="py-4 px-6 border-0">
-            <span className="text-slate-600 dark:text-slate-400 font-bold text-sm">
-              {produto.sku}
-            </span>
-          </td>
+                    {/* SKU */}
+                    <td className="py-4 px-6 border-0">
+                      <span className="text-slate-600 dark:text-slate-400 font-bold text-sm">
+                        {produto.sku}
+                      </span>
+                    </td>
 
-          {/* CATEGORIA */}
-          <td className="py-4 px-6 border-0">
-            <span className="bg-[#E0F2FE] text-[#0284C7] px-3 py-1 rounded-full text-xs font-bold tracking-wide">
-              {produto.categoria}
-            </span>
-          </td>
+                    {/* CATEGORIA */}
+                    <td className="py-4 px-6 border-0">
+                      <span className="bg-[#E0F2FE] text-[#0284C7] px-3 py-1 rounded-full text-xs font-bold tracking-wide">
+                        {produto.categoria}
+                      </span>
+                    </td>
 
-          {/* PERFORMANCE (Equivalente ao antigo Status na imagem) */}
-          <td className="py-4 px-6 border-0">
-            <span className="bg-[#E2E8F0] dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 w-fit">
-              <Medal className="w-3.5 h-3.5" /> Mais vendido
-            </span>
-          </td>
+                    {/* PERFORMANCE (Equivalente ao antigo Status na imagem) */}
+                    <td className="py-4 px-6 border-0">
+                      <span className="bg-[#E2E8F0] dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 w-fit">
+                        <Medal className="w-3.5 h-3.5" /> Mais vendido
+                      </span>
+                    </td>
 
-          {/* PREÇO */}
-          <td className="py-4 px-6 border-0">
-            <span className="text-[#020854] dark:text-blue-400 font-black text-base whitespace-nowrap">
-              {produto.preco}
-            </span>
-          </td>
+                    {/* PREÇO */}
+                    <td className="py-4 px-6 border-0">
+                      <span className="text-[#020854] dark:text-blue-400 font-black text-base whitespace-nowrap">
+                        {produto.preco}
+                      </span>
+                    </td>
 
-          {/* ESTOQUE */}
-          <td className="py-4 px-6 border-0">
-            <span className="font-medium text-slate-400 dark:text-slate-500 text-sm">
-              {produto.estoque} produtos
-            </span>
-          </td>
+                    {/* ESTOQUE */}
+                    <td className="py-4 px-6 border-0">
+                      <span className="font-medium text-slate-400 dark:text-slate-500 text-sm">
+                        {produto.estoque} produtos
+                      </span>
+                    </td>
 
-          {/* VENDIDOS */}
-          <td className="py-4 px-6 border-0">
-            <span className="font-medium text-slate-400 dark:text-slate-500 text-sm">
-              {produto.vendidos} produtos
-            </span>
-          </td>
+                    {/* VENDIDOS */}
+                    <td className="py-4 px-6 border-0">
+                      <span className="font-medium text-slate-400 dark:text-slate-500 text-sm">
+                        {produto.vendidos} produtos
+                      </span>
+                    </td>
 
-          {/* AVALIAÇÃO */}
-          <td className="py-4 px-6 border-0">
-            <div className="flex items-center gap-1">
-              <span className="text-amber-400 text-lg">★</span>
-              <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">
-                {/* Fallback caso não exista a propriedade no seu tipo Produto */}
-                {(produto as any).avaliacao || "N/A"}
-              </span>
-            </div>
-          </td>
+                    {/* AVALIAÇÃO */}
+                    <td className="py-4 px-6 border-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-amber-400 text-lg">★</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">
+                          {/* Fallback caso não exista a propriedade no seu tipo Produto */}
+                          {(produto as any).avaliacao || "N/A"}
+                        </span>
+                      </div>
+                    </td>
 
-          {/* AÇÕES (Botão Editar) */}
-          <td className="py-4 px-6 rounded-r-2xl border-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/produtos/editar/${produto.id}`);
-              }}
-              className="flex items-center gap-1.5 text-[#1E5EFF] hover:text-[#1E5EFF]/80 font-bold text-sm bg-transparent border-none cursor-pointer transition-colors"
-            >
-              {/* Note: Importe o 'Pencil' do lucide-react no topo caso queira o ícone exato de edição */}
-              <span className="text-base">✏️</span> Editar
-            </button>
-          </td>
-        </tr>
-      ))}
-    </tbody>
+                    {/* AÇÕES (Botão Editar) */}
+                    <td className="py-4 px-6 rounded-r-2xl border-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/produtos/editar/${produto.id}`);
+                        }}
+                        className="flex items-center gap-1.5 text-[#1E5EFF] hover:text-[#1E5EFF]/80 font-bold text-sm bg-transparent border-none cursor-pointer transition-colors"
+                      >
+                        {/* Note: Importe o 'Pencil' do lucide-react no topo caso queira o ícone exato de edição */}
+                        <span className="text-base">✏️</span> Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         ) : (

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime, event, text
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, DateTime
 from datetime import datetime
 from app.core.database import Base
 from zoneinfo import ZoneInfo

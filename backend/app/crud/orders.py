@@ -55,6 +55,14 @@ def filters_query(query, filters: OrderFilters):
         query = query.join(Pedido.tickets).where(Ticket.status == status_str)
         need_distinct = True
 
+    if filters.nome_produto:
+        subquery = (
+            select(Produto.id_produto)
+            .where(Produto.nome_produto.ilike(f"{filters.nome_produto}%"))
+        )
+
+        query = query.where(Pedido.id_produto.in_(subquery))
+
     return query, need_distinct
 
 

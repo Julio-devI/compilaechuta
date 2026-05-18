@@ -310,33 +310,35 @@ export function Pedidos() {
 
   return (
     <div className="min-h-screen bg-background p-8 font-sans text-foreground">
-      <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground mb-8">
-        Pedidos
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-4xl font-bold text-[#020854] dark:text-foreground mb-8">
+          Pedidos
+        </h1>
+        <ExportCsvButton<OrderFilters>
+          type="order"
+          filters={{
+            orderStatus: statusFilter,
+            orderIdDisplay: searchTerm,
+            orderDateFloor: dataInicioFilter,
+            orderDateCeil: dataFimFilter,
+            productName: productNameFilter,
+            ticketStatus:
+              ticketFilter === "Aberto"
+                ? "aberto"
+                : ticketFilter === "Finalizado"
+                  ? "resolvido"
+                  : undefined,
+          }}
+          endpoint="http://localhost:8000/api/v1/orders/exportar"
+          onSuccess={(msg) => toast.success(msg)}
+          onError={(err) => toast.error(err)}
+        />
+        <Toaster position="top-right" />
+      </div>
 
       {/* 1. Database Search Card */}
       <div className="bg-card rounded-3xl p-6 shadow-sm border-0 mb-6">
         <div className="flex justify-between items-center mb-4">
-          <ExportCsvButton<OrderFilters>
-            type="order"
-            filters={{
-              orderStatus: statusFilter,
-              orderIdDisplay: searchTerm,
-              orderDateFloor: dataInicioFilter,
-              orderDateCeil: dataFimFilter,
-              productName: productNameFilter,
-              ticketStatus:
-                ticketFilter === "Aberto"
-                  ? "aberto"
-                  : ticketFilter === "Finalizado"
-                    ? "resolvido"
-                    : undefined,
-            }}
-            endpoint="http://localhost:8000/api/v1/orders/exportar"
-            onSuccess={(msg) => toast.success(msg)}
-            onError={(err) => toast.error(err)}
-          />
-          <Toaster position="top-right" />
           <div className="flex items-center gap-2 text-foreground font-bold">
             <span className="p-1.5 bg-background rounded-lg flex items-center justify-center">
               <Database className="w-5 h-5 text-muted-foreground" />

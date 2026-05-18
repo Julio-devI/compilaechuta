@@ -233,11 +233,10 @@ export function Clientes() {
   const PillButton = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-        active
+      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${active
           ? 'bg-[#1E5EFF] text-white'
           : 'bg-[#F1F5F9] dark:bg-background text-muted-foreground hover:bg-gray-200 dark:hover:bg-border'
-      }`}
+        }`}
     >
       {label}
     </button>
@@ -263,7 +262,24 @@ export function Clientes() {
         .range-slider::-moz-range-track { background: transparent; }
       `}</style>
 
-      <h1 className="text-5xl font-bold text-[#020854] dark:text-foreground mb-8">Clientes</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-5xl font-bold text-[#020854] dark:text-foreground mb-8">
+          Clientes
+        </h1>
+        <ExportCsvButton<ClientFilters>
+          type="client"
+          filters={{
+            rfmSegment: filterTipoCliente !== 'Todos' ? filterTipoCliente : undefined,
+            ltvFloor: lvtMin > LTV_MIN ? lvtMin : undefined,
+            ltvCeil: lvtMax < LTV_MAX ? lvtMax : undefined,
+            region: filterRegiao !== 'Todos' ? filterRegiao : undefined,
+          }}
+          endpoint="http://localhost:8000/api/v1/clients/exportar"
+          onSuccess={(msg) => toast.success(msg)}
+          onError={(err) => toast.error(err)}
+        />
+        <Toaster position="top-right" />
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-5 gap-4 mb-8">
@@ -525,19 +541,6 @@ export function Clientes() {
           />
           Selecionar tudo
         </label>
-        <ExportCsvButton<ClientFilters>
-          type="client"
-          filters={{
-            rfmSegment: filterTipoCliente !== 'Todos' ? filterTipoCliente : undefined,
-            ltvFloor: lvtMin > LTV_MIN ? lvtMin : undefined,
-            ltvCeil: lvtMax < LTV_MAX ? lvtMax : undefined,
-            region: filterRegiao !== 'Todos' ? filterRegiao : undefined,
-          }}
-          endpoint="http://localhost:8000/api/v1/clients/exportar"
-          onSuccess={(msg) => toast.success(msg)}
-          onError={(err) => toast.error(err)}
-        />
-        <Toaster position="top-right" />
       </div>
 
       {/* Main Content */}
@@ -787,11 +790,10 @@ export function Clientes() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Left column */}
                     <div className="md:col-span-1 space-y-6">
-                      <div className={`rounded-3xl p-6 border ${
-                        selectedTicket.status === 'resolvido'
+                      <div className={`rounded-3xl p-6 border ${selectedTicket.status === 'resolvido'
                           ? 'bg-[#DCFCE7] text-[#15803D] border-[#BBF7D0]'
                           : 'bg-[#FEF9C3] text-[#A16207] border-[#FEF08A]'
-                      }`}>
+                        }`}>
                         <div className="flex items-center gap-2 mb-2">
                           {selectedTicket.status === 'resolvido'
                             ? <CheckCircle2 className="w-5 h-5" />
@@ -993,13 +995,12 @@ export function Clientes() {
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
                             <span className="font-bold text-[#020854] text-sm">{order.valor}</span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              order.status === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' :
-                              order.status === 'Processando' ? 'bg-orange-100 text-orange-700' :
-                              order.status === 'Recusado' ? 'bg-red-100 text-red-700' :
-                              order.status === 'Reembolsado' ? 'bg-blue-100 text-blue-700' :
-                              'bg-slate-100 text-slate-600'
-                            }`}>{order.status}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' :
+                                order.status === 'Processando' ? 'bg-orange-100 text-orange-700' :
+                                  order.status === 'Recusado' ? 'bg-red-100 text-red-700' :
+                                    order.status === 'Reembolsado' ? 'bg-blue-100 text-blue-700' :
+                                      'bg-slate-100 text-slate-600'
+                              }`}>{order.status}</span>
                             <button
                               onClick={() => setOrderDetailModal(order)}
                               className="text-xs font-bold text-[#1E5EFF] hover:underline flex items-center gap-1"
@@ -1036,9 +1037,8 @@ export function Clientes() {
                                 {new Date(ticket.openedAt).toLocaleDateString('pt-BR')}
                               </span>
                             )}
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              ticket.status === 'aberto' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                            }`}>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ticket.status === 'aberto' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                              }`}>
                               {ticket.status === 'aberto' ? 'Aberto' : 'Resolvido'}
                             </span>
                             <button

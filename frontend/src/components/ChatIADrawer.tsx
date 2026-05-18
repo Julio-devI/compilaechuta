@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useAiAgentChat } from '@/contexts/AiAgentChatContext'
+import { useAiAgentChat } from '@/contexts/ChatContext'
 import { getRouteSuggestions } from '@/lib/chatSuggestionsByRoute'
 import {
   AGENT_PLACEHOLDERS_COMPACT,
@@ -33,7 +33,7 @@ import {
   type AiAgentPageContext,
   type SessionSummary,
 } from '@/services/aiAgentService'
-import type { AiAgentMessage } from '@/contexts/AiAgentChatContext'
+import type { AiAgentMessage } from '@/contexts/ChatContext'
 import { AgentChart } from '@/components/AgentChart'
 import { AgentDataTable } from '@/components/AgentDataTable'
 import {
@@ -113,7 +113,6 @@ function getPageContext(pathname: string): AiAgentPageContext | undefined {
 }
 
 export function ChatIADrawer() {
-  const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [quickActions, setQuickActions] = useState<string[]>([])
   const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
@@ -141,11 +140,18 @@ export function ChatIADrawer() {
     setIsTyping,
     pendingQuestions,
     setPendingQuestions,
+    appendPendingQuestion,
+    removePendingQuestion: removePendingQuestionFromContext,
+    shiftPendingQuestion,
     nextMessageId,
     resetActiveConversation,
+    getConversationToken,
+    invalidateConversation,
+    isConversationTokenCurrent,
+    isDrawerOpen: isOpen,
+    setDrawerOpen: setIsOpen,
+    setLastRoute,
   } = useAiAgentChat(chatKey)
-  const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
-  const conversationTokenRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS_COMPACT)
 
@@ -181,10 +187,6 @@ export function ChatIADrawer() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  useEffect(() => {
-    pendingQuestionsRef.current = pendingQuestions
-  }, [pendingQuestions])
-
   const refreshHistory = useCallback(async () => {
     setHistoryLoading(true)
     try {
@@ -203,8 +205,7 @@ export function ChatIADrawer() {
   }, [historyOpen, isOpen, isTyping, refreshHistory])
 
   const handleNewConversation = () => {
-    conversationTokenRef.current += 1
-    pendingQuestionsRef.current = []
+    invalidateConversation()
     resetActiveConversation()
     setPendingQuestions([])
     setInputValue('')
@@ -216,17 +217,15 @@ export function ChatIADrawer() {
   }
 
   const loadConversationFromHistory = async (id: string) => {
-    const requestToken = conversationTokenRef.current + 1
-    conversationTokenRef.current = requestToken
+    const requestToken = invalidateConversation()
     setInputValue('')
     setSlashMenuOpen(false)
     setIsTyping(false)
-    pendingQuestionsRef.current = []
     setPendingQuestions([])
 
     try {
       const detail = await getSessionDetail(id)
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
       const mappedMessages: AiAgentMessage[] = detail.history.map(entry => ({
         id: nextMessageId(),
@@ -245,7 +244,7 @@ export function ChatIADrawer() {
       setExpandedTables(new Set())
       setHistoryOpen(false)
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
       toast.error((err as Error).message)
     }
   }
@@ -253,7 +252,7 @@ export function ChatIADrawer() {
   const processQuestion = useCallback(async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
-    const requestToken = conversationTokenRef.current
+    const requestToken = getConversationToken()
 
     setActiveConversation(sessionId)
     setConversationHistory(prev => [
@@ -277,7 +276,7 @@ export function ChatIADrawer() {
         sessionId,
         getPageContext(location.pathname),
       )
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
       const assistantText =
         response.user_response.answer_text ||
@@ -300,7 +299,7 @@ export function ChatIADrawer() {
         if (historyOpen) refreshHistory()
       }
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
       const message = (err as Error).message
       toast.error(message)
       setMessages(prev => [
@@ -313,12 +312,10 @@ export function ChatIADrawer() {
         },
       ])
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
-      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      const nextQuestion = shiftPendingQuestion()
       if (nextQuestion) {
-        pendingQuestionsRef.current = remainingQuestions
-        setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
         setIsTyping(false)
@@ -344,9 +341,7 @@ export function ChatIADrawer() {
     setSlashMenuOpen(false)
 
     if (isTyping) {
-      const nextQuestions = [...pendingQuestionsRef.current, text]
-      pendingQuestionsRef.current = nextQuestions
-      setPendingQuestions(nextQuestions)
+      appendPendingQuestion(text)
       return
     }
 
@@ -354,15 +349,11 @@ export function ChatIADrawer() {
   }
 
   const removePendingQuestion = (indexToRemove: number) => {
-    const nextQuestions = pendingQuestionsRef.current.filter(
-      (_, index) => index !== indexToRemove,
-    )
-    pendingQuestionsRef.current = nextQuestions
-    setPendingQuestions(nextQuestions)
+    removePendingQuestionFromContext(indexToRemove)
   }
 
   const runSugestaoCommand = async () => {
-    const requestToken = conversationTokenRef.current
+    const requestToken = getConversationToken()
     setMessages(prev => [
       ...prev,
       {
@@ -375,7 +366,7 @@ export function ChatIADrawer() {
     setIsTyping(true)
     try {
       const { suggestions: list } = await getSuggestions(sessionId)
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
       setMessages(prev => [
         ...prev,
@@ -388,15 +379,13 @@ export function ChatIADrawer() {
         },
       ])
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
       toast.error((err as Error).message)
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
-      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      const nextQuestion = shiftPendingQuestion()
       if (nextQuestion) {
-        pendingQuestionsRef.current = remainingQuestions
-        setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
         setIsTyping(false)
@@ -486,6 +475,7 @@ export function ChatIADrawer() {
           <button
             onClick={() => {
               setSelectedChatKey(chatKey)
+              setLastRoute(location.pathname)
               navigate('/chat-ia')
               setIsOpen(false)
             }}

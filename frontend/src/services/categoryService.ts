@@ -8,6 +8,7 @@ export interface Categoria {
   id_categoria: string;
   nome_categoria: string;
   imagem_url: string | null;
+  total_produtos?: number;
   total_estoque_disponivel: number;
   total_produtos_ativos: number;
   total_com_estoque: number;
@@ -116,5 +117,31 @@ export async function deleteCategoria(id: string): Promise<boolean> {
   } catch (error) {
     console.error("Erro ao deletar categoria:", error);
     return false;
+  }
+}
+
+export async function getBestSellingCategory(): Promise<string> {
+  try {
+    const response = await fetch(`${API_URL}/best-selling`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+
+    const data = await response.json()
+    return data.category || 'Nenhuma'
+  } catch (error) {
+    console.error('Erro ao buscar categoria mais vendida:', error)
+    return 'Nenhuma'
+  }
+}
+
+export async function getWorstSellingCategory(): Promise<string> {
+  try {
+    const response = await fetch(`${API_URL}/worst-selling`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+
+    const data = await response.json()
+    return data.category || 'Nenhuma'
+  } catch (error) {
+    console.error('Erro ao buscar categoria menos vendida:', error)
+    return 'Nenhuma'
   }
 }

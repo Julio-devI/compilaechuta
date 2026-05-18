@@ -1,6 +1,7 @@
 import { apiUrl } from './apiConfig'
 
 const API_URL = apiUrl('/products/')
+const EVAL_API_URL = apiUrl('/orders-evaluation/')
 
 // 1. Interface de como o dado CHEGA da sua nova API (Backend)
 export interface ProdutoDaAPI {
@@ -45,7 +46,9 @@ export interface Produto {
   // Campos extras úteis para os cards do dashboard
   ticketMedio?: string
   total_tickets?: number
+  receitaTotal?: string
   descricao?: string;
+  comentarios?: string[];
 }
 
 export interface FiltrosProdutos {
@@ -84,21 +87,35 @@ export function getProdutoStatus(ativo: string, estoque: number): ProdutoStatus 
 }
 
 // Função auxiliar para mapear 1 item da API para o formato da Tela
+function formatCurrencyOrNA(value: number | null): string {
+  if (value === null || value === -1) return 'N/A'
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value)
+}
+
+function formatNumberOrZero(value: number | null): number {
+  if (value === null || value === -1) return 0
+  return value
+}
+
 function mapearProduto(p: ProdutoDaAPI): Produto {
   return {
     id: p.id_produto,
     nome: p.nome_produto,
     sku: p.sku || 'Sem SKU',
     categoria: p.categoria || 'Outros',
-    preco: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco || 0),
-    estoque: p.estoque_disponivel,
-    vendidos: p.total_unidades_vendidas || 0,
-    avaliacao: p.media_nota_produto || 0,
+    preco: formatCurrencyOrNA(p.preco),
+    estoque: p.estoque_disponivel === -1 ? 0 : p.estoque_disponivel,
+    vendidos: formatNumberOrZero(p.total_unidades_vendidas),
+    avaliacao: formatNumberOrZero(p.media_nota_produto),
     status: getProdutoStatus(p.ativo, p.estoque_disponivel),
     imagem: '📦', // Imagem padrão
     tendencia: 'stable', 
-    ticketMedio: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.ticket_medio || 0),
-    total_tickets: p.total_tickets || 0,
+    ticketMedio: formatCurrencyOrNA(p.ticket_medio),
+    receitaTotal: formatCurrencyOrNA(p.receita_total),
+    total_tickets: formatNumberOrZero(p.total_tickets),
     descricao: p.descricao || ''
   }
 }
@@ -126,10 +143,62 @@ export async function getProdutos(
     const response = await fetch(`${API_URL}?${params.toString()}`)
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
 
-    const data: ProdutoDaAPI[] = await response.json()
-    return data.map(mapearProduto)
+    const data = await response.json()
+    const produtosApi: ProdutoDaAPI[] = Array.isArray(data) ? data : data.data || []
+    return produtosApi.map(mapearProduto)
   } catch (error) {
     console.error('Erro ao buscar produtos:', error)
+    return []
+  }
+}
+
+export async function getFornecedores(): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_URL}suppliers`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+
+    const data = await response.json()
+    return data.supplierList || []
+  } catch (error) {
+    console.error('Erro ao buscar fornecedores:', error)
+    return []
+  }
+}
+
+export async function getTotalProdutos(): Promise<number> {
+  try {
+    const response = await fetch(`${API_URL}total`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+
+    const data = await response.json()
+    return data.total || 0
+  } catch (error) {
+    console.error('Erro ao buscar total de produtos:', error)
+    return 0
+  }
+}
+
+export async function getTopSellingProduct(): Promise<string> {
+  try {
+    const response = await fetch(`${API_URL}top-selling`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+
+    const data = await response.json()
+    return data.top_selling || 'Nenhum'
+  } catch (error) {
+    console.error('Erro ao buscar produto mais vendido:', error)
+    return 'Nenhum'
+  }
+}
+
+export async function getProductComments(id: string): Promise<string[]> {
+  try {
+    const response = await fetch(`${EVAL_API_URL}product/${id}/comments`)
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+
+    return await response.json()
+  } catch (error) {
+    console.error('Erro ao buscar comentários:', error)
     return []
   }
 }

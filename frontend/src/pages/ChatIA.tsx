@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   useAiAgentChat,
   type AiAgentMessage,
-} from '@/contexts/AiAgentChatContext'
+} from '@/contexts/ChatContext'
 import {
   Send,
   Bot,
@@ -13,6 +13,7 @@ import {
   BarChart,
   Search,
   X,
+  Minimize2,
   MessageSquare,
   Plus,
   Lightbulb,
@@ -115,6 +116,7 @@ export function ChatIA() {
   const [expandedTables, setExpandedTables] = useState<Set<number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ConversaHistorico | null>(null)
   const [isDeletingConversation, setIsDeletingConversation] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const {
     messages,
@@ -129,11 +131,17 @@ export function ChatIA() {
     setIsTyping,
     pendingQuestions,
     setPendingQuestions,
+    appendPendingQuestion,
+    removePendingQuestion: removePendingQuestionFromContext,
+    shiftPendingQuestion,
     nextMessageId,
     resetActiveConversation,
+    getConversationToken,
+    invalidateConversation,
+    isConversationTokenCurrent,
+    setDrawerOpen,
+    lastRoute,
   } = useAiAgentChat()
-  const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
-  const conversationTokenRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS)
 
@@ -193,17 +201,17 @@ export function ChatIA() {
   }, [])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
+    requestAnimationFrame(() => setIsVisible(true))
+  }, [])
 
   useEffect(() => {
-    pendingQuestionsRef.current = pendingQuestions
-  }, [pendingQuestions])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isTyping])
 
   const processQuestion = useCallback(async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
-    const requestToken = conversationTokenRef.current
+    const requestToken = getConversationToken()
 
     setActiveConversation(sessionId)
     setConversasHistorico(prev => [
@@ -223,7 +231,7 @@ export function ChatIA() {
 
     try {
       const response = await askAgent(text, sessionId)
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
       const assistantText =
         response.user_response.answer_text ||
@@ -248,7 +256,7 @@ export function ChatIA() {
         refreshSessions()
       }
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
       const message = (err as Error).message
       toast.error(message)
       setMessages(prev => [
@@ -261,12 +269,10 @@ export function ChatIA() {
         },
       ])
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
-      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      const nextQuestion = shiftPendingQuestion()
       if (nextQuestion) {
-        pendingQuestionsRef.current = remainingQuestions
-        setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
         setIsTyping(false)
@@ -290,9 +296,7 @@ export function ChatIA() {
     setSlashMenuOpen(false)
 
     if (isTyping) {
-      const nextQuestions = [...pendingQuestionsRef.current, text]
-      pendingQuestionsRef.current = nextQuestions
-      setPendingQuestions(nextQuestions)
+      appendPendingQuestion(text)
       return
     }
 
@@ -300,15 +304,11 @@ export function ChatIA() {
   }
 
   const removePendingQuestion = (indexToRemove: number) => {
-    const nextQuestions = pendingQuestionsRef.current.filter(
-      (_, index) => index !== indexToRemove,
-    )
-    pendingQuestionsRef.current = nextQuestions
-    setPendingQuestions(nextQuestions)
+    removePendingQuestionFromContext(indexToRemove)
   }
 
   const runSugestaoCommand = async () => {
-    const requestToken = conversationTokenRef.current
+    const requestToken = getConversationToken()
     setMessages(prev => [
       ...prev,
       {
@@ -321,7 +321,7 @@ export function ChatIA() {
     setIsTyping(true)
     try {
       const { suggestions: list } = await getSuggestions(sessionId)
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
       setMessages(prev => [
         ...prev,
@@ -334,15 +334,13 @@ export function ChatIA() {
         },
       ])
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
       toast.error((err as Error).message)
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
-      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      const nextQuestion = shiftPendingQuestion()
       if (nextQuestion) {
-        pendingQuestionsRef.current = remainingQuestions
-        setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
         setIsTyping(false)
@@ -388,9 +386,16 @@ export function ChatIA() {
     sendQuestion(inputValue)
   }
 
+  const handleMinimize = () => {
+    setIsVisible(false)
+    setTimeout(() => {
+      setDrawerOpen(true)
+      navigate(lastRoute)
+    }, 300)
+  }
+
   const handleNovaConversa = () => {
-    conversationTokenRef.current += 1
-    pendingQuestionsRef.current = []
+    invalidateConversation()
     resetActiveConversation()
     setPendingQuestions([])
     setInputValue('')
@@ -435,8 +440,7 @@ export function ChatIA() {
       toast.success('Conversa apagada com sucesso.')
 
       if (deletedActiveConversation) {
-        conversationTokenRef.current += 1
-        pendingQuestionsRef.current = []
+        invalidateConversation()
         resetActiveConversation()
         setPendingQuestions([])
         setInputValue('')
@@ -454,18 +458,16 @@ export function ChatIA() {
   }
 
   const handleConversaHistorico = async (id: string) => {
-    const requestToken = conversationTokenRef.current + 1
-    conversationTokenRef.current = requestToken
+    const requestToken = invalidateConversation()
     setActiveConversation(id)
     setSessionId(id)
     setInputValue('')
     setSlashMenuOpen(false)
     setIsTyping(false)
-    pendingQuestionsRef.current = []
     setPendingQuestions([])
     try {
       const detail = await getSessionDetail(id)
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
 
       const mapped: AiAgentMessage[] = detail.history.map(entry => ({
         id: nextMessageId(),
@@ -480,7 +482,7 @@ export function ChatIA() {
       setExpandedCharts(new Set())
       setExpandedTables(new Set())
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isConversationTokenCurrent(requestToken)) return
       toast.error((err as Error).message)
     }
   }
@@ -491,7 +493,9 @@ export function ChatIA() {
 
   return (
     <div
-      className="fixed inset-y-0 right-0 z-10 flex flex-col"
+      className={`fixed inset-y-0 right-0 z-10 flex flex-col transition-all duration-300 ease-out ${
+        isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
+      }`}
       style={{ left: '80px', background: 'var(--chat-bg)' }}
     >
       {/* Header */}
@@ -515,11 +519,11 @@ export function ChatIA() {
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleMinimize}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted hover:text-foreground rounded-lg transition-colors hover:bg-(--chat-item-hover)"
           >
-            <X className="w-3.5 h-3.5" />
-            Fechar
+            <Minimize2 className="w-4 h-4" />
+            Minimizar
           </button>
         </div>
       </div>

@@ -10,7 +10,7 @@ import {
 } from '@/test/test-utils'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ChartSuggestion } from '@/services/aiAgentService'
-import { AiAgentChatProvider } from '@/contexts/AiAgentChatContext'
+import { ChatProvider } from '@/contexts/ChatContext'
 
 vi.mock('@/services/aiAgentService', () => ({
   askAgent: vi.fn(),
@@ -63,9 +63,9 @@ function compareNodeOrder(first: HTMLElement, second: HTMLElement): number {
 
 function renderDrawer(route = '/') {
   return renderWithRouter(
-    <AiAgentChatProvider>
+    <ChatProvider>
       <ChatIADrawer />
-    </AiAgentChatProvider>,
+    </ChatProvider>,
     { route },
   )
 }
@@ -581,9 +581,9 @@ describe('ChatIADrawer', () => {
 
     const user = userEvent.setup()
     const view = renderWithRouter(
-      <AiAgentChatProvider>
+      <ChatProvider>
         <ChatIADrawer />
-      </AiAgentChatProvider>,
+      </ChatProvider>,
     )
 
     await user.type(findInput(), 'Pergunta instavel')
@@ -594,18 +594,18 @@ describe('ChatIADrawer', () => {
     ).toBeInTheDocument()
 
     view.rerender(
-      <AiAgentChatProvider>
+      <ChatProvider>
         <div>Outra tela</div>
-      </AiAgentChatProvider>,
+      </ChatProvider>,
     )
     expect(
       screen.queryByText('Ops, algo deu errado: Erro preservado'),
     ).not.toBeInTheDocument()
 
     view.rerender(
-      <AiAgentChatProvider>
+      <ChatProvider>
         <ChatIADrawer />
-      </AiAgentChatProvider>,
+      </ChatProvider>,
     )
     expect(
       await screen.findByText('Ops, algo deu errado: Erro preservado'),
@@ -640,7 +640,7 @@ describe('ChatIADrawer', () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <AiAgentChatProvider>
+        <ChatProvider>
           <Routes>
             <Route
               path="/dashboard"
@@ -661,7 +661,7 @@ describe('ChatIADrawer', () => {
               }
             />
           </Routes>
-        </AiAgentChatProvider>
+        </ChatProvider>
       </MemoryRouter>,
     )
 
@@ -813,7 +813,7 @@ describe('ChatIADrawer', () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <AiAgentChatProvider>
+        <ChatProvider>
           <Routes>
             <Route
               path="/dashboard"
@@ -826,7 +826,7 @@ describe('ChatIADrawer', () => {
             />
             <Route path="/chat-ia" element={<div>Página ChatIA</div>} />
           </Routes>
-        </AiAgentChatProvider>
+        </ChatProvider>
       </MemoryRouter>,
     )
 

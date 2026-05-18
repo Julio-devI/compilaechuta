@@ -24,7 +24,7 @@ import { CadastroProduto } from "./pages/CadastroProduto";
 import { EditarProduto } from "./pages/EditarProduto";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import {AuthProvider, useAuth} from "./contexts/AuthContext";
-import { AiAgentChatProvider } from "./contexts/AiAgentChatContext";
+import { ChatProvider, useChat } from "./contexts/ChatContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import {toast, Toaster} from "sonner";
 import {useEffect, type ReactNode} from "react";
@@ -55,7 +55,16 @@ function AuthExpirationGuard() {
 
 function AppLayout() {
   const location = useLocation()
+  const { setLastRoute } = useChat()
+  const isChatRoute = location.pathname === '/chat-ia'
   const showDrawer = !ROUTES_WITHOUT_AI_DRAWER.has(location.pathname)
+
+  useEffect(() => {
+    if (!isChatRoute) {
+      setLastRoute(location.pathname)
+    }
+  }, [isChatRoute, location.pathname, setLastRoute])
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -70,14 +79,14 @@ function AppLayout() {
   );
 }
 
-function AuthenticatedAiAgentChatProvider({ children }: { children: ReactNode }) {
+function AuthenticatedChatProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
 
   if (!isAuthenticated) {
     return <>{children}</>
   }
 
-  return <AiAgentChatProvider>{children}</AiAgentChatProvider>
+  return <ChatProvider>{children}</ChatProvider>
 }
 
 function App() {
@@ -87,7 +96,7 @@ function App() {
         <Toaster position="top-right" richColors />
         <BrowserRouter>
           <AuthExpirationGuard />
-          <AuthenticatedAiAgentChatProvider>
+          <AuthenticatedChatProvider>
             <Routes>
               {/* Redireciona raiz para login */}
               <Route index element={<Navigate to="/login" replace />} />
@@ -131,7 +140,7 @@ function App() {
               {/* Qualquer rota desconhecida redireciona para login */}
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
-          </AuthenticatedAiAgentChatProvider>
+          </AuthenticatedChatProvider>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

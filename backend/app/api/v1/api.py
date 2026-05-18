@@ -9,6 +9,7 @@ from app.api.v1 import (
   dashboard,
   orders,
   orders_evaluation,
+  clickstream,
   time,
   operator,
   auth
@@ -24,6 +25,7 @@ api_router.include_router(products.router, prefix="/products", tags=["Products"]
 api_router.include_router(category.router, prefix="/categories", tags=["categories"])
 api_router.include_router(orders.router, prefix="/orders", tags=["Orders"])
 api_router.include_router(orders_evaluation.router, prefix="/orders-evaluation", tags=["Orders Evaluation"])
+api_router.include_router(clickstream.router, prefix="/clickstream", tags=["Clickstream"])
 api_router.include_router(time.router, prefix="/time", tags=["Time"])
 api_router.include_router(operator.router, prefix="/operators", tags=["Operators"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])

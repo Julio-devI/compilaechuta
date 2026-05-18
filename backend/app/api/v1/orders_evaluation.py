@@ -68,11 +68,14 @@ async def read_evaluations(
         data_avaliacao_start=data_avaliacao_start,
         data_avaliacao_end=data_avaliacao_end,
     )
-    return {"total": total, "skip": skip, "limit": limit, "data": data}
+    return AvaliacaoPedidoListOut(total=total, skip=skip, limit=limit, data=[AvaliacaoPedidoOut.from_orm(item) for item in data])
 
-@router.get_by_id("/{id_avaliacao}", response_model=AvaliacaoPedidoOut)
-async def read_evaluation(id_avaliacao: str, db: AsyncSession = Depends(get_db)):
-    obj = await crud_eval.get_evaluation_by_id(db=db, id_avaliacao=id_avaliacao)
-    if not obj:
+@router.get("/{id_avaliacao}", response_model=AvaliacaoPedidoOut)
+async def read_evaluation(
+    id_avaliacao: str,
+    db: AsyncSession = Depends(get_db)
+):
+    order_evaluation = await crud_eval.get_evaluation_by_id(db=db, id_avaliacao=id_avaliacao)
+    if not order_evaluation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avaliação não encontrada")
-    return obj
+    return AvaliacaoPedidoOut.from_orm(order_evaluation)

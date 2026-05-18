@@ -5,11 +5,11 @@ from datetime import datetime
 
 from app.api.deps import get_db
 from app.crud import time as crud_time
-from app.schemas.time import TempoResponse, TempoListOut
+from app.schemas.time import TimeResponse, TimeListOut
 
 router = APIRouter()
 
-@router.get_all("/", response_model=TempoListOut)
+@router.get("/", response_model=TimeListOut)
 async def read_times(
     db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
@@ -44,10 +44,10 @@ async def read_times(
         trimestre_label=trimestre_label,
         fim_de_semana=fim_de_semana
     )
-    return TempoListOut(total=total, skip=skip, limit=limit, data=data)
+    return TimeListOut(total=total, skip=skip, limit=limit, data=data)
 
 
-@router.get_by_id("/{id_data}", response_model=TempoResponse)
+@router.get("/{id_data}", response_model=TimeResponse)
 async def read_time(id_data: int, db: AsyncSession = Depends(get_db)):
     obj = await crud_time.get_time_by_id(db=db, id_data=id_data)
     if not obj:

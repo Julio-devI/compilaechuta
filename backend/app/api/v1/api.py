@@ -10,7 +10,7 @@ from app.api.v1 import (
   orders,
   orders_evaluation,
   satisfaction_agents,
-  problem_satisfaction
+  problem_satisfaction,
   clickstream,
   time,
   operator,

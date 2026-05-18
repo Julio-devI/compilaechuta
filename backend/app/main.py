@@ -1,3 +1,12 @@
+import os
+import logging
+import asyncio
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import settings
 from app.core.seed import seed_database_if_needed
 
 if settings.GEMINI_API_KEY:
@@ -61,3 +70,24 @@ async def lifespan(app: FastAPI):
             await cleanup_task
         except asyncio.CancelledError:
             pass
+
+app = FastAPI(
+    title="V-Commerce CRM 360",
+    description="API do CRM 360 da V-Commerce",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router, prefix="/api/v1")
+
+@app.get("/", tags=["Health"])
+async def root():
+    return {"message": "V-Commerce CRM 360 API está online"}

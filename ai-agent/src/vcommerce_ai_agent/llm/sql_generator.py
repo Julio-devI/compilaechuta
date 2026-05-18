@@ -5,8 +5,10 @@ Responsável por montar o prompt com o schema do banco, invocar o LLM
 (Gemini via PydanticAI) e extrair/validar a query SQL retornada.
 """
 
+import json
 import re
 from pathlib import Path
+from typing import Any
 
 from vcommerce_ai_agent.core import config
 from vcommerce_ai_agent.core.exceptions import LLMParseError
@@ -14,9 +16,17 @@ from vcommerce_ai_agent.llm.llm_client import LLMAgent
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_system.txt"
 _CORRECTION_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "sql_correction_system.txt"
+_HISTORY_DATA_SAMPLE_ROWS = 5
+_HISTORY_DATA_SAMPLE_COLUMNS = 12
+_HISTORY_JSON_MAX_CHARS = 1800
+_OMITTED_TEXT_VALUE = "<valor_textual_omitido>"
 _OUT_OF_SCOPE_RE = re.compile(
     rf"\b{re.escape(config.OUT_OF_SCOPE_MARKER)}\b\s*[:\-]?\s*(.*)",
     re.IGNORECASE | re.DOTALL,
+)
+_TEMPORAL_TEXT_RE = re.compile(
+    r"^\d{4}(-\d{2}){0,2}$|^Q[1-4]$|^\d{4}-Q[1-4]$",
+    re.IGNORECASE,
 )
 
 
@@ -115,7 +125,55 @@ def _validate_sql_response(raw: str) -> None:
         ) from exc
 
 
-def format_history_for_sql(history: list[dict[str, str | None]] | None) -> str:
+def _safe_history_sample_value(value: Any) -> Any:
+    """Preserva apenas valores seguros para orientar follow-ups."""
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if isinstance(value, str) and _TEMPORAL_TEXT_RE.match(value.strip()):
+        return value.strip()
+    return _OMITTED_TEXT_VALUE
+
+
+def _build_history_data_context(data: Any) -> dict[str, Any] | None:
+    """Resume dados salvos no histórico sem expor valores textuais livres."""
+    if not isinstance(data, list):
+        return None
+
+    columns: list[str] = []
+    sampled_rows: list[dict[str, Any]] = []
+    for row in data[:_HISTORY_DATA_SAMPLE_ROWS]:
+        if not isinstance(row, dict):
+            continue
+        sampled_row: dict[str, Any] = {}
+        for index, (key, value) in enumerate(row.items()):
+            if index >= _HISTORY_DATA_SAMPLE_COLUMNS:
+                break
+            column = str(key)
+            if column not in columns:
+                columns.append(column)
+            sampled_row[column] = _safe_history_sample_value(value)
+        if sampled_row:
+            sampled_rows.append(sampled_row)
+
+    if not columns and not sampled_rows:
+        return None
+
+    return {
+        "row_count": len(data),
+        "columns": columns,
+        "sample_rows": sampled_rows,
+    }
+
+
+def _format_history_json(value: Any) -> str:
+    """Serializa contexto auxiliar do histórico com limite de tamanho."""
+    text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if len(text) <= _HISTORY_JSON_MAX_CHARS:
+        return text
+    return text[: _HISTORY_JSON_MAX_CHARS - 3].rstrip() + "..."
+
+
+def format_history_for_sql(history: list[dict[str, Any]] | None) -> str:
     """Formata o histórico de conversa para injeção no prompt da Chamada 1."""
     if not history:
         return ""
@@ -133,12 +191,36 @@ def format_history_for_sql(history: list[dict[str, str | None]] | None) -> str:
         lines.append(f"Resposta: {assistant_msg['content']}")
         if assistant_msg.get("sql"):
             lines.append(f"SQL gerado: {assistant_msg['sql']}")
+        sources_text = assistant_msg.get("sources_text")
+        if isinstance(sources_text, str) and sources_text.strip():
+            lines.append(f"Fontes: {sources_text.strip()}")
+        data_context = _build_history_data_context(assistant_msg.get("data"))
+        if data_context:
+            lines.append(
+                "Perfil compacto dos dados retornados: "
+                f"{_format_history_json(data_context)}"
+            )
+        chart = assistant_msg.get("chart")
+        if isinstance(chart, dict):
+            chart_context = {
+                key: chart.get(key)
+                for key in ("type", "x_axis", "y_axis", "y_axis_format")
+                if chart.get(key) is not None
+            }
+            if chart_context:
+                lines.append(
+                    "Grafico sugerido: "
+                    f"{_format_history_json(chart_context)}"
+                )
         lines.append("")
 
     lines.append(
         "Considere o histórico acima ao gerar o SQL para a pergunta atual. "
         "Resolva pronomes e referências implícitas com base nas perguntas, "
-        "respostas e SQLs das interações anteriores.\n"
+        "respostas, SQLs e dados retornados das interações anteriores. "
+        "Quando o usuário pedir comparação com períodos anteriores, preserve "
+        "a métrica, a entidade, os filtros de negócio e a granularidade temporal "
+        "da interação anterior.\n"
     )
     return "\n".join(lines)
 
@@ -146,7 +228,7 @@ def format_history_for_sql(history: list[dict[str, str | None]] | None) -> str:
 async def generate_sql(
     question: str,
     schema: str,
-    history: list[dict[str, str | None]] | None = None,
+    history: list[dict[str, Any]] | None = None,
     model: str | None = None,
 ) -> tuple[str, int | None]:
     """
@@ -213,7 +295,7 @@ async def generate_sql_correction(
     sql: str,
     error: str,
     schema: str,
-    history: list[dict[str, str | None]] | None = None,
+    history: list[dict[str, Any]] | None = None,
     model: str | None = None,
 ) -> tuple[str, int | None]:
     """

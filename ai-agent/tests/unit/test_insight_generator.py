@@ -251,6 +251,46 @@ def test_validate_chart_both_axes_none():
     assert insight["chart"] is not None
 
 
+def test_validate_chart_y_axis_non_numeric_nulled():
+    insight = {
+        "chart": {"type": "bar", "x_axis": "cliente", "y_axis": "ultima_compra"}
+    }
+    _validate_chart(
+        insight, [{"cliente": "A", "ultima_compra": "2024-01-01"}]
+    )
+    assert insight["chart"] is None
+
+
+def test_validate_chart_y_axis_bool_nulled():
+    insight = {"chart": {"type": "bar", "x_axis": "produto", "y_axis": "ativo"}}
+    _validate_chart(insight, [{"produto": "X", "ativo": True}])
+    assert insight["chart"] is None
+
+
+def test_validate_chart_y_axis_first_row_none_other_numeric_accepted():
+    insight = {"chart": {"type": "bar", "x_axis": "mes", "y_axis": "total"}}
+    _validate_chart(
+        insight,
+        [
+            {"mes": "jan", "total": None},
+            {"mes": "fev", "total": 100},
+        ],
+    )
+    assert insight["chart"] is not None
+
+
+def test_validate_chart_y_axis_all_none_nulled():
+    insight = {"chart": {"type": "bar", "x_axis": "mes", "y_axis": "total"}}
+    _validate_chart(
+        insight,
+        [
+            {"mes": "jan", "total": None},
+            {"mes": "fev", "total": None},
+        ],
+    )
+    assert insight["chart"] is None
+
+
 # ---------------------------------------------------------------------------
 # format_history_for_insight
 # ---------------------------------------------------------------------------

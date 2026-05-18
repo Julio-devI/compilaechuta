@@ -14,6 +14,9 @@ aiosqlite==0.22.1
 python-dotenv==1.0.1
 
 
+# AI Agent (local editable package)
+-e ../ai-agent
+
 # Auth
 python-jose[cryptography]==3.3.0
 bcrypt==5.0.0

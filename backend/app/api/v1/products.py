@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
-from app.schemas.products import ProductCreate, ProductUpdate, ProductResponse
+from app.schemas.products import ProductCreate, ProductUpdate, ProductResponse, ProductListOut
 from app.services import products as product_service
 
 import csv
@@ -28,6 +28,7 @@ async def get_all_products(
     status: Optional[str] = None,       # <-- Filtro novo
     preco_min: Optional[float] = None,  # <-- Filtro novo
     preco_max: Optional[float] = None,  # <-- Filtro novo
+    precisa_revisao: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     return await product_service.get_all_products(
@@ -37,7 +38,8 @@ async def get_all_products(
         categoria=categoria,
         status=status,
         preco_min=preco_min,
-        preco_max=preco_max
+        preco_max=preco_max,
+        precisa_revisao=precisa_revisao,
     )
 
 

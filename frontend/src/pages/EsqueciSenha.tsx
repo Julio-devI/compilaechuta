@@ -79,7 +79,7 @@ export function EsqueciSenha() {
                     onKeyDown={e => e.key === 'Enter' && handleEnviar()}
                     placeholder="Digite seu email..."
                     className="w-full h-11 sm:h-12 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                    style={{ background: '#F5F5F5', border: 'none' }}
+                    style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
                   />
                 </div>
 

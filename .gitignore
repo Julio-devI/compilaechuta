@@ -3,12 +3,20 @@
 banco_local.db
 .env
 __pycache__/
-seed.py
 alembic/versions/
 *.db
 backend/vcommerce.db
 
-data/
 vcommerce.db
-data/
 .idea
+
+# Logs de execucao local do uvicorn
+uvicorn.err.log
+uvicorn.out.log
+*.log
+
+# Artefatos de build do setuptools
+*.egg-info/
+.ai
+.idea/workspace.xml
+

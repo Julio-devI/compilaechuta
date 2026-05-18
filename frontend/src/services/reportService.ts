@@ -31,13 +31,18 @@ export interface PedidoDia {
   pedidos: number
 }
 
-export async function getReceitaMensal(dateRange: DateRange): Promise<ReceitaMensal[]> {
+export async function getReceitaMensal(
+  dateRange: DateRange,
+  granularity: 'dia' | 'mes' = 'mes',
+): Promise<ReceitaMensal[]> {
   try {
-    const res = await fetch(`${BASE}/charts/revenue-over-time?${toParams(dateRange)}`)
+    const params = toParams(dateRange)
+    params.set('granularidade', granularity)
+    const res = await fetch(`${BASE}/charts/revenue-over-time?${params}`)
     if (!res.ok) throw new Error()
     const json = await res.json()
     return (json.data as { time_period: string; revenue: number }[]).map((row) => ({
-      mes: row.time_period, // mantém "2019-01" como chave única — label formatado no gráfico
+      mes: row.time_period,
       receita: row.revenue,
     }))
   } catch {

@@ -163,6 +163,31 @@ def _sanitize_history_for_frontend(
     return sanitized_history
 
 
+def _append_pending_question(
+    history: list[dict[str, Any]],
+    question: str,
+) -> list[dict[str, Any]]:
+    return [
+        *history,
+        {
+            "role": "user",
+            "content": question,
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+    ]
+
+
+def _complete_turns_for_agent(
+    history: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if history and history[-1].get("role") == "user":
+        return history[:-1]
+    return history
+
+
 @router.post(
     "/ask",
     response_model=AgentResponseSchema,
@@ -192,11 +217,15 @@ async def ask_agent(
     devolve também os dados brutos em `user_response.data` e uma sugestão
     de gráfico em `user_response.chart`.
 
-    O histórico da conversa é persistido automaticamente no backend apenas
-    quando `status == 'success'`, atrelado ao par (user_id, session_id),
-    permitindo follow-ups na mesma `session_id` sem misturar conversas de
-    usuários distintos. Requisições simultâneas para a mesma sessão do
-    mesmo usuário são processadas em ordem.
+    A conversa é criada no backend assim que a pergunta chega, antes da
+    chamada longa ao agente. Em caso de sucesso, o histórico pendente é
+    substituído pelo snapshot completo exportado pelo agente. Em caso de
+    erro, a pergunta pendente é removida e o histórico anterior é restaurado
+    ou a sessão é apagada se não havia histórico anterior. O histórico é
+    atrelado ao par (user_id, session_id), permitindo follow-ups na mesma
+    `session_id` sem misturar conversas de usuários distintos. Requisições
+    simultâneas para a mesma sessão do mesmo usuário são processadas em
+    ordem.
 
     Erros técnicos (falhas no processamento da pergunta, timeout, validações
     de segurança etc.) chegam como HTTP 200 com `status == 'error'` e
@@ -227,9 +256,11 @@ async def ask_agent(
             excluded_tables=_EXCLUDED_TABLES,
         )
 
-        if history:
+        agent_history = _complete_turns_for_agent(history)
+
+        if agent_history:
             try:
-                agent.import_history(history)
+                agent.import_history(agent_history)
             except ValueError as exc:
                 logging.getLogger(__name__).warning(
                     "Falha ao importar historico",
@@ -240,6 +271,17 @@ async def ask_agent(
                     },
                 )
                 agent.clear_history()
+                agent_history = []
+
+        await create_or_update_session(
+            db,
+            user_id=user_id,
+            session_id=payload.session_id,
+            history_json=json.dumps(
+                _append_pending_question(agent_history, payload.question),
+                ensure_ascii=False,
+            ),
+        )
 
         response = await agent.ask(payload.question)
 
@@ -253,6 +295,16 @@ async def ask_agent(
                 ),
             )
         else:
+            if agent_history:
+                await create_or_update_session(
+                    db,
+                    user_id=user_id,
+                    session_id=payload.session_id,
+                    history_json=json.dumps(agent_history, ensure_ascii=False),
+                )
+            else:
+                await delete_session(db, user_id, payload.session_id)
+
             if response.developer_debug:
                 logging.getLogger("vcommerce_ai_agent").error(
                     "Erro ao processar pergunta no agente de IA",

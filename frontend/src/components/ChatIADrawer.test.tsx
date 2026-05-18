@@ -599,6 +599,31 @@ describe('ChatIADrawer', () => {
     expect(screen.getByText(/Olá! Como posso te ajudar/)).toBeInTheDocument()
   })
 
+  it('mostra a conversa no historico do drawer assim que a pergunta e enviada', async () => {
+    askAgentMock.mockImplementationOnce(
+      () =>
+        new Promise(() => {
+          // Mantem a resposta pendente para validar o estado otimista.
+        }),
+    )
+    listSessionsMock.mockResolvedValueOnce([])
+
+    const user = userEvent.setup()
+    renderDrawer()
+
+    await user.click(findTriggerButton())
+    await user.type(findInput(), 'Pergunta ainda em processamento')
+    await user.keyboard('{Enter}')
+    await user.click(screen.getAllByRole('button', { name: /Histórico/ })[0])
+
+    expect(
+      await screen.findByRole('button', {
+        name: /Pergunta ainda em processamento/,
+      }),
+    ).toBeInTheDocument()
+    expect(listSessionsMock).not.toHaveBeenCalled()
+  })
+
   it('inicia nova conversa pelo drawer e troca a sessao usada no envio', async () => {
     askAgentMock
       .mockResolvedValueOnce({

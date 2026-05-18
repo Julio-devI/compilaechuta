@@ -128,9 +128,21 @@ def test_ask_agent_uses_history_and_persists_success(monkeypatch) -> None:
     assert response.json()["status"] == "success"
     assert response.json()["session_id"] == "session-1"
     assert response.json()["user_response"]["data"] == [{"receita": 10}]
-    assert len(persisted_calls) == 1
+    assert len(persisted_calls) == 2
     assert persisted_calls[0][:3] == (fake_db, "user-1", "session-1")
-    assert json.loads(persisted_calls[0][3]) == exported_history
+    assert json.loads(persisted_calls[0][3]) == [
+        *saved_history,
+        {
+            "role": "user",
+            "content": "Qual foi a receita?",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+    ]
+    assert persisted_calls[1][:3] == (fake_db, "user-1", "session-1")
+    assert json.loads(persisted_calls[1][3]) == exported_history
 
 
 def test_suggestions_without_session_returns_initial_list(monkeypatch) -> None:
@@ -474,7 +486,17 @@ def test_ask_without_previous_history_skips_import(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert imported_history == []
-    assert len(persisted) == 1
+    assert len(persisted) == 2
+    assert json.loads(persisted[0]) == [
+        {
+            "role": "user",
+            "content": "Qual?",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        }
+    ]
 
 
 def test_ask_with_corrupted_history_treats_as_empty(monkeypatch) -> None:
@@ -618,13 +640,26 @@ def test_ask_clears_history_when_import_raises_value_error(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["status"] == "success"
     assert clear_called == [True]
-    assert len(persisted) == 1
+    assert len(persisted) == 2
+    assert json.loads(persisted[0]) == [
+        {
+            "role": "user",
+            "content": "Qual?",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        }
+    ]
 
 
-def test_ask_error_status_replaces_answer_text_and_skips_persistence(monkeypatch) -> None:
-    """status='error' com codigo conhecido sobrescreve answer_text e nao persiste."""
+def test_ask_error_status_replaces_answer_text_and_removes_pending_question(
+    monkeypatch,
+) -> None:
+    """status='error' sobrescreve answer_text e remove pergunta pendente."""
     override_dependencies()
     persisted: list[str] = []
+    deleted_sessions: list[str] = []
 
     async def fake_get_session(db, user_id: str, session_id: str):
         return None
@@ -633,6 +668,10 @@ def test_ask_error_status_replaces_answer_text_and_skips_persistence(monkeypatch
         db, user_id: str, session_id: str, history_json: str
     ) -> None:
         persisted.append(history_json)
+
+    async def fake_delete_session(db, user_id: str, session_id: str) -> bool:
+        deleted_sessions.append(session_id)
+        return True
 
     @dataclass
     class FakeError:
@@ -671,6 +710,7 @@ def test_ask_error_status_replaces_answer_text_and_skips_persistence(monkeypatch
     monkeypatch.setattr(
         ai_agent, "create_or_update_session", fake_create_or_update_session
     )
+    monkeypatch.setattr(ai_agent, "delete_session", fake_delete_session)
     monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
 
     with TestClient(app) as client:
@@ -685,15 +725,36 @@ def test_ask_error_status_replaces_answer_text_and_skips_persistence(monkeypatch
     assert body["user_response"]["answer_text"] == (
         "Muitas requisições no momento. Aguarde um instante e tente novamente."
     )
-    assert persisted == []
+    assert json.loads(persisted[0]) == [
+        {
+            "role": "user",
+            "content": "Qual?",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        }
+    ]
+    assert deleted_sessions == ["session-1"]
 
 
 def test_ask_error_unknown_code_uses_fallback_message(monkeypatch) -> None:
     """Code de erro nao mapeado em _ERROR_MESSAGES cai no fallback generico."""
     override_dependencies()
+    persisted: list[str] = []
+    deleted_sessions: list[str] = []
 
     async def fake_get_session(db, user_id: str, session_id: str):
         return None
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        persisted.append(history_json)
+
+    async def fake_delete_session(db, user_id: str, session_id: str) -> bool:
+        deleted_sessions.append(session_id)
+        return True
 
     @dataclass
     class FakeError:
@@ -729,6 +790,10 @@ def test_ask_error_unknown_code_uses_fallback_message(monkeypatch) -> None:
             return []
 
     monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "delete_session", fake_delete_session)
     monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
 
     with TestClient(app) as client:
@@ -741,12 +806,105 @@ def test_ask_error_unknown_code_uses_fallback_message(monkeypatch) -> None:
     assert response.json()["user_response"]["answer_text"] == (
         "Ocorreu uma falha no processamento. Tente novamente ou contate o suporte."
     )
+    assert len(persisted) == 1
+    assert deleted_sessions == ["session-1"]
 
 
-def test_ask_out_of_scope_replaces_answer_text_and_skips_persistence(monkeypatch) -> None:
-    """status='out_of_scope' sem error usa a mensagem padrao e nao persiste."""
+def test_ask_error_with_previous_history_restores_saved_history(monkeypatch) -> None:
+    """Erro em follow-up remove apenas a pergunta pendente."""
+    override_dependencies()
+    saved_history = [
+        {"role": "user", "content": "Pergunta anterior", "sql": None},
+        {"role": "assistant", "content": "Resposta anterior", "sql": "SELECT 1"},
+    ]
+    persisted: list[str] = []
+    deleted_sessions: list[str] = []
+
+    async def fake_get_session(db, user_id: str, session_id: str):
+        return SimpleNamespace(history_json=json.dumps(saved_history))
+
+    async def fake_create_or_update_session(
+        db, user_id: str, session_id: str, history_json: str
+    ) -> None:
+        persisted.append(history_json)
+
+    async def fake_delete_session(db, user_id: str, session_id: str) -> bool:
+        deleted_sessions.append(session_id)
+        return True
+
+    @dataclass
+    class FakeError:
+        code: str = "LLM_TIMEOUT"
+        message: str = "timeout"
+        stage: str = "llm"
+        retryable: bool = True
+
+    class FakeAgent:
+        def __init__(self, *args, **kwargs) -> None:
+            self.imported_history: list[dict[str, Any]] | None = None
+
+        def import_history(self, history: list[dict[str, Any]]) -> None:
+            self.imported_history = history
+
+        def clear_history(self) -> None:
+            self.imported_history = []
+
+        async def ask(self, question: str) -> SimpleNamespace:
+            assert question == "Pergunta com erro"
+            assert self.imported_history == saved_history
+            return SimpleNamespace(
+                status="error",
+                user_response=FakeUserResponse(
+                    answer_text="original",
+                    sources_text=None,
+                    data=None,
+                    chart=None,
+                    truncated=False,
+                ),
+                developer_debug=FakeDeveloperDebug(error=FakeError()),
+            )
+
+        def export_history(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setattr(ai_agent, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        ai_agent, "create_or_update_session", fake_create_or_update_session
+    )
+    monkeypatch.setattr(ai_agent, "delete_session", fake_delete_session)
+    monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/ai-agent/ask",
+            json={"question": "Pergunta com erro", "session_id": "session-1"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "error"
+    assert len(persisted) == 2
+    assert json.loads(persisted[0]) == [
+        *saved_history,
+        {
+            "role": "user",
+            "content": "Pergunta com erro",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        },
+    ]
+    assert json.loads(persisted[1]) == saved_history
+    assert deleted_sessions == []
+
+
+def test_ask_out_of_scope_replaces_answer_text_and_removes_pending_question(
+    monkeypatch,
+) -> None:
+    """status='out_of_scope' usa mensagem padrao e remove pergunta pendente."""
     override_dependencies()
     persisted: list[str] = []
+    deleted_sessions: list[str] = []
 
     async def fake_get_session(db, user_id: str, session_id: str):
         return None
@@ -755,6 +913,10 @@ def test_ask_out_of_scope_replaces_answer_text_and_skips_persistence(monkeypatch
         db, user_id: str, session_id: str, history_json: str
     ) -> None:
         persisted.append(history_json)
+
+    async def fake_delete_session(db, user_id: str, session_id: str) -> bool:
+        deleted_sessions.append(session_id)
+        return True
 
     class FakeAgent:
         def __init__(self, *args, **kwargs) -> None:
@@ -786,6 +948,7 @@ def test_ask_out_of_scope_replaces_answer_text_and_skips_persistence(monkeypatch
     monkeypatch.setattr(
         ai_agent, "create_or_update_session", fake_create_or_update_session
     )
+    monkeypatch.setattr(ai_agent, "delete_session", fake_delete_session)
     monkeypatch.setattr(ai_agent, "VCommerceAgent", FakeAgent)
 
     with TestClient(app) as client:
@@ -798,7 +961,17 @@ def test_ask_out_of_scope_replaces_answer_text_and_skips_persistence(monkeypatch
     body = response.json()
     assert body["status"] == "out_of_scope"
     assert body["user_response"]["answer_text"].startswith("Desculpe, meu escopo é")
-    assert persisted == []
+    assert json.loads(persisted[0]) == [
+        {
+            "role": "user",
+            "content": "Qual?",
+            "sql": None,
+            "sources_text": None,
+            "data": None,
+            "chart": None,
+        }
+    ]
+    assert deleted_sessions == ["session-1"]
 
 
 def test_ask_serializes_chart_in_response(monkeypatch) -> None:

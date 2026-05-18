@@ -91,6 +91,18 @@ function summaryToHistorico(s: SessionSummary): ConversaHistorico {
   }
 }
 
+function buildOptimisticHistorico(
+  sessionId: string,
+  question: string,
+): ConversaHistorico {
+  const title = question.length > 80 ? `${question.slice(0, 77)}...` : question
+  return {
+    id: sessionId,
+    titulo: title,
+    timestamp: nowHHmm(),
+  }
+}
+
 export function ChatIA() {
   const navigate = useNavigate()
   const [inputValue, setInputValue] = useState('')
@@ -191,6 +203,11 @@ export function ChatIA() {
     const text = rawText.trim()
     if (!text) return
 
+    setActiveConversation(sessionId)
+    setConversasHistorico(prev => [
+      buildOptimisticHistorico(sessionId, text),
+      ...prev.filter(conversa => conversa.id !== sessionId),
+    ])
     setMessages(prev => [
       ...prev,
       {
@@ -225,7 +242,6 @@ export function ChatIA() {
 
       if (response.status === 'success') {
         refreshSessions()
-        setActiveConversation(sessionId)
       }
     } catch (err) {
       const message = (err as Error).message

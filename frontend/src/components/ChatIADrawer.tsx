@@ -86,6 +86,18 @@ function summaryToHistoryItem(summary: SessionSummary): ConversationHistoryItem 
   }
 }
 
+function buildOptimisticHistoryItem(
+  sessionId: string,
+  question: string,
+): ConversationHistoryItem {
+  const title = question.length > 80 ? `${question.slice(0, 77)}...` : question
+  return {
+    id: sessionId,
+    title,
+    timestamp: nowHHmm(),
+  }
+}
+
 export function ChatIADrawer() {
   const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
@@ -171,9 +183,9 @@ export function ChatIADrawer() {
   }, [])
 
   useEffect(() => {
-    if (!isOpen || !historyOpen) return
+    if (!isOpen || !historyOpen || isTyping) return
     refreshHistory()
-  }, [historyOpen, isOpen, refreshHistory])
+  }, [historyOpen, isOpen, isTyping, refreshHistory])
 
   const handleNewConversation = () => {
     pendingQuestionsRef.current = []
@@ -221,6 +233,11 @@ export function ChatIADrawer() {
     const text = rawText.trim()
     if (!text) return
 
+    setActiveConversation(sessionId)
+    setConversationHistory(prev => [
+      buildOptimisticHistoryItem(sessionId, text),
+      ...prev.filter(item => item.id !== sessionId),
+    ])
     setMessages(prev => [
       ...prev,
       {
@@ -252,7 +269,6 @@ export function ChatIADrawer() {
         },
       ])
       if (response.status === 'success') {
-        setActiveConversation(sessionId)
         if (historyOpen) refreshHistory()
       }
     } catch (err) {

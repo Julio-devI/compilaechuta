@@ -37,6 +37,7 @@ import {
   AGENT_PLACEHOLDERS,
   useRotatingPlaceholder,
 } from '@/lib/useRotatingPlaceholder'
+import { shouldShowAgentDataTable } from '@/lib/agentDataDisplay'
 
 interface Message {
   id: number
@@ -692,7 +693,7 @@ export function ChatIA() {
                         </div>
                       )}
 
-                      {msg.type === 'assistant' && !msg.chart && msg.data && msg.data.length > 0 && (
+                      {msg.type === 'assistant' && shouldShowAgentDataTable(msg.chart, msg.data) && (
                         <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
                           <button
                             type="button"

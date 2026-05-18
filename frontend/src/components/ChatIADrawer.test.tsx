@@ -248,6 +248,33 @@ describe('ChatIADrawer', () => {
     )
   })
 
+  it('nao mostra tabela quando a resposta contem apenas um valor escalar', async () => {
+    askAgentMock.mockResolvedValueOnce({
+      status: 'success',
+      session_id: 'sess-1',
+      user_response: {
+        answer_text: 'A receita total foi R$ 1.250,75.',
+        sources_text: null,
+        data: [{ receita_total: 1250.75 }],
+        chart: null,
+        truncated: false,
+      },
+    })
+
+    const user = userEvent.setup()
+    renderWithRouter(<ChatIADrawer />)
+
+    await user.type(findInput(), 'Qual foi a receita total?')
+    await user.keyboard('{Enter}')
+
+    expect(
+      await screen.findByText('A receita total foi R$ 1.250,75.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Visualizar tabela/ }),
+    ).not.toBeInTheDocument()
+  })
+
   it('clicar em uma quick action envia a pergunta correspondente', async () => {
     askAgentMock.mockResolvedValueOnce({
       status: 'success',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Search, ChevronDown, ChevronUp, History,
+  Search, Maximize2, Minimize2, ChevronDown, ChevronUp, History,
   CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp,
   Filter, Ticket, Table, Grid
 } from 'lucide-react'
@@ -385,11 +385,18 @@ export function Pedidos() {
             )}
             {isFiltrosOpen ? "Esconder Filtros" : "Mostrar Filtros"}
           </button>
-          {/* {isFiltrosOpen ? (
-            <Minimize2 className="w-5 h-5 text-muted-foreground" />
-          ) : (
-            <Maximize2 className="w-5 h-5 text-muted-foreground" />
-          )} */}
+
+          <button
+            onClick={() => setIsFiltrosOpen(!isFiltrosOpen)}
+            className="border-none bg-transparent cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors flex items-center justify-center"
+            title={isFiltrosOpen ? "Minimizar Filtros" : "Maximizar Filtros"}
+          >
+            {isFiltrosOpen ? (
+              <Minimize2 className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <Maximize2 className="w-5 h-5 text-muted-foreground" />
+            )}
+          </button>
         </div>
 
         {isFiltrosOpen && (

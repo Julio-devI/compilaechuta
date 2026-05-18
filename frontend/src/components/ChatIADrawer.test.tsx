@@ -141,7 +141,7 @@ describe('ChatIADrawer', () => {
     ).toBeInTheDocument()
   })
 
-  it('executa /sugestao via Enter, chama getSuggestions e exibe a mensagem do agente', async () => {
+  it('executa /sugestao via Enter, chama getSuggestions e exibe a mensagem de pedido e do agente', async () => {
     getSuggestionsMock.mockResolvedValueOnce({
       suggestions: ['Sugestao 1', 'Sugestao 2', 'Sugestao 3'],
     })
@@ -157,6 +157,11 @@ describe('ChatIADrawer', () => {
     expect(typeof sessionArg).toBe('string')
     expect(sessionArg.length).toBeGreaterThan(0)
 
+    expect(
+      await screen.findByText(
+        'Estou sem ideias do que perguntar agora. Com base no que conversamos até aqui, pode me sugerir algumas perguntas?',
+      ),
+    ).toBeInTheDocument()
     expect(
       await screen.findByText('Aqui vão algumas sugestões para você:'),
     ).toBeInTheDocument()

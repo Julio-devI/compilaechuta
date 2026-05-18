@@ -45,6 +45,9 @@ interface Message {
   suggestions?: string[]
 }
 
+const SUGGESTIONS_REQUEST_MESSAGE =
+  'Estou sem ideias do que perguntar agora. Com base no que conversamos até aqui, pode me sugerir algumas perguntas?'
+
 const QUICK_ACTION_ICONS: LucideIcon[] = [Zap, FileText, HelpCircle, Lightbulb]
 
 function nowHHmm(): string {
@@ -162,6 +165,15 @@ export function ChatIADrawer() {
   }
 
   const runSugestaoCommand = async () => {
+    setMensagens(prev => [
+      ...prev,
+      {
+        id: nextMessageId(),
+        type: 'user',
+        content: SUGGESTIONS_REQUEST_MESSAGE,
+        timestamp: nowHHmm(),
+      },
+    ])
     setIsTyping(true)
     try {
       const { suggestions: list } = await getSuggestions(sessionId)

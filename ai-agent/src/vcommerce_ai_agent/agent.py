@@ -6,6 +6,7 @@ e expõe a interface consumida pelo backend FastAPI.
 """
 
 import asyncio
+import json
 import re
 import time
 from dataclasses import asdict, dataclass
@@ -146,6 +147,19 @@ class AgentResponse:
     status: Literal["success", "error", "out_of_scope"]
     user_response: UserResponse
     developer_debug: DeveloperDebug
+
+
+def _log_agent_response(response: AgentResponse) -> None:
+    """Registra a resposta completa para debug no console do backend."""
+    response_payload = asdict(response)
+    logger.info(
+        "agent_response_debug %s",
+        json.dumps(response_payload, ensure_ascii=False, default=str),
+        extra={
+            "event": "agent_response_debug",
+            "response": response_payload,
+        },
+    )
 
 
 def _error_code_value(code: str | ErrorCode) -> str:
@@ -492,7 +506,7 @@ class VCommerceAgent:
             stage=stage,
             retryable=retryable,
         )
-        return AgentResponse(
+        response = AgentResponse(
             status="error",
             user_response=UserResponse(
                 answer_text=self._GENERIC_ERROR_MSG,
@@ -511,6 +525,8 @@ class VCommerceAgent:
                 tokens_used=tokens_used,
             ),
         )
+        _log_agent_response(response)
+        return response
 
     def _make_llm_error_response(
         self,
@@ -840,7 +856,7 @@ class VCommerceAgent:
 
         def _make_out_of_scope_response(marker_text: str) -> AgentResponse:
             """Monta resposta fora de escopo sem expor marcador técnico."""
-            return AgentResponse(
+            response = AgentResponse(
                 status="out_of_scope",
                 user_response=UserResponse(
                     answer_text=_strip_out_of_scope_marker(marker_text),
@@ -851,6 +867,8 @@ class VCommerceAgent:
                 ),
                 developer_debug=_build_debug(""),
             )
+            _log_agent_response(response)
+            return response
 
         def _log_ask_finished(status: str, error_code: str | None = None) -> None:
             logger.info(
@@ -1232,6 +1250,7 @@ class VCommerceAgent:
             developer_debug=_build_debug(sql),
         )
 
+        _log_agent_response(response)
         _log_ask_finished("success")
 
         # Armazena no histórico apenas interações bem-sucedidas

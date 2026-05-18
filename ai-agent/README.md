@@ -254,7 +254,7 @@ O script `smoke_test_chart_decision.py` valida a decisão do agente sobre quando
 
 ## Logging Interno
 
-O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. O backend é responsável por configurar handlers, nível e formato. O pacote **nunca** chama `logging.basicConfig`.
+O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. Se o backend ainda não registrou handlers nesse logger, o pacote instala um `StreamHandler` em `INFO` para garantir saída no console. O pacote **nunca** chama `logging.basicConfig`.
 
 Eventos principais emitidos:
 
@@ -267,15 +267,17 @@ Eventos principais emitidos:
 - `query_executed`: query executada no banco.
 - `sensitive_masking_applied`: dados sensíveis foram mascarados antes da Chamada 2.
 - `insight_generated`: insight gerado pela Chamada 2.
+- `agent_response_debug`: resposta completa do agente para debug no console do backend.
 - `ask_finished`: fim do processamento, com status e métricas.
 - `suggestions_started`, `suggestions_generated`, `suggestions_fallback`, `suggestions_finished`: ciclo de geração de sugestões iniciais.
 - `llm_retry_attempted`: retry automático em caso de instabilidade do LLM.
 
-Garantias de segurança nos logs:
+Escopo dos logs detalhados:
 
-- Nenhum log contém a pergunta do usuário, dados retornados pelo banco, mapa de tokens ou nomes de colunas sensíveis.
-- O campo `sql` aparece apenas em eventos de erro (por exemplo, `layer_2_blocked`), nunca em logs de sucesso.
-- O backend pode usar esses eventos para dashboards de observabilidade, auditoria e alertas de segurança.
+- `agent_response_debug` inclui `user_response` e `developer_debug`, incluindo dados retornados e SQL técnico, para facilitar debug no console do backend. O payload é enviado no texto do log e no `extra.response`, garantindo visibilidade mesmo quando o formatter ativo não imprime campos extras.
+- O evento detalhado é emitido apenas via logger `vcommerce_ai_agent`. Ele não altera o payload HTTP retornado pelo backend nem expõe `developer_debug` ao frontend.
+- O mapa interno `token -> valor real` do mascaramento reversível nunca é retornado no contrato nem registrado em logs.
+- O backend pode usar esses eventos para debug local, dashboards de observabilidade, auditoria e alertas de segurança.
 
 ## Variáveis de Ambiente
 

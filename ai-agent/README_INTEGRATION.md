@@ -672,7 +672,7 @@ O backend ainda deve manter seus próprios controles de autenticação, autoriza
 
 ## Logging e Observabilidade
 
-O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. O backend deve configurar handlers, nível e formato. O pacote **nunca** chama `logging.basicConfig`.
+O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. Se o backend ainda não registrou handlers nesse logger, o pacote instala um `StreamHandler` em `INFO` para garantir saída no console. O pacote **nunca** chama `logging.basicConfig`.
 
 Exemplo de configuração mínima no backend:
 
@@ -682,7 +682,7 @@ import logging
 vcommerce_logger = logging.getLogger("vcommerce_ai_agent")
 vcommerce_logger.setLevel(logging.INFO)
 
-# Opcional: adicionar um handler se o root logger ainda nao estiver configurado
+# Opcional: substituir ou complementar o handler padrao do pacote
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
 vcommerce_logger.addHandler(handler)
@@ -699,6 +699,7 @@ Eventos úteis para dashboards:
 | `query_executed` | INFO | `elapsed_ms`, `rows_count`, `truncated` |
 | `sensitive_masking_applied` | INFO | `masked_columns_count` |
 | `insight_generated` | INFO | `elapsed_ms`, `tokens_used`, `model` |
+| `agent_response_debug` | INFO | `response.user_response`, `response.developer_debug` |
 | `ask_finished` | INFO | `status`, `total_time_ms`, `tokens_used`, `error_code` |
 | `llm_retry_attempted` | INFO | `attempt`, `error_code`, `backoff_seconds` |
 
@@ -707,7 +708,7 @@ Interpretação de níveis:
 - `INFO` indica progresso normal do pipeline.
 - `WARNING` indica tentativas de ataque (prompt injection, `layer_2_blocked`) ou situações que exigem atenção. O backend pode usar esses eventos para alertas de segurança.
 
-O pacote garante que nenhum log contém PII: a pergunta do usuário, dados do banco, mapa de tokens e nomes de colunas sensíveis nunca aparecem nos extras dos eventos. O campo `sql` é incluído apenas em eventos de erro, como `layer_2_blocked`, para facilitar auditoria de tentativas maliciosas.
+O evento `agent_response_debug` registra a resposta completa para facilitar debug no console do backend. Ele pode conter `user_response.data`, `answer_text`, `sources_text`, `chart` e `developer_debug.sql`. O payload é enviado no texto do log e no campo `extra.response`, garantindo visibilidade mesmo quando o formatter ativo não imprime campos extras. Esse conteúdo não altera o contrato HTTP: o frontend continua recebendo apenas os campos retornados pelo endpoint do backend, e `developer_debug` permanece restrito a logs/auditoria. O mapa interno `token -> valor real` nunca é retornado nem registrado.
 
 ## Checklist de Integração
 

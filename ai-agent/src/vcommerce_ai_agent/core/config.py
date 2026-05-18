@@ -34,14 +34,14 @@ LLM_TEMPERATURE_SUGGESTIONS: float = float(os.getenv("LLM_TEMPERATURE_SUGGESTION
 QUERY_TIMEOUT_SECONDS: int = 10
 """Timeout padrão em segundos para execução de queries no banco de dados."""
 
-MAX_TOKENS_SQL: int = 1024
-"""Limite de tokens para a Chamada 1 (geração de SQL)."""
+MAX_TOKENS_SQL: int = 4096
+"""Limite de tokens para a Chamada 1 (geração de SQL). Inclui o orçamento de pensamento do Gemini 2.5 Flash, que pode consumir milhares de tokens antes da resposta final."""
 
-MAX_TOKENS_INSIGHT: int = 4096
-"""Limite de tokens para a Chamada 2 (geração de insight)."""
+MAX_TOKENS_INSIGHT: int = 16384
+"""Limite de tokens para a Chamada 2 (geração de insight). Inclui o orçamento de pensamento do Gemini 2.5 Flash, que pode consumir milhares de tokens antes do JSON final."""
 
-MAX_TOKENS_SUGGESTIONS: int = 2048
-"""Limite de tokens para a geração de sugestões iniciais."""
+MAX_TOKENS_SUGGESTIONS: int = 4096
+"""Limite de tokens para a geração de sugestões iniciais. Inclui o orçamento de pensamento do Gemini 2.5 Flash."""
 
 MAX_ROWS: int = 1000
 """Número máximo de linhas retornadas por query para evitar sobrecarga."""

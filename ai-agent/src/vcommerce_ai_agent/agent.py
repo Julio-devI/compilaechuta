@@ -270,7 +270,7 @@ class VCommerceAgent:
         self._schema_text: str | None = None
         self._technical_schema: dict[str, Any] | None = None
         self._descriptions: dict[str, Any] | None = None
-        self._history: list[dict[str, str | None]] = []
+        self._history: list[dict[str, Any]] = []
 
     def invalidate_schema(self) -> None:
         """Limpa o cache do schema, forçando recarregamento na próxima consulta."""
@@ -1240,7 +1240,7 @@ class VCommerceAgent:
         return response
 
     async def initial_suggestions(
-        self, history: list[dict[str, str | None]] | None = None
+        self, history: list[dict[str, Any]] | None = None
     ) -> list[str]:
         """
         Retorna 5 sugestões de perguntas para o chat.

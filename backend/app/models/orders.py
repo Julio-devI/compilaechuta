@@ -9,9 +9,9 @@ class Pedido(Base):
 
     id_pedido          = Column(String, primary_key=True, index=True)
     id_cliente         = Column(String, ForeignKey("dim_cliente.id_cliente"), nullable=False, index=True)
-    id_produto         = Column(String, ForeignKey("dim_produto.id_produto"), nullable=False, index=True)
+    id_produto         = Column(String, ForeignKey("dim_produto.id_produto", ondelete="SET NULL"), index=True)
     id_pedido_display  = Column(String, nullable=False, unique=True, index=True)
-    id_data = Column(String, nullable=True, index=True)
+    id_data            = Column(String, nullable=True, index=True)
     quantidade_vendas  = Column(Integer, nullable=True)
     valor_unitario     = Column(Float, nullable=True)
     valor_total_venda  = Column(Float, nullable=True)

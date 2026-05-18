@@ -104,23 +104,47 @@ def filters_query(query, filters: client_filters):
             .join(Produto, Pedido.id_produto == Produto.id_produto)
             .where(Produto.sku.ilike(f"%{filters.sku}%"))
             .distinct()
-            .subquery()
         )
-        query = query.where(Cliente.id_cliente.in_(select(sku_subq)))
+        query = query.where(Cliente.id_cliente.in_(sku_subq))
 
-    # Categoria: clientes que compraram na categoria (via fato_avaliacoes_pedido)
+    # Categoria: clientes cuja categoria de MAIOR interesse corresponde ao filtro
+    # (mesma lógica do campo categoriaInteresse exibido na tabela)
     if filters.categoria:
         from app.models.orders_evaluation import AvaliacaoPedido
         from app.models.category import Categoria
 
-        cat_subq = (
-            select(AvaliacaoPedido.id_cliente)
+        inner = (
+            select(
+                AvaliacaoPedido.id_cliente.label("id_cliente"),
+                Categoria.nome_categoria.label("nome_categoria"),
+                func.count().label("cnt"),
+            )
             .join(Categoria, AvaliacaoPedido.id_categoria == Categoria.id_categoria)
-            .where(Categoria.nome_categoria.ilike(f"%{filters.categoria}%"))
-            .distinct()
-            .subquery()
+            .group_by(AvaliacaoPedido.id_cliente, Categoria.nome_categoria)
+            .subquery("inner_cat")
         )
-        query = query.where(Cliente.id_cliente.in_(select(cat_subq)))
+
+        max_cnt = (
+            select(
+                inner.c.id_cliente.label("id_cliente"),
+                func.max(inner.c.cnt).label("max_cnt"),
+            )
+            .group_by(inner.c.id_cliente)
+            .subquery("max_cnt_cat")
+        )
+
+        top_cat_clients = (
+            select(inner.c.id_cliente)
+            .join(
+                max_cnt,
+                (inner.c.id_cliente == max_cnt.c.id_cliente)
+                & (inner.c.cnt == max_cnt.c.max_cnt),
+            )
+            .where(inner.c.nome_categoria.ilike(f"%{filters.categoria}%"))
+            .distinct()
+        )
+
+        query = query.where(Cliente.id_cliente.in_(top_cat_clients))
 
     return query
 
@@ -192,6 +216,21 @@ async def get_top_categories(
         if row.id_cliente not in top:
             top[row.id_cliente] = row.nome_categoria
     return top
+
+
+async def get_open_ticket_clients(db: AsyncSession, client_ids: list[str]) -> set:
+    """Returns set of client IDs that have at least one open ticket."""
+    if not client_ids:
+        return set()
+    from app.models.tickets import Ticket
+    stmt = (
+        select(Ticket.id_cliente)
+        .where(Ticket.id_cliente.in_(client_ids))
+        .where(Ticket.status == 'aberto')
+        .distinct()
+    )
+    result = await db.execute(stmt)
+    return {row[0] for row in result.all()}
 
 
 async def get_client_by_id(db: AsyncSession, cliente_id: str) -> Optional[Cliente]:

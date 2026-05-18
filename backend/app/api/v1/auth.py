@@ -4,8 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.core.security import verify_password, create_access_token, create_reset_token, decode_reset_token, get_password_hash
 from app.core.email import send_reset_password_email
+from app.crud import operator as crud_operator
 from app.crud.operator import get_operator_by_email_or_username, get_operator_by_email, update_operator_password
-from app.schemas.auth import LoginRequest, TokenResponse, UserInfo, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.auth import LoginRequest, TokenResponse, UserInfo, ForgotPasswordRequest, ResetPasswordRequest, UpdateMeRequest
+from app.schemas.operator import OperatorUpdate
 
 router = APIRouter()
 
@@ -71,3 +73,50 @@ async def redefinir_senha(request: ResetPasswordRequest, db: AsyncSession = Depe
     await update_operator_password(db, operador, get_password_hash(request.new_password))
 
     return {"message": "Senha redefinida com sucesso."}
+
+
+@router.get("/me", response_model=UserInfo)
+async def get_me(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: dict = Depends(deps.get_current_user),
+):
+    operator = await crud_operator.get_operator(db, current_user["sub"])
+    if not operator:
+        raise HTTPException(status_code=404, detail="Operador não encontrado")
+    return UserInfo(
+        id_operador=operator.id_operador,
+        nome=operator.nome,
+        username=operator.username,
+        email=operator.email,
+        telefone=operator.telefone,
+        role=operator.role,
+    )
+
+
+@router.patch("/me", response_model=UserInfo)
+async def update_me(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: dict = Depends(deps.get_current_user),
+    payload: UpdateMeRequest,
+):
+    operator = await crud_operator.get_operator(db, current_user["sub"])
+    if not operator:
+        raise HTTPException(status_code=404, detail="Operador não encontrado")
+    updated = await crud_operator.update_operator(
+        db=db,
+        db_obj=operator,
+        obj_in=OperatorUpdate(
+            nome=payload.nome,
+            email=payload.email,
+            telefone=payload.telefone,
+        ),
+    )
+    return UserInfo(
+        id_operador=updated.id_operador,
+        nome=updated.nome,
+        username=updated.username,
+        email=updated.email,
+        telefone=updated.telefone,
+        role=updated.role,
+    )

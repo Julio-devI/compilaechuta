@@ -48,7 +48,7 @@ function AuthExpirationGuard() {
 
 function AppLayout() {
   const location = useLocation()
-  const showDrawer = location.pathname !== '/chat-ia'
+  const showDrawer = !['/chat-ia', '/configuracoes', '/operadores'].includes(location.pathname)
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />

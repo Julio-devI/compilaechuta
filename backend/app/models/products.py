@@ -1,8 +1,8 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime, event, text
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, DateTime
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
 from zoneinfo import ZoneInfo
-from sqlalchemy.orm import relationship
 
 def get_sp_time():
     return datetime.now(ZoneInfo("America/Sao_Paulo"))
@@ -38,4 +38,4 @@ class Produto(Base):
     total_tickets = Column(Integer, default=0)
 
     categoria = relationship("Categoria", back_populates="produto")
-    pedido = relationship("Pedido", back_populates="produto", lazy="select")
+    pedido = relationship("Pedido", back_populates="produto", lazy="select", passive_deletes=True)

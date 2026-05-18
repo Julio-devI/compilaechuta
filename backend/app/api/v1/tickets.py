@@ -20,9 +20,10 @@ async def get_all_tickets(
     agente: Optional[str] = Query(None, description="Filtrar por nome do agente de suporte"),
     tipo: Optional[str] = Query(None, description="Filtrar por tipo de problema"),
     search: Optional[str] = Query(None, description="Busca por ID do ticket ou cliente"),
+    id_cliente: Optional[str] = Query(None, description="Filtrar por ID do cliente"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.get_all_tickets(db, skip, limit, start_date, end_date, status, agente, tipo, search)
+    return await service.get_all_tickets(db, skip, limit, start_date, end_date, status, agente, tipo, search, id_cliente)
 
 
 @router.get("/count")

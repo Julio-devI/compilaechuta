@@ -10,6 +10,15 @@ async def get_evaluation_by_id(db: AsyncSession, id_avaliacao: str) -> Optional[
     result = await db.execute(select(AvaliacaoPedido).where(AvaliacaoPedido.id_avaliacao == id_avaliacao))
     return result.scalars().first()
 
+async def get_evaluations_by_product_id(db: AsyncSession, id_produto: str, limit: int = 5) -> List[str]:
+    result = await db.execute(
+        select(AvaliacaoPedido.comentario)
+        .where(AvaliacaoPedido.id_produto == id_produto, AvaliacaoPedido.comentario.isnot(None))
+        .order_by(AvaliacaoPedido.data_avaliacao.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
 async def get_all_evaluations(
     db: AsyncSession,
     *,

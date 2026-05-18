@@ -1,6 +1,4 @@
-const API_URL = "http://localhost:8000/api/v1/categories";
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+const API_URL = 'http://localhost:8000/api/v1/categories/'
 
 export interface Categoria {
   id_categoria: string;
@@ -112,7 +110,31 @@ export async function deleteCategoria(id: string): Promise<boolean> {
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
     return true;
   } catch (error) {
-    console.error("Erro ao deletar categoria:", error);
-    return false;
+    console.error('Erro ao buscar categoria:', error)
+    return false
   }
+}
+
+export async function getBestSellingCategory(): Promise<string> {
+    try {
+        const response = await fetch(`${API_URL}best-selling`)
+        if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+        const data = await response.json()
+        return data.category || "Nenhuma"
+    } catch (error) {
+        console.error('Erro ao buscar categoria mais vendida:', error)
+        return "Nenhuma"
+    }
+}
+
+export async function getWorstSellingCategory(): Promise<string> {
+    try {
+        const response = await fetch(`${API_URL}worst-selling`)
+        if (!response.ok) throw new Error(`Erro na API: ${response.status}`)
+        const data = await response.json()
+        return data.category || "Nenhuma"
+    } catch (error) {
+        console.error('Erro ao buscar categoria menos vendida:', error)
+        return "Nenhuma"
+    }
 }

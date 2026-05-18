@@ -3,10 +3,12 @@ import unicodedata
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func, desc, asc
 from sqlalchemy import func, case
 from app.models.products import Produto
 
 from app.models.category import Categoria
+from app.models.products import Produto
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
 async def generate_category_id(db: AsyncSession) -> str:
@@ -130,3 +132,25 @@ async def delete_category(db: AsyncSession, *, id_categoria: str) -> Optional[Ca
         await db.delete(obj)
         await db.commit()
     return obj
+
+async def get_best_selling_category(db: AsyncSession) -> Optional[str]:
+    query = (
+        select(Categoria.nome_categoria, func.sum(Produto.total_unidades_vendidas).label('total_vendido'))
+        .join(Produto, Categoria.id_categoria == Produto.id_categoria)
+        .group_by(Categoria.nome_categoria)
+        .order_by(desc('total_vendido'))
+        .limit(1)
+    )
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+async def get_worst_selling_category(db: AsyncSession) -> Optional[str]:
+    query = (
+        select(Categoria.nome_categoria, func.sum(Produto.total_unidades_vendidas).label('total_vendido'))
+        .join(Produto, Categoria.id_categoria == Produto.id_categoria)
+        .group_by(Categoria.nome_categoria)
+        .order_by(asc('total_vendido'))
+        .limit(1)
+    )
+    result = await db.execute(query)
+    return result.scalar_one_or_none()

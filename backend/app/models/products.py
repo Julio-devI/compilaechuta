@@ -38,4 +38,4 @@ class Produto(Base):
     total_tickets = Column(Integer, default=0)
 
     categoria = relationship("Categoria", back_populates="produto")
-    pedido = relationship("Pedido", back_populates="produto", lazy="select")
+    pedido = relationship("Pedido", back_populates="produto", lazy="select", passive_deletes=True)

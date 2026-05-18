@@ -2,13 +2,9 @@ from typing import Optional, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator  # <-- Importamos o field_validator
 
-
 class ProductBase(BaseModel):
     nome_produto: str = Field(..., max_length=100)
-    sku: Optional[str] = Field(None, max_length=100)
-
     categoria: Optional[Any] = Field(None, max_length=100)
-
     fornecedor: Optional[str] = Field(None, max_length=100)
     preco: Optional[float] = None
     peso_kg: Optional[float] = None
@@ -25,7 +21,7 @@ class ProductBase(BaseModel):
         return v
 
 class ProductCreate(ProductBase):
-    id_produto: str = Field(..., description="ID manual do produto (ex: PROD-0001)")
+    pass
 
 
 class ProductUpdate(BaseModel):
@@ -40,7 +36,7 @@ class ProductUpdate(BaseModel):
 class ProductResponse(ProductBase):
     id_produto: str
     data_cadastro_produto: Optional[datetime] = None
-
+    sku: Optional[str] = Field(None, max_length=100)
     total_pedidos: Optional[int] = 0
     receita_total: Optional[float] = 0.0
     ticket_medio: Optional[float] = 0.0

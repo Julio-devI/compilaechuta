@@ -160,6 +160,9 @@ describe('ChatIADrawer', () => {
     expect(
       await screen.findByText('Aqui vão algumas sugestões para você:'),
     ).toBeInTheDocument()
+    expect(await screen.findByText('Sugestao 1')).toBeInTheDocument()
+    expect(screen.getByText('Sugestao 2')).toBeInTheDocument()
+    expect(screen.getByText('Sugestao 3')).toBeInTheDocument()
   })
 
   it('toggle do grafico mostra e esconde o AgentChart', async () => {

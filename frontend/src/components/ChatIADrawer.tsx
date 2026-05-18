@@ -442,6 +442,32 @@ export function ChatIADrawer() {
                       </div>
                     )}
                   </div>
+                  {msg.suggestions && msg.suggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2 max-w-full">
+                      {msg.suggestions.map((sug, i) => (
+                        <button
+                          key={i}
+                          onClick={() => sendQuestion(sug)}
+                          className="px-3 py-1.5 rounded-full text-xs text-left transition-colors"
+                          style={{
+                            background: 'var(--chat-quick-card-bg)',
+                            border: '1px solid var(--chat-border)',
+                            color: 'var(--color-foreground)',
+                          }}
+                          onMouseEnter={e =>
+                            (e.currentTarget.style.borderColor =
+                              'var(--chat-accent)')
+                          }
+                          onMouseLeave={e =>
+                            (e.currentTarget.style.borderColor =
+                              'var(--chat-border)')
+                          }
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <span className="text-[10px] text-muted-foreground mt-1">
                     {msg.timestamp}
                   </span>

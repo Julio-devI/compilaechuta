@@ -8,25 +8,16 @@ import {
   Users,
   BarChart,
   Search,
-  X,
   MessageSquare,
   Plus,
   Lightbulb,
   ChevronDown,
   Trash2,
+  Minimize2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
-import {
-  askAgent,
-  getSuggestions,
-  listSessions,
-  getSessionDetail,
-  deleteSession,
-  type ChartSuggestion,
-  type SessionSummary,
-} from '@/services/aiAgentService'
 import {
   SLASH_COMMANDS,
   SlashCommandMenu,
@@ -36,23 +27,7 @@ import {
   AGENT_PLACEHOLDERS,
   useRotatingPlaceholder,
 } from '@/lib/useRotatingPlaceholder'
-
-interface Message {
-  id: number
-  type: 'user' | 'assistant'
-  content: string
-  timestamp: string
-  suggestions?: string[]
-  sources_text?: string | null
-  data?: Array<Record<string, unknown>> | null
-  chart?: ChartSuggestion | null
-}
-
-interface ConversaHistorico {
-  id: string
-  titulo: string
-  timestamp: string
-}
+import { useChat, ConversaHistorico } from '@/contexts/ChatContext'
 
 const SUGGESTION_ICONS: LucideIcon[] = [
   Sparkles,
@@ -62,206 +37,58 @@ const SUGGESTION_ICONS: LucideIcon[] = [
   MessageSquare,
 ]
 
-function nowHHmm(): string {
-  return new Date().toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatSessionTimestamp(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  const today = new Date()
-  const sameDay =
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  if (sameDay) {
-    return date.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-}
-
-function summaryToHistorico(s: SessionSummary): ConversaHistorico {
-  return {
-    id: s.session_id,
-    titulo: s.title,
-    timestamp: formatSessionTimestamp(s.updated_at),
-  }
-}
-
 export function ChatIA() {
   const navigate = useNavigate()
-  const [mensagens, setMensagens] = useState<Message[]>([])
-  const [inputValue, setInputValue] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const [conversaAtiva, setConversaAtiva] = useState<string | null>(null)
-  const [searchHistorico, setSearchHistorico] = useState('')
-  const [conversasHistorico, setConversasHistorico] = useState<
-    ConversaHistorico[]
-  >([])
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [sessionId, setSessionId] = useState<string>(() => crypto.randomUUID())
+  const {
+    mensagens,
+    inputValue,
+    setInputValue,
+    isTyping,
+    conversaAtiva,
+    expandedCharts,
+    toggleChart,
+    conversasHistorico,
+    searchHistorico,
+    setSearchHistorico,
+    suggestions,
+    setDrawerOpen,
+    lastRoute,
+    sendQuestion,
+    handleConversaHistorico,
+    handleNovaConversa,
+    handleDeleteConversation,
+    runSugestaoCommand,
+  } = useChat()
+
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
-  const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ConversaHistorico | null>(null)
   const [isDeletingConversation, setIsDeletingConversation] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const messageIdRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS)
 
-  const toggleChart = (messageId: number) => {
-    setExpandedCharts(prev => {
-      const next = new Set(prev)
-      if (next.has(messageId)) {
-        next.delete(messageId)
-      } else {
-        next.add(messageId)
-      }
-      return next
-    })
-  }
-
-  const nextMessageId = () => {
-    messageIdRef.current += 1
-    return messageIdRef.current
-  }
-
-  const refreshSessions = async () => {
-    try {
-      const sessions = await listSessions()
-      setConversasHistorico(sessions.map(summaryToHistorico))
-      return sessions
-    } catch (err) {
-      toast.error((err as Error).message)
-      return []
-    }
-  }
-
-  const loadInitialSuggestions = async () => {
-    try {
-      const { suggestions: list } = await getSuggestions('')
-      setSuggestions(list)
-    } catch (err) {
-      toast.error((err as Error).message)
-    }
-  }
-
   useEffect(() => {
-    const initChat = async () => {
-      const sessions = await refreshSessions()
-      const lastSessionId = sessionStorage.getItem('ai_agent_last_session')
-
-      if (lastSessionId && sessions && sessions.length > 0) {
-        const sessionExists = sessions.find(s => s.session_id === lastSessionId)
-        if (sessionExists) {
-          handleConversaHistorico(lastSessionId)
-          return
-        }
-      }
-
-      loadInitialSuggestions()
-    }
-    initChat()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Aciona a transição de entrada assim que a página é montada
+    requestAnimationFrame(() => setIsVisible(true))
   }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensagens, isTyping])
 
-  const sendQuestion = async (rawText: string) => {
-    const text = rawText.trim()
-    if (!text) return
-
-    setMensagens(prev => [
-      ...prev,
-      {
-        id: nextMessageId(),
-        type: 'user',
-        content: text,
-        timestamp: nowHHmm(),
-      },
-    ])
-    setInputValue('')
-    setSlashMenuOpen(false)
-    setIsTyping(true)
-
-    try {
-      const response = await askAgent(text, sessionId)
-      const assistantText =
-        response.user_response.answer_text ||
-        (response.status === 'out_of_scope'
-          ? 'Não consegui responder a essa pergunta com os dados disponíveis.'
-          : 'Ocorreu um erro ao processar a resposta.')
-
-      setMensagens(prev => [
-        ...prev,
-        {
-          id: nextMessageId(),
-          type: 'assistant',
-          content: assistantText,
-          timestamp: nowHHmm(),
-          sources_text: response.user_response.sources_text,
-          data: response.user_response.data,
-          chart: response.user_response.chart,
-        },
-      ])
-
-      if (response.status === 'success') {
-        refreshSessions()
-        setConversaAtiva(sessionId)
-        sessionStorage.setItem('ai_agent_last_session', sessionId)
-      }
-    } catch (err) {
-      const message = (err as Error).message
-      toast.error(message)
-      setMensagens(prev => [
-        ...prev,
-        {
-          id: nextMessageId(),
-          type: 'assistant',
-          content: `Ops, algo deu errado: ${message}`,
-          timestamp: nowHHmm(),
-        },
-      ])
-    } finally {
-      setIsTyping(false)
-    }
-  }
-
-  const runSugestaoCommand = async () => {
-    setIsTyping(true)
-    try {
-      const { suggestions: list } = await getSuggestions(sessionId)
-      setMensagens(prev => [
-        ...prev,
-        {
-          id: nextMessageId(),
-          type: 'assistant',
-          content: 'Aqui vão algumas sugestões para você:',
-          timestamp: nowHHmm(),
-          suggestions: list,
-        },
-      ])
-    } catch (err) {
-      toast.error((err as Error).message)
-    } finally {
-      setIsTyping(false)
-    }
+  const handleMinimize = () => {
+    setIsVisible(false)
+    setTimeout(() => {
+      setDrawerOpen(true)
+      navigate(lastRoute)
+    }, 300)
   }
 
   const executeSlashCommand = (command: string) => {
     setInputValue('')
     setSlashMenuOpen(false)
-    if (command === '/sugestao') {
-      runSugestaoCommand()
-    }
+    if (command === '/sugestao') runSugestaoCommand()
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,40 +97,31 @@ export function ChatIA() {
     setSlashMenuOpen(value.startsWith('/'))
   }
 
+  const tryExecuteSlashCommand = (): boolean => {
+    const match = SLASH_COMMANDS.find(
+      c => c.command.toLowerCase() === inputValue.trim().toLowerCase(),
+    )
+    if (match) {
+      executeSlashCommand(match.command)
+      return true
+    }
+    return false
+  }
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
     if (slashMenuOpen) {
       e.preventDefault()
-      const match = SLASH_COMMANDS.find(
-        c => c.command.toLowerCase() === inputValue.toLowerCase(),
-      )
-      if (match) executeSlashCommand(match.command)
-      return
+      if (tryExecuteSlashCommand()) return
     }
     sendQuestion(inputValue)
+    setSlashMenuOpen(false)
   }
 
   const handleEnviar = () => {
-    if (slashMenuOpen) {
-      const match = SLASH_COMMANDS.find(
-        c => c.command.toLowerCase() === inputValue.toLowerCase(),
-      )
-      if (match) executeSlashCommand(match.command)
-      return
-    }
+    if (slashMenuOpen && tryExecuteSlashCommand()) return
     sendQuestion(inputValue)
-  }
-
-  const handleNovaConversa = () => {
-    setMensagens([])
-    setConversaAtiva(null)
-    setInputValue('')
     setSlashMenuOpen(false)
-    setSessionId(crypto.randomUUID())
-    setExpandedCharts(new Set())
-    setIsTyping(false)
-    loadInitialSuggestions()
-    sessionStorage.removeItem('ai_agent_last_session')
   }
 
   const handleHistoryItemKeyDown = (
@@ -324,61 +142,14 @@ export function ChatIA() {
     setDeleteTarget(conversa)
   }
 
-  const handleDeleteConversation = async () => {
+  const confirmDeleteConversation = async () => {
     if (!deleteTarget) return
-
-    const deletedConversationId = deleteTarget.id
-    const deletedActiveConversation = conversaAtiva === deletedConversationId
     setIsDeletingConversation(true)
-
     try {
-      await deleteSession(deletedConversationId)
-      setConversasHistorico(prev =>
-        prev.filter(conversa => conversa.id !== deletedConversationId),
-      )
+      await handleDeleteConversation(deleteTarget.id)
       setDeleteTarget(null)
-      toast.success('Conversa apagada com sucesso.')
-
-      if (deletedActiveConversation) {
-        setMensagens([])
-        setConversaAtiva(null)
-        setInputValue('')
-        setSlashMenuOpen(false)
-        setSessionId(crypto.randomUUID())
-        setExpandedCharts(new Set())
-        setIsTyping(false)
-        sessionStorage.removeItem('ai_agent_last_session')
-        loadInitialSuggestions()
-      }
-    } catch (err) {
-      toast.error((err as Error).message)
     } finally {
       setIsDeletingConversation(false)
-    }
-  }
-
-  const handleConversaHistorico = async (id: string) => {
-    setConversaAtiva(id)
-    setSessionId(id)
-    setInputValue('')
-    setSlashMenuOpen(false)
-    setIsTyping(false)
-    sessionStorage.setItem('ai_agent_last_session', id)
-    try {
-      const detail = await getSessionDetail(id)
-      const mapped: Message[] = detail.history.map(entry => ({
-        id: nextMessageId(),
-        type: entry.role,
-        content: entry.content,
-        timestamp: '',
-        sources_text: entry.sources_text,
-        data: entry.data,
-        chart: entry.chart,
-      }))
-      setMensagens(mapped)
-      setExpandedCharts(new Set())
-    } catch (err) {
-      toast.error((err as Error).message)
     }
   }
 
@@ -388,7 +159,8 @@ export function ChatIA() {
 
   return (
     <div
-      className="fixed inset-y-0 right-0 z-10 flex flex-col"
+      className={`fixed inset-y-0 right-0 z-10 flex flex-col transition-all duration-300 ease-out ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
+        }`}
       style={{ left: '80px', background: 'var(--chat-bg)' }}
     >
       {/* Header */}
@@ -412,11 +184,11 @@ export function ChatIA() {
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted hover:text-foreground rounded-lg transition-colors hover:bg-(--chat-item-hover)"
+            onClick={handleMinimize}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors text-muted hover:text-foreground hover:bg-[var(--chat-item-hover)]"
           >
-            <X className="w-3.5 h-3.5" />
-            Fechar
+            <Minimize2 className="w-4 h-4" />
+            Minimizar
           </button>
         </div>
       </div>
@@ -552,6 +324,7 @@ export function ChatIA() {
               <p className="text-sm text-muted mb-8">
                 Pergunte qualquer coisa sobre seu negócio
               </p>
+
               <div className="grid grid-cols-2 gap-3 w-full max-w-2xl">
                 {suggestions.map((texto, i) => {
                   const Icon = SUGGESTION_ICONS[i % SUGGESTION_ICONS.length]
@@ -565,12 +338,12 @@ export function ChatIA() {
                         border: '1px solid var(--chat-border)',
                       }}
                       onMouseEnter={e =>
-                        (e.currentTarget.style.borderColor =
-                          'var(--chat-accent)')
+                      (e.currentTarget.style.borderColor =
+                        'var(--chat-accent)')
                       }
                       onMouseLeave={e =>
-                        (e.currentTarget.style.borderColor =
-                          'var(--chat-border)')
+                      (e.currentTarget.style.borderColor =
+                        'var(--chat-border)')
                       }
                     >
                       <div
@@ -620,18 +393,18 @@ export function ChatIA() {
                       style={
                         msg.type === 'user'
                           ? {
-                              background: '#1E5EFF',
-                              color: 'white',
-                              borderRadius: '1rem',
-                              borderTopRightRadius: '4px',
-                            }
+                            background: '#1E5EFF',
+                            color: 'white',
+                            borderRadius: '1rem',
+                            borderTopRightRadius: '4px',
+                          }
                           : {
-                              background: 'var(--chat-msg-ai-bg)',
-                              border: '1px solid var(--chat-border)',
-                              color: 'var(--color-foreground)',
-                              borderRadius: '1rem',
-                              borderTopLeftRadius: '4px',
-                            }
+                            background: 'var(--chat-msg-ai-bg)',
+                            border: '1px solid var(--chat-border)',
+                            color: 'var(--color-foreground)',
+                            borderRadius: '1rem',
+                            borderTopLeftRadius: '4px',
+                          }
                       }
                     >
                       {msg.type === 'user' ? (
@@ -711,12 +484,12 @@ export function ChatIA() {
                               color: 'var(--color-foreground)',
                             }}
                             onMouseEnter={e =>
-                              (e.currentTarget.style.borderColor =
-                                'var(--chat-accent)')
+                            (e.currentTarget.style.borderColor =
+                              'var(--chat-accent)')
                             }
                             onMouseLeave={e =>
-                              (e.currentTarget.style.borderColor =
-                                'var(--chat-border)')
+                            (e.currentTarget.style.borderColor =
+                              'var(--chat-border)')
                             }
                           >
                             {sug}
@@ -843,7 +616,7 @@ export function ChatIA() {
               </button>
               <button
                 type="button"
-                onClick={handleDeleteConversation}
+                onClick={confirmDeleteConversation}
                 disabled={isDeletingConversation}
                 className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 flex items-center gap-2 disabled:opacity-70 transition-colors"
               >

@@ -12,6 +12,7 @@ export interface Cliente {
   status: string
   tendencia: 'up' | 'down' | 'stable'
   categoriaInteresse: string | null
+  temTicketAberto: boolean | null
 }
 
 export interface FiltrosClientes {
@@ -111,6 +112,7 @@ export async function getClientes(
         status: c.segmento_rfm || 'Geral',
         tendencia: 'stable',
         categoriaInteresse: c.categoria_interesse ?? null,
+        temTicketAberto: c.tem_ticket_aberto ?? null,
       }
     })
 

@@ -9,10 +9,11 @@ class AvaliacaoPedido(Base):
     id_avaliacao = Column(String, primary_key=True, index=True)
     id_pedido = Column(String, ForeignKey("fato_vendas.id_pedido"), nullable=False, index=True)
     id_cliente = Column(String, ForeignKey("dim_cliente.id_cliente"), nullable=False, index=True)
-    id_produto = Column(String, ForeignKey("dim_produto.id_produto"), nullable=False, index=True)
+    id_produto = Column(String, nullable=False, index=True)
 
+    nome_produto = Column(String, nullable=True)
+    id_categoria = Column(String, nullable=True)
     nota_produto = Column(Float, nullable=True)
-    categoria = Column(String, nullable=True)
     preco = Column(Float, nullable=True)
     valor_pedido = Column(Float, nullable=True)
     quantidade = Column(Float, nullable=True)
@@ -25,3 +26,4 @@ class AvaliacaoPedido(Base):
     data_avaliacao = Column(DateTime, nullable=True)
     categoria_nps = Column(String, nullable=True)
     pct_recomendacoes_sim = Column(Float, nullable=True)
+    comentario_consistente = Column(Boolean, nullable=True)

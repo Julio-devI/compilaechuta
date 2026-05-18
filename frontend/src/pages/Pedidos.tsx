@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Search, Maximize2, Minimize2, ChevronDown, ChevronUp, History,
-  AlertCircle, CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp,
+  Search, ChevronDown, ChevronUp, History,
+  CheckCircle2, Database, Box, Calendar, ArrowDown, ArrowUp,
   Filter, Ticket, Table, Grid
 } from 'lucide-react'
 import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
@@ -93,7 +93,7 @@ export function Pedidos() {
   const [searchTerm, setSearchTerm] = useState('')
   const [productNameFilter, setProductNameFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('')
-  const [tipoClienteFilter] = useState<string>('')
+  const [tipoClienteFilter] = useState<string>('')  // kept for type compat; no UI setter
   const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
   const [ticketFilter, setTicketFilter] = useState<string>('')
   const [dataInicioFilter, setDataInicioFilter] = useState<string>("");
@@ -130,7 +130,7 @@ export function Pedidos() {
     setIsLoading(true);
     try {
       const filtros: FiltrosPedidos = {
-        id_produto: searchTerm || undefined,
+        id_pedido_display: searchTerm || undefined,
         status: statusFilter || undefined,
         tipo_cliente: tipoClienteFilter || undefined,
         data_inicio: dataInicioFilter || undefined,
@@ -325,7 +325,7 @@ export function Pedidos() {
               orderDateFloor: dataInicioFilter,
               orderDateCeil: dataFimFilter,
               productName: productNameFilter,
-              ticketStatus: ticketFilter,
+              ticketStatus: ticketFilter === "Finalizado" ? "resolvido" : undefined,
             }}
             endpoint="http://localhost:8000/api/v1/orders/exportar"
             onSuccess={(msg) => toast.success(msg)}
@@ -483,12 +483,6 @@ export function Pedidos() {
                     <Ticket className="w-4 h-4" /> Ticket
                   </label>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => toggleTicket("Não tem")}
-                      className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Não tem" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
-                    >
-                      Não tem
-                    </button>
                     <button
                       onClick={() => toggleTicket("Aberto")}
                       className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Aberto" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
@@ -898,12 +892,7 @@ export function Pedidos() {
         </div>
       </div>
 
-      {/* 5. Floating Action Button */}
-      <button className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform shadow-lg cursor-pointer">
-        <span className="text-2xl">✨</span>
-      </button>
-
-      {/* 6. Modal de Detalhes */}
+      {/* Modal de Detalhes */}
       <ModalDetalhesPedido
         isOpen={!!pedidoSelecionado}
         onClose={() => setPedidoSelecionado(null)}

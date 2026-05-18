@@ -7,6 +7,7 @@ import json
 import httpx
 import pytest
 from google.api_core import exceptions as google_exceptions
+from google.genai import errors as genai_errors
 from pydantic_ai.exceptions import ModelHTTPError
 
 from vcommerce_ai_agent.core.exceptions import (
@@ -276,6 +277,99 @@ async def test_google_resource_exhausted_per_day_does_not_retry(monkeypatch):
 
     assert fake_agent.calls == 1
     assert sleeps == []
+
+
+def _genai_body(code: int, status: str, details: list[dict] | None = None) -> dict:
+    """Monta o response_json esperado pelo construtor de genai_errors.APIError."""
+    return {
+        "error": {
+            "code": code,
+            "message": "erro simulado",
+            "status": status,
+            "details": details or [],
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    ("code", "status_text", "details", "expected_error"),
+    [
+        (400, "INVALID_ARGUMENT", [], LLMInvalidRequestError),
+        (
+            400,
+            "INVALID_ARGUMENT",
+            [{"@type": "type.googleapis.com/google.rpc.ErrorInfo", "reason": "API_KEY_INVALID"}],
+            LLMAuthenticationError,
+        ),
+        (401, "UNAUTHENTICATED", [], LLMAuthenticationError),
+        (403, "PERMISSION_DENIED", [], LLMAuthenticationError),
+        (404, "NOT_FOUND", [], LLMInvalidRequestError),
+        (408, "DEADLINE_EXCEEDED", [], LLMTimeoutError),
+        (500, "INTERNAL", [], LLMInternalError),
+        (502, "BAD_GATEWAY", [], LLMInternalError),
+        (503, "UNAVAILABLE", [], LLMUnavailableError),
+        (504, "DEADLINE_EXCEEDED", [], LLMTimeoutError),
+        (418, "TEAPOT", [], LLMUnknownError),
+    ],
+)
+@pytest.mark.asyncio
+async def test_genai_api_error_maps_status_codes(
+    monkeypatch, code, status_text, details, expected_error
+):
+    body = _genai_body(code, status_text, details)
+    error_cls = genai_errors.ClientError if code < 500 else genai_errors.ServerError
+    fake_agent = SequenceAgent([error_cls(code, body)])
+    agent = _build_agent(fake_agent)
+    monkeypatch.setattr(llm_client, "_MAX_RETRIES", 1)
+
+    with pytest.raises(expected_error):
+        await agent.run("Pergunta")
+
+    assert fake_agent.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_genai_429_per_minute_maps_to_rate_limit(monkeypatch):
+    body = _genai_body(
+        429,
+        "RESOURCE_EXHAUSTED",
+        [
+            {
+                "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                "violations": [{"quotaId": "GenerateContentPerMinute"}],
+            }
+        ],
+    )
+    fake_agent = SequenceAgent([genai_errors.ClientError(429, body)])
+    agent = _build_agent(fake_agent)
+    monkeypatch.setattr(llm_client, "_MAX_RETRIES", 1)
+
+    with pytest.raises(LLMRateLimitError):
+        await agent.run("Pergunta")
+
+    assert fake_agent.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_genai_429_per_day_maps_to_quota(monkeypatch):
+    body = _genai_body(
+        429,
+        "RESOURCE_EXHAUSTED",
+        [
+            {
+                "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                "violations": [{"quotaId": "GenerateContentPerDay"}],
+            }
+        ],
+    )
+    fake_agent = SequenceAgent([genai_errors.ClientError(429, body)])
+    agent = _build_agent(fake_agent)
+    monkeypatch.setattr(llm_client, "_MAX_RETRIES", 1)
+
+    with pytest.raises(LLMQuotaError):
+        await agent.run("Pergunta")
+
+    assert fake_agent.calls == 1
 
 
 def test_extract_tokens_returns_total_tokens():

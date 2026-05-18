@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Literal
 import datetime
 
@@ -22,6 +22,15 @@ class ClienteOut(ClienteBase):
     data_ultima_compra:     Optional[datetime.datetime] = None
     media_estrelas_dadas:   Optional[float] = Field(None, ge=0, le=5)
     segmento_rfm:           Optional[str] = None
+    categoria_interesse:    Optional[str] = None
+    tem_ticket_aberto:      Optional[bool] = None
+
+    @field_validator("media_estrelas_dadas", mode="before")
+    @classmethod
+    def tratar_nota_invalida(cls, v):
+        if v is not None and v < 0:
+            return None
+        return v
 
     class Config:
         from_attributes = True

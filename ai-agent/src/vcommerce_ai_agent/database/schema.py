@@ -131,11 +131,10 @@ def load_descriptions(
         FileNotFoundError: Se o arquivo JSON não for encontrado.
         ValueError: Se o conteúdo não for um JSON válido.
     """
-    descriptions_path = (
-        Path(schema_descriptions_path)
-        if schema_descriptions_path is not None
-        else _DESCRIPTIONS_PATH
-    )
+    descriptions_path = _DESCRIPTIONS_PATH
+    if schema_descriptions_path is not None:
+        if not isinstance(schema_descriptions_path, str) or schema_descriptions_path.strip():
+            descriptions_path = Path(schema_descriptions_path)
 
     if not descriptions_path.exists():
         raise FileNotFoundError(

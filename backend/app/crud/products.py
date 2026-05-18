@@ -2,6 +2,7 @@ from typing import List, Optional
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import joinedload
 
 from app.models.products import Produto
 from app.models.orders import Pedido
@@ -17,50 +18,52 @@ async def create_product(db: AsyncSession, product_in: ProductCreate) -> Produto
     return db_product
 
 async def get_productById(db: AsyncSession, id_produto: str) -> Optional[Produto]:
-    result = await db.execute(select(Produto).filter(Produto.id_produto == id_produto))
+    result = await db.execute(
+        select(Produto)
+        .options(joinedload(Produto.categoria))
+        .filter(Produto.id_produto == id_produto)
+    )
     return result.scalars().first()
 
+
 async def get_all_products(
-    db: AsyncSession, 
-    skip: int = 0, 
-    limit: int = 100,
-    categoria: Optional[str] = None,
-    status: Optional[str] = None,
-    preco_min: Optional[float] = None,
-    preco_max: Optional[float] = None
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 100,
+        categoria: Optional[str] = None,
+        status: Optional[str] = None,
+        preco_min: Optional[float] = None,
+        precisa_revisao: Optional[str] = None, 
+        preco_max: Optional[float] = None
 ) -> List[Produto]:
-    
-    query = select(Produto)
-    
-    # 1. Filtro de Categoria
+    query = select(Produto).options(joinedload(Produto.categoria))
+
     if categoria and categoria != 'Todas as Categorias':
-        query = query.filter(Produto.categoria == categoria)
-        
-    # 2. Filtro de Status (AGORA À PROVA DE BALAS 🛡️)
+        query = query.join(Produto.categoria).filter(Produto.categoria.has(nome_categoria=categoria))
+
     if status:
         if status == 'ativo':
-            # Busca qualquer variação que signifique "Ativo" no seu banco
             query = query.filter(Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True]))
-            
+
         elif status == 'inativo':
-            # Busca qualquer variação que signifique "Inativo"
             query = query.filter(Produto.ativo.in_(['Não', 'não', 'Nao', 'nao', 'False', 'false', '0', False]))
-            
+
         elif status == 'baixo_estoque':
-            # Busca quem tem pouco estoque E está ativo
             query = query.filter(
-                Produto.estoque_disponivel < 10, 
+                Produto.estoque_disponivel < 10,
                 Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True])
             )
-            
+
     # 3. Filtro de Preço
     if preco_min is not None:
         query = query.filter(Produto.preco >= preco_min)
-        
+
     if preco_max is not None:
         query = query.filter(Produto.preco <= preco_max)
-        
-    # Executa a query
+
+    if precisa_revisao is not None:
+        query = query.filter(Produto.precisa_revisao == precisa_revisao)
+
     result = await db.execute(query.offset(skip).limit(limit))
     return list(result.scalars().all())
 

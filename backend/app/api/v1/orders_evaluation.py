@@ -9,7 +9,7 @@ from app.schemas.orders_evaluation import AvaliacaoPedidoOut, AvaliacaoPedidoLis
 
 router = APIRouter()
 
-@router.get("/", response_model=AvaliacaoPedidoListOut)
+@router.get_all("/", response_model=AvaliacaoPedidoListOut)
 async def read_evaluations(
     db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),

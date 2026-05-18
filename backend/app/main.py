@@ -1,16 +1,22 @@
+import asyncio
+import logging
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.seed import seed_database_if_needed
 
-from app.api.v1.clients import router as clientes_router
-from app.api.v1.tickets import router as tickets_router
-from app.api.v1.products import router as produtos_router
-from app.api.v1.category import router as categorias_router
-from app.api.v1.orders import router as pedidos_router
-from app.api.v1.dashboard import router as dashboards_router
-from app.api.v1.operator import router as operadores_router
-from app.api.v1.auth import router as auth_router
+if settings.GEMINI_API_KEY:
+    os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+os.environ.setdefault(
+    "LLM_TEMPERATURE_INSIGHT", str(settings.LLM_TEMPERATURE_INSIGHT)
+)
 
+from app.api.v1.ai_agent import cleanup_session_locks_loop
+
+import app.models.ai_agent  # noqa: F401
 import app.models.clients  # noqa: F401
 import app.models.tickets  # noqa: F401
 import app.models.products  # noqa: F401
@@ -18,11 +24,55 @@ import app.models.category  # noqa: F401
 import app.models.orders  # noqa: F401
 import app.models.operator  # noqa: F401
 
+from app.api.v1.api import api_router
+
+# Configura logger do agente de IA
+import json
+class ExtraFormatter(logging.Formatter):
+    def format(self, record):
+        s = super().format(record)
+        extra = {k: v for k, v in record.__dict__.items() if k not in logging.LogRecord('', 0, '', 0, '', (), None).__dict__ and k != 'message'}
+        if extra:
+            s += f" | {json.dumps(extra, default=str, ensure_ascii=False)}"
+        return s
+
+vcommerce_ai_logger = logging.getLogger("vcommerce_ai_agent")
+vcommerce_ai_logger.setLevel(logging.INFO)
+if not vcommerce_ai_logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(ExtraFormatter("%(name)s - %(levelname)s - %(message)s"))
+    vcommerce_ai_logger.addHandler(handler)
+
+# Logger do namespace da aplicação (app.*), usado por app.core.seed e similares.
+# Necessário porque uvicorn não configura o root logger em INFO por padrão.
+app_logger = logging.getLogger("app")
+app_logger.setLevel(logging.INFO)
+app_logger.propagate = False  # evita duplicar quando o root também tiver handler (alembic.ini)
+if not app_logger.handlers:
+    app_handler = logging.StreamHandler()
+    app_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(name)s | %(levelname)s | %(message)s")
+    )
+    app_logger.addHandler(app_handler)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await seed_database_if_needed()
+    cleanup_task = asyncio.create_task(cleanup_session_locks_loop())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
 
 app = FastAPI(
     title="V-Commerce CRM 360",
     description="API do CRM 360 da V-Commerce",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -33,15 +83,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router, prefix="/auth", tags=["Auth"])
-app.include_router(clientes_router, prefix="/clientes", tags=["Clientes"])
-app.include_router(tickets_router,  prefix="/tickets",  tags=["Tickets"])
-app.include_router(produtos_router, prefix="/produtos", tags=["Produtos"])
-app.include_router(categorias_router, prefix="/categorias", tags=["Categorias"])
-app.include_router(pedidos_router, prefix="/pedidos", tags=["Pedidos"])
-app.include_router(dashboards_router, prefix="/dashboards", tags=["Dashboards"])
-app.include_router(operadores_router, prefix="/operadores", tags=["Operadores"])
-
+app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/", tags=["Health"])
 async def root():

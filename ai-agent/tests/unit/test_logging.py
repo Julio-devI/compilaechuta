@@ -264,7 +264,26 @@ async def test_layer_2_blocked_warning(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_suggestions_events_logged(monkeypatch):
+async def test_suggestions_events_logged_without_history(monkeypatch):
+    """Sem histórico, emite apenas suggestions_finished com status=initial."""
+    from vcommerce_ai_agent.core import logger as core_logger
+
+    calls = _capture_log_calls(monkeypatch, core_logger.logger)
+    agent = VCommerceAgent(db_path=":memory:")
+
+    suggestions = await agent.initial_suggestions()
+    assert len(suggestions) == 5
+
+    messages = [c["message"] for c in calls]
+    assert "suggestions_started" not in messages
+    assert "suggestions_finished" in messages
+    finished = [c for c in calls if c["message"] == "suggestions_finished"]
+    assert finished[-1]["extra"]["status"] == "initial"
+
+
+@pytest.mark.asyncio
+async def test_suggestions_events_logged_with_history_fallback(monkeypatch):
+    """Com histórico e falha do LLM, emite started, fallback e finished."""
     from vcommerce_ai_agent.core import logger as core_logger
 
     calls = _capture_log_calls(monkeypatch, core_logger.logger)
@@ -277,7 +296,11 @@ async def test_suggestions_events_logged(monkeypatch):
         "vcommerce_ai_agent.agent.generate_suggestions", fake_generate_suggestions
     )
 
-    suggestions = await agent.initial_suggestions()
+    history = [
+        {"role": "user", "content": "Pergunta?", "sql": None},
+        {"role": "assistant", "content": "Resposta.", "sql": "SELECT 1"},
+    ]
+    suggestions = await agent.initial_suggestions(history=history)
     assert len(suggestions) == 5
 
     messages = [c["message"] for c in calls]

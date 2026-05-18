@@ -87,7 +87,7 @@ export function Login() {
                   onChange={e => setUsername(e.target.value)}
                   placeholder="Digite seu usuário ou email..."
                   className="w-full h-11 sm:h-12 px-4 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                  style={{ background: '#F5F5F5', border: 'none' }}
+                  style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
                   disabled={isLoading}
                 />
               </div>
@@ -105,7 +105,7 @@ export function Login() {
                     onKeyDown={e => e.key === 'Enter' && handleLogin()}
                     placeholder="Digite sua senha..."
                     className="w-full h-11 sm:h-12 px-4 pr-12 rounded-xl text-sm placeholder:text-[#9BA3B8] focus:outline-none focus:ring-2 focus:ring-[#1565C0]/30"
-                    style={{ background: '#F5F5F5', border: 'none' }}
+                    style={{ background: '#F5F5F5', border: 'none', color: '#37474F' }}
                     disabled={isLoading}
                   />
                   <button

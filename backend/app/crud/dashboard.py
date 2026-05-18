@@ -8,6 +8,7 @@ from app.models.tickets import Ticket
 from app.models.products import Produto
 from app.models.orders_evaluation import AvaliacaoPedido as Avaliacao
 from app.models.clients import Cliente
+from app.models.category import Categoria
 
 
 def _calculate_percentage_change(current: float, previous: float) -> Optional[float]:
@@ -32,16 +33,17 @@ def _apply_filters(stmt, column_date, data_inicio: Optional[date] = None, data_f
 def _apply_category_filter(stmt, categoria: Optional[str] = None, is_review: bool = False):
     """
     Aplica o filtro de categoria dinamicamente.
-    NOTA PARA O CRUD: Na model Pedido (fato_vendas) fazemos JOIN com Produto, pois Pedido só tem id_produto. 
-    Na model Avaliacao (fato_avaliacoes_pedido), de acordo com o seu schema original, 
-    já existe a coluna 'categoria' nativa, então filtramos diretamente.
+    As tabelas de fato mantêm id_categoria ou id_produto, então o filtro usa
+    gold_categoria como fonte do nome exibido ao usuário.
     """
     if categoria:
         if is_review:
-            stmt = stmt.filter(Avaliacao.categoria == categoria)
+            stmt = stmt.join(Categoria, Avaliacao.id_categoria == Categoria.id_categoria)
+            stmt = stmt.filter(Categoria.nome_categoria == categoria)
         else:
             stmt = stmt.join(Produto, Pedido.id_produto == Produto.id_produto)
-            stmt = stmt.filter(Produto.categoria == categoria)
+            stmt = stmt.join(Categoria, Produto.id_categoria == Categoria.id_categoria)
+            stmt = stmt.filter(Categoria.nome_categoria == categoria)
     return stmt
 
 
@@ -146,16 +148,19 @@ async def get_kpis(
 
 
 async def get_revenue_over_time(
-    db: AsyncSession, 
-    data_inicio: date, 
+    db: AsyncSession,
+    data_inicio: date,
     data_fim: date,
-    categoria: Optional[str] = None  
+    categoria: Optional[str] = None,
+    granularidade: str = 'mes'
 ):
     """
-    Gráfico: Média de Receita por Mês (Tendências).
+    Gráfico: Receita ao longo do tempo.
+    granularidade='dia' agrupa por YYYY-MM-DD; 'mes' agrupa por YYYY-MM.
     """
-    # NOTA PARA O CRUD: strftime é para SQLite. Se usar Postgres, altere para func.to_char(Pedido.id_data, 'YYYY-MM')
-    time_period = func.strftime('%Y-%m', Pedido.id_data).label('time_period')
+    # NOTA PARA O CRUD: strftime é para SQLite. Se usar Postgres, altere para func.to_char(Pedido.id_data, 'YYYY-MM-DD' ou 'YYYY-MM')
+    fmt = '%Y-%m-%d' if granularidade == 'dia' else '%Y-%m'
+    time_period = func.strftime(fmt, Pedido.id_data).label('time_period')
     
     stmt = select(
         time_period,

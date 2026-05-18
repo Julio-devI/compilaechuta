@@ -26,9 +26,10 @@ async def get_all_products(
     skip: int = 0, 
     limit: int = 100, 
     categoria: Optional[str] = None,
-    status: Optional[str] = None,
-    preco_min: Optional[float] = None,
-    preco_max: Optional[float] = None
+    status: Optional[str] = None,       # <-- Filtro novo
+    preco_min: Optional[float] = None,  # <-- Filtro novo    
+    preco_max: Optional[float] = None,  # <-- Filtro novo
+    precisa_revisao: Optional[str] = None,
 ) -> ProductListOut:
     
     products = await crud_products.get_all_products(
@@ -38,7 +39,8 @@ async def get_all_products(
         categoria=categoria,
         status=status,
         preco_min=preco_min,
-        preco_max=preco_max
+        preco_max=preco_max,
+        precisa_revisao=precisa_revisao,  
     )
     total = await crud_products.get_total_products_count(db=db)
     return ProductListOut(data=products, total=total, skip=skip, limit=limit)

@@ -65,15 +65,15 @@ async def listar_clientes(
         search=search,
     )
 
-    # Busca a categoria de interesse principal de cada cliente em uma só query
     client_ids = [c.id_cliente for c in clientes]
     categorias = await crud.get_top_categories(db, client_ids)
+    open_ticket_ids = await crud.get_open_ticket_clients(db, client_ids)
 
-    # Constrói ClienteOut com categoria_interesse anexada
     data = []
     for c in clientes:
         out = ClienteOut.model_validate(c)
         out.categoria_interesse = categorias.get(c.id_cliente)
+        out.tem_ticket_aberto = c.id_cliente in open_ticket_ids
         data.append(out)
 
     return ClienteListOut(total=total, skip=skip, limit=limit, data=data)

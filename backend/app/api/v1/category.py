@@ -1,13 +1,16 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from app.api import deps
-from app.crud import category as crud_category
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
+from app.services import category as service_category
+from app.crud import category as crud_category
 
 router = APIRouter()
+
 
 class BestSellingCategoryResponse(BaseModel):
     category: str
@@ -31,7 +34,7 @@ async def read_categories(
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
-    categories = await crud_category.get_multi_categories(db, skip=skip, limit=limit)
+    categories = await crud_category.get_all_categories(db, skip=skip, limit=limit)
     return categories
 
 @router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
@@ -49,10 +52,8 @@ async def read_category(
     db: AsyncSession = Depends(deps.get_db),
     id_categoria: str,
 ) -> Any:
-    category = await crud_category.get_category(db=db, id_categoria=id_categoria)
-    if not category:
-        raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    return category
+    return await service_category.get_category_by_id(db, id_categoria)
+
 
 @router.patch("/{id_categoria}", response_model=CategoryResponse)
 async def update_category(
@@ -61,20 +62,13 @@ async def update_category(
     id_categoria: str,
     category_in: CategoryUpdate,
 ) -> Any:
-    category = await crud_category.get_category(db=db, id_categoria=id_categoria)
-    if not category:
-        raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    category = await crud_category.update_category(db=db, db_obj=category, obj_in=category_in)
-    return category
+    return await service_category.update_category(db, id_categoria, category_in)
 
-@router.delete("/{id_categoria}", response_model=CategoryResponse)
+
+@router.delete("/{id_categoria}")
 async def delete_category(
     *,
     db: AsyncSession = Depends(deps.get_db),
     id_categoria: str,
 ) -> Any:
-    category = await crud_category.get_category(db=db, id_categoria=id_categoria)
-    if not category:
-        raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    category = await crud_category.remove_category(db=db, id_categoria=id_categoria)
-    return category
+    return await service_category.delete_category(db, id_categoria)

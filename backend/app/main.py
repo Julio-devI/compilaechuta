@@ -1,11 +1,13 @@
-import asyncio
-import logging
 import os
+import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.core.config import settings
+from app.core.seed import seed_database_if_needed
 
 if settings.GEMINI_API_KEY:
     os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
@@ -14,7 +16,9 @@ os.environ.setdefault(
 )
 
 from app.api.v1.ai_agent import cleanup_session_locks_loop
+from app.api.v1.api import api_router # Importa o "cérebro" das rotas
 
+# Importamos os modelos aqui para o SQLAlchemy/Alembic "sentirem" as tabelas
 import app.models.ai_agent  # noqa: F401
 import app.models.clients  # noqa: F401
 import app.models.tickets  # noqa: F401
@@ -22,8 +26,8 @@ import app.models.products  # noqa: F401
 import app.models.category  # noqa: F401
 import app.models.orders  # noqa: F401
 import app.models.operator  # noqa: F401
-
-from app.api.v1.api import api_router
+import app.models.satisfaction_agents  # noqa: F401
+import app.models.problem_satisfaction  # noqa: F401
 
 # Configura logger do agente de IA
 import json
@@ -42,8 +46,21 @@ if not vcommerce_ai_logger.handlers:
     handler.setFormatter(ExtraFormatter("%(name)s - %(levelname)s - %(message)s"))
     vcommerce_ai_logger.addHandler(handler)
 
+# Logger do namespace da aplicação (app.*), usado por app.core.seed e similares.
+# Necessário porque uvicorn não configura o root logger em INFO por padrão.
+app_logger = logging.getLogger("app")
+app_logger.setLevel(logging.INFO)
+app_logger.propagate = False  # evita duplicar quando o root também tiver handler (alembic.ini)
+if not app_logger.handlers:
+    app_handler = logging.StreamHandler()
+    app_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(name)s | %(levelname)s | %(message)s")
+    )
+    app_logger.addHandler(app_handler)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await seed_database_if_needed()
     cleanup_task = asyncio.create_task(cleanup_session_locks_loop())
     try:
         yield

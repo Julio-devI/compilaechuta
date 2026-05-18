@@ -23,6 +23,7 @@ class ClienteOut(ClienteBase):
     media_estrelas_dadas:   Optional[float] = Field(None, ge=0, le=5)
     segmento_rfm:           Optional[str] = None
     categoria_interesse:    Optional[str] = None
+    tem_ticket_aberto:      Optional[bool] = None
 
     @field_validator("media_estrelas_dadas", mode="before")
     @classmethod

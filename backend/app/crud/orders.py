@@ -21,6 +21,7 @@ class OrderFilters:
         data_fim: Optional[date] = None,
         status_ticket: Optional[str] = None,
         nome_produto: Optional[str] = None,
+        id_cliente: Optional[str] = None,
     ):
         self.status = status
         self.id_pedido_display = id_pedido_display
@@ -28,6 +29,7 @@ class OrderFilters:
         self.data_fim = data_fim
         self.status_ticket = status_ticket
         self.nome_produto = nome_produto
+        self.id_cliente = id_cliente
 
 
 def filters_query(query, filters: OrderFilters):
@@ -105,6 +107,9 @@ async def get_orders(
         )
 
         query = query.where(Pedido.id_produto.in_(subquery))
+
+    if getattr(filters, 'id_cliente', None):
+        query = query.where(Pedido.id_cliente == filters.id_cliente)
 
     # If filtering by status_ticket, we need to filter the orders.
     # EXISTS is usually faster than JOIN+DISTINCT for this scenario.

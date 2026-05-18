@@ -336,6 +336,50 @@ def test_format_history_for_sql_filled():
     assert "Resolva pronomes" in formatted
 
 
+def test_format_history_for_sql_includes_compact_context():
+    history = [
+        {
+            "role": "user",
+            "content": "Como foram as vendas no último trimestre?",
+            "sql": None,
+        },
+        {
+            "role": "assistant",
+            "content": "A receita total foi R$ 10.000,00.",
+            "sql": "SELECT 1",
+            "sources_text": "Fonte de dados consultada.",
+            "data": [
+                {
+                    "ano": 2025,
+                    "trimestre": 4,
+                    "receita_total": 10000.0,
+                    "observacao": "x" * 200,
+                }
+            ],
+            "chart": {
+                "type": "bar",
+                "x_axis": "trimestre",
+                "y_axis": "receita_total",
+                "title": "Receita por trimestre",
+                "y_axis_format": "currency",
+            },
+        },
+    ]
+
+    formatted = format_history_for_sql(history)
+
+    assert "Fontes: Fonte de dados consultada." in formatted
+    assert "Perfil compacto dos dados retornados:" in formatted
+    assert '"receita_total":10000.0' in formatted
+    assert '"columns":["ano","trimestre","receita_total","observacao"]' in formatted
+    assert '"observacao":"<valor_textual_omitido>"' in formatted
+    assert ("x" * 200) not in formatted
+    assert "Grafico sugerido:" in formatted
+    assert '"y_axis":"receita_total"' in formatted
+    assert "Receita por trimestre" not in formatted
+    assert "períodos anteriores" in formatted
+
+
 def test_format_history_for_insight_empty():
     assert format_history_for_insight(None) == ""
     assert format_history_for_insight([]) == ""

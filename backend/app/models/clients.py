@@ -12,6 +12,8 @@ class Cliente(Base):
     cidade                 = Column(String)
     estado                 = Column(String)
     regiao                 = Column(String)
+    email                  = Column(String, nullable=False)
+    telefone               = Column(String, nullable=True)
     qtd_pedidos_realizados = Column(Integer, default=0)
     total_gasto_brl        = Column(Float, default=0.0)
     qtd_tickets_suporte    = Column(Integer, default=0)

@@ -23,6 +23,7 @@ export interface SupportTicketFilters {
   endDate?: string;
   skip?: number;
   limit?: number;
+  customer_id?: string;
 }
 
 export interface SupportTicketSummary {
@@ -210,6 +211,7 @@ function buildTicketParams(
   if (filters.problemType) params.append("tipo", filters.problemType);
   if (filters.startDate) params.append("start_date", filters.startDate);
   if (filters.endDate) params.append("end_date", filters.endDate);
+  if (filters.customer_id) params.append("id_cliente", filters.customer_id);
 
   return params;
 }

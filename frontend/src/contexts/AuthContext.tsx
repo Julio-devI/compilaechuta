@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   hasRole: (...roles: string[]) => boolean
+  updateUser: (data: Partial<UserInfo>) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -48,8 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return roles.includes(user.role)
   }
 
+  const updateUser = (data: Partial<UserInfo>) => {
+    setUser(prev => {
+      if (!prev) return prev
+      const updated = { ...prev, ...data }
+      localStorage.setItem('user', JSON.stringify(updated))
+      return updated
+    })
+  }
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, hasRole, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

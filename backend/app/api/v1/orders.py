@@ -37,6 +37,7 @@ class OrdersFilters:
         data_fim: Optional[str] = Query(None, description="Filtrar por data fim (YYYY-MM-DD)"),
         nome_produto: Optional[str] = Query(None, description="Filtrar pelo nome do produto"),
         status_ticket: Optional[StatusTicket] = Query(None, description="Filtrar por status do ticket (resolvido, aberto)"),
+        id_cliente: Optional[str] = Query(None, description="Filtrar por ID do cliente"),
     ):
         self.status = status
         self.id_pedido_display = id_pedido_display
@@ -44,6 +45,7 @@ class OrdersFilters:
         self.data_fim = data_fim
         self.nome_produto = nome_produto
         self.status_ticket = status_ticket
+        self.id_cliente = id_cliente
 
 router = APIRouter()
 

@@ -3,8 +3,9 @@ import { Users, Download, Lightbulb, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { DateRange } from '../services/dashboardService'
 import { getTicketsAbertos } from '../services/dashboardService'
+import { apiUrl } from '../services/apiConfig'
 
-const BASE = 'http://localhost:8000/api/v1/dashboard'
+const BASE = apiUrl('/dashboard')
 
 interface Props {
   dateRange: DateRange

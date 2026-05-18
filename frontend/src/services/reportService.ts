@@ -1,6 +1,7 @@
 import type { DateRange } from './dashboardService'
+import { apiUrl } from './apiConfig'
 
-const BASE = 'http://localhost:8000/api/v1/dashboard'
+const BASE = apiUrl('/dashboard')
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -31,18 +32,13 @@ export interface PedidoDia {
   pedidos: number
 }
 
-export async function getReceitaMensal(
-  dateRange: DateRange,
-  granularity: 'dia' | 'mes' = 'mes',
-): Promise<ReceitaMensal[]> {
+export async function getReceitaMensal(dateRange: DateRange): Promise<ReceitaMensal[]> {
   try {
-    const params = toParams(dateRange)
-    params.set('granularidade', granularity)
-    const res = await fetch(`${BASE}/charts/revenue-over-time?${params}`)
+    const res = await fetch(`${BASE}/charts/revenue-over-time?${toParams(dateRange)}`)
     if (!res.ok) throw new Error()
     const json = await res.json()
     return (json.data as { time_period: string; revenue: number }[]).map((row) => ({
-      mes: row.time_period,
+      mes: row.time_period, // mantém "2019-01" como chave única — label formatado no gráfico
       receita: row.revenue,
     }))
   } catch {

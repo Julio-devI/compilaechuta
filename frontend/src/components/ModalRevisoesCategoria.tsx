@@ -8,9 +8,10 @@ import {
 } from "../services/productService";
 import { ModalDetalhesProduto } from "./ModalDetalhesProduto";
 import { Categoria } from "../services/categoryService";
+import { apiUrl } from "../services/apiConfig";
 
 // Mesma URL base do productService
-const PRODUCTS_API_URL = "http://localhost:8000/api/v1/products/";
+const PRODUCTS_API_URL = apiUrl("/products/");
 
 function mapear(p: ProdutoDaAPI): Produto {
   return {

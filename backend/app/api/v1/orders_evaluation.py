@@ -9,7 +9,7 @@ from app.schemas.orders_evaluation import AvaliacaoPedidoOut, AvaliacaoPedidoLis
 
 router = APIRouter()
 
-@router.get("/", response_model=AvaliacaoPedidoListOut)
+@router.get_all("/", response_model=AvaliacaoPedidoListOut)
 async def read_evaluations(
     db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
@@ -70,7 +70,7 @@ async def read_evaluations(
     )
     return {"total": total, "skip": skip, "limit": limit, "data": data}
 
-@router.get("/{id_avaliacao}", response_model=AvaliacaoPedidoOut)
+@router.get_by_id("/{id_avaliacao}", response_model=AvaliacaoPedidoOut)
 async def read_evaluation(id_avaliacao: str, db: AsyncSession = Depends(get_db)):
     obj = await crud_eval.get_evaluation_by_id(db=db, id_avaliacao=id_avaliacao)
     if not obj:

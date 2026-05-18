@@ -18,11 +18,21 @@ import {
   Lightbulb,
   History,
   ChevronDown,
+  Plus,
+  Search,
+  MessageSquare,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
-import { askAgent, getSuggestions } from '@/services/aiAgentService'
+import {
+  askAgent,
+  getSessionDetail,
+  getSuggestions,
+  listSessions,
+  type SessionSummary,
+} from '@/services/aiAgentService'
+import type { AiAgentMessage } from '@/contexts/AiAgentChatContext'
 import { AgentChart } from '@/components/AgentChart'
 import { AgentDataTable } from '@/components/AgentDataTable'
 import {
@@ -36,11 +46,44 @@ const SUGGESTIONS_REQUEST_MESSAGE =
 
 const QUICK_ACTION_ICONS: LucideIcon[] = [Zap, FileText, HelpCircle, Lightbulb]
 
+interface ConversationHistoryItem {
+  id: string
+  title: string
+  timestamp: string
+}
+
 function nowHHmm(): string {
   return new Date().toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatSessionTimestamp(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const today = new Date()
+  const sameDay =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+
+  if (sameDay) {
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+function summaryToHistoryItem(summary: SessionSummary): ConversationHistoryItem {
+  return {
+    id: summary.session_id,
+    title: summary.title,
+    timestamp: formatSessionTimestamp(summary.updated_at),
+  }
 }
 
 export function ChatIADrawer() {
@@ -50,6 +93,12 @@ export function ChatIADrawer() {
   const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
   const [expandedTables, setExpandedTables] = useState<Set<number>>(new Set())
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historySearch, setHistorySearch] = useState('')
+  const [conversationHistory, setConversationHistory] = useState<
+    ConversationHistoryItem[]
+  >([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -58,6 +107,8 @@ export function ChatIADrawer() {
     messages,
     setMessages,
     sessionId,
+    setSessionId,
+    activeConversation,
     setActiveConversation,
     setSelectedChatKey,
     isTyping,
@@ -65,6 +116,7 @@ export function ChatIADrawer() {
     pendingQuestions,
     setPendingQuestions,
     nextMessageId,
+    resetActiveConversation,
   } = useAiAgentChat(chatKey)
   const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
   const { text: placeholder, opacity: placeholderOpacity } =
@@ -106,6 +158,65 @@ export function ChatIADrawer() {
     pendingQuestionsRef.current = pendingQuestions
   }, [pendingQuestions])
 
+  const refreshHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const sessions = await listSessions()
+      setConversationHistory(sessions.map(summaryToHistoryItem))
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen || !historyOpen) return
+    refreshHistory()
+  }, [historyOpen, isOpen, refreshHistory])
+
+  const handleNewConversation = () => {
+    pendingQuestionsRef.current = []
+    resetActiveConversation()
+    setPendingQuestions([])
+    setInputValue('')
+    setSlashMenuOpen(false)
+    setIsTyping(false)
+    setExpandedCharts(new Set())
+    setExpandedTables(new Set())
+    setHistoryOpen(false)
+  }
+
+  const loadConversationFromHistory = async (id: string) => {
+    setInputValue('')
+    setSlashMenuOpen(false)
+    setIsTyping(false)
+    pendingQuestionsRef.current = []
+    setPendingQuestions([])
+
+    try {
+      const detail = await getSessionDetail(id)
+      const mappedMessages: AiAgentMessage[] = detail.history.map(entry => ({
+        id: nextMessageId(),
+        type: entry.role,
+        content: entry.content,
+        timestamp: '',
+        sources_text: entry.sources_text,
+        data: entry.data,
+        chart: entry.chart,
+      }))
+
+      setSessionId(id)
+      setActiveConversation(id)
+      setMessages(mappedMessages)
+      setExpandedCharts(new Set())
+      setExpandedTables(new Set())
+      setHistoryOpen(false)
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
   const processQuestion = useCallback(async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
@@ -142,6 +253,7 @@ export function ChatIADrawer() {
       ])
       if (response.status === 'success') {
         setActiveConversation(sessionId)
+        if (historyOpen) refreshHistory()
       }
     } catch (err) {
       const message = (err as Error).message
@@ -172,6 +284,8 @@ export function ChatIADrawer() {
     setIsTyping,
     setMessages,
     setPendingQuestions,
+    historyOpen,
+    refreshHistory,
   ])
 
   const sendQuestion = (rawText: string) => {
@@ -268,6 +382,10 @@ export function ChatIADrawer() {
     sendQuestion(inputValue)
   }
 
+  const filteredConversationHistory = conversationHistory.filter(item =>
+    item.title.toLowerCase().includes(historySearch.toLowerCase()),
+  )
+
   return (
     <>
       {/* Floating trigger button */}
@@ -328,8 +446,127 @@ export function ChatIADrawer() {
           </button>
         </div>
 
+        <div
+          className="grid grid-cols-2 gap-2 px-4 py-3 shrink-0"
+          style={{
+            borderBottom: '1px solid var(--chat-border)',
+            background: 'var(--chat-header-bg)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleNewConversation}
+            className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-(--chat-item-hover)"
+            style={{ color: 'var(--chat-accent)' }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Nova conversa
+          </button>
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(prev => !prev)}
+            className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-(--chat-item-hover)"
+            style={{
+              color: historyOpen
+                ? 'var(--chat-accent)'
+                : 'var(--color-muted-foreground)',
+              background: historyOpen
+                ? 'var(--chat-history-active-bg)'
+                : 'transparent',
+            }}
+          >
+            <History className="w-3.5 h-3.5" />
+            Histórico
+          </button>
+        </div>
+
         {/* Chat content */}
-        {messages.length === 0 ? (
+        {historyOpen ? (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--chat-border)' }}>
+              <h2 className="text-sm font-semibold text-foreground mb-3">
+                Histórico de Conversas
+              </h2>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={historySearch}
+                  onChange={e => setHistorySearch(e.target.value)}
+                  placeholder="Pesquisar..."
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-lg focus:outline-none transition-colors text-foreground placeholder:text-muted-foreground"
+                  style={{
+                    background: 'var(--chat-input-bg)',
+                    border: '1px solid var(--chat-border)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto themed-scrollbar p-3 space-y-1">
+              {historyLoading ? (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  Carregando conversas...
+                </p>
+              ) : filteredConversationHistory.length > 0 ? (
+                filteredConversationHistory.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => loadConversationFromHistory(item.id)}
+                    className="w-full text-left p-3 rounded-xl transition-colors hover:bg-(--chat-item-hover)"
+                    style={{
+                      background:
+                        activeConversation === item.id
+                          ? 'var(--chat-history-active-bg)'
+                          : 'transparent',
+                      border:
+                        activeConversation === item.id
+                          ? '1px solid var(--chat-history-active-border)'
+                          : '1px solid transparent',
+                    }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <MessageSquare
+                        className="w-3.5 h-3.5 mt-0.5 shrink-0"
+                        style={{
+                          color:
+                            activeConversation === item.id
+                              ? 'var(--chat-accent)'
+                              : 'var(--color-muted-foreground)',
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="text-xs font-medium leading-snug text-foreground"
+                          style={{
+                            color:
+                              activeConversation === item.id
+                                ? 'var(--chat-accent)'
+                                : undefined,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {item.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {item.timestamp}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  Nenhuma conversa encontrada.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex-1 flex flex-col px-6 py-8">
             <h2 className="text-2xl font-bold text-foreground mb-8 leading-tight">
               Olá! Como posso te ajudar?
@@ -627,16 +864,13 @@ export function ChatIADrawer() {
               />
             <div className="flex items-center justify-between">
               <button
-                onClick={() => {
-                  setSelectedChatKey(chatKey)
-                  navigate('/chat-ia')
-                  setIsOpen(false)
-                }}
+                type="button"
+                onClick={() => setHistoryOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted hover:text-foreground transition-colors"
                 style={{ background: 'var(--chat-msg-ai-bg)' }}
               >
                 <History className="w-3 h-3" />
-                Abrir Histórico de Conversas
+                Histórico
               </button>
               <button
                 onClick={handleEnviar}

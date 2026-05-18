@@ -31,6 +31,12 @@ import {useEffect, type ReactNode} from "react";
 import {AUTH_EXPIRED_EVENT} from "@/services/setupFetchInterceptor.ts";
 import {ChatIADrawer} from "@/components/ChatIADrawer.tsx";
 
+const ROUTES_WITHOUT_AI_DRAWER = new Set([
+  '/chat-ia',
+  '/configuracoes',
+  '/operadores',
+])
+
 function AuthExpirationGuard() {
   const navigate = useNavigate()
   const { logout, isAuthenticated } = useAuth()
@@ -49,7 +55,7 @@ function AuthExpirationGuard() {
 
 function AppLayout() {
   const location = useLocation()
-  const showDrawer = location.pathname !== '/chat-ia'
+  const showDrawer = !ROUTES_WITHOUT_AI_DRAWER.has(location.pathname)
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />

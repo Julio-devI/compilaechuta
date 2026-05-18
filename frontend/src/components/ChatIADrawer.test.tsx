@@ -15,6 +15,8 @@ import { AiAgentChatProvider } from '@/contexts/AiAgentChatContext'
 vi.mock('@/services/aiAgentService', () => ({
   askAgent: vi.fn(),
   getSuggestions: vi.fn(),
+  listSessions: vi.fn(),
+  getSessionDetail: vi.fn(),
 }))
 
 vi.mock('@/components/AgentChart', () => ({
@@ -41,10 +43,19 @@ vi.mock('@/lib/useRotatingPlaceholder', () => ({
 }))
 
 import { ChatIADrawer } from './ChatIADrawer'
-import { askAgent, getSuggestions } from '@/services/aiAgentService'
+import {
+  askAgent,
+  getSessionDetail,
+  getSuggestions,
+  listSessions,
+} from '@/services/aiAgentService'
 
 const askAgentMock = askAgent as unknown as ReturnType<typeof vi.fn>
 const getSuggestionsMock = getSuggestions as unknown as ReturnType<typeof vi.fn>
+const listSessionsMock = listSessions as unknown as ReturnType<typeof vi.fn>
+const getSessionDetailMock = getSessionDetail as unknown as ReturnType<
+  typeof vi.fn
+>
 
 function compareNodeOrder(first: HTMLElement, second: HTMLElement): number {
   return first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING
@@ -76,6 +87,8 @@ function findInput(): HTMLInputElement {
 beforeEach(() => {
   askAgentMock.mockReset()
   getSuggestionsMock.mockReset()
+  listSessionsMock.mockReset()
+  getSessionDetailMock.mockReset()
   toastError.mockReset()
 })
 
@@ -584,6 +597,123 @@ describe('ChatIADrawer', () => {
       screen.queryByText('Ops, algo deu errado: Erro descartavel'),
     ).not.toBeInTheDocument()
     expect(screen.getByText(/Olá! Como posso te ajudar/)).toBeInTheDocument()
+  })
+
+  it('inicia nova conversa pelo drawer e troca a sessao usada no envio', async () => {
+    askAgentMock
+      .mockResolvedValueOnce({
+        status: 'success',
+        session_id: 'sess-antiga',
+        user_response: {
+          answer_text: 'Resposta antiga.',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        status: 'success',
+        session_id: 'sess-nova',
+        user_response: {
+          answer_text: 'Resposta nova.',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+
+    const user = userEvent.setup()
+    renderDrawer()
+
+    await user.type(findInput(), 'Pergunta antiga')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('Resposta antiga.')).toBeInTheDocument()
+    const firstSessionId = askAgentMock.mock.calls[0][1]
+
+    await user.click(screen.getByRole('button', { name: /Nova conversa/ }))
+
+    expect(screen.queryByText('Pergunta antiga')).not.toBeInTheDocument()
+    expect(screen.queryByText('Resposta antiga.')).not.toBeInTheDocument()
+    expect(screen.getByText(/Olá! Como posso te ajudar/)).toBeInTheDocument()
+
+    await user.type(findInput(), 'Pergunta nova')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('Resposta nova.')).toBeInTheDocument()
+    expect(askAgentMock).toHaveBeenCalledTimes(2)
+    expect(askAgentMock.mock.calls[1][1]).not.toBe(firstSessionId)
+  })
+
+  it('abre o historico no drawer e carrega uma conversa sem navegar', async () => {
+    listSessionsMock.mockResolvedValueOnce([
+      {
+        session_id: 'sess-historico',
+        title: 'Receita por categoria',
+        updated_at: '2026-05-18T12:30:00.000Z',
+      },
+    ])
+    getSessionDetailMock.mockResolvedValueOnce({
+      session_id: 'sess-historico',
+      history: [
+        {
+          role: 'user',
+          content: 'Mostre a receita por categoria',
+          sql: null,
+          sources_text: null,
+          data: null,
+          chart: null,
+        },
+        {
+          role: 'assistant',
+          content: 'A categoria Alpha liderou a receita.',
+          sql: null,
+          sources_text: 'Fonte: pedidos e produtos.',
+          data: [{ categoria: 'Alpha', receita: 1500 }],
+          chart: null,
+        },
+      ],
+    })
+
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <AiAgentChatProvider>
+          <Routes>
+            <Route
+              path="/dashboard"
+              element={
+                <>
+                  <ChatIADrawer />
+                  <div>Página dashboard</div>
+                </>
+              }
+            />
+            <Route path="/chat-ia" element={<div>Página ChatIA</div>} />
+          </Routes>
+        </AiAgentChatProvider>
+      </MemoryRouter>,
+    )
+
+    await user.click(findTriggerButton())
+    await user.click(screen.getAllByRole('button', { name: /Histórico/ })[0])
+
+    expect(await screen.findByText('Receita por categoria')).toBeInTheDocument()
+    expect(listSessionsMock).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: /Receita por categoria/ }))
+
+    expect(getSessionDetailMock).toHaveBeenCalledWith('sess-historico')
+    expect(
+      await screen.findByText('Mostre a receita por categoria'),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByText('A categoria Alpha liderou a receita.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Página dashboard')).toBeInTheDocument()
+    expect(screen.queryByText('Página ChatIA')).not.toBeInTheDocument()
   })
 })
 

@@ -1,7 +1,7 @@
 from typing import Optional
 from datetime import date
 
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, contains_eager
 
@@ -54,8 +54,11 @@ def filters_query(query, filters: OrderFilters):
     if filters.status_ticket:
         status_str = filters.status_ticket.value if hasattr(
             filters.status_ticket, "value") else filters.status_ticket
-        query = query.join(Pedido.tickets).where(Ticket.status == status_str)
-        need_distinct = True
+        query = query.where(
+            Pedido.id_pedido.in_(
+                select(Ticket.id_pedido).where(Ticket.status == status_str)
+            )
+        )
 
     if filters.nome_produto:
         subquery = (
@@ -97,51 +100,41 @@ async def get_orders(
     if tipo_cliente:
         tipo_str = tipo_cliente.value if hasattr(
             tipo_cliente, "value") else tipo_cliente
-        query = query.join(Pedido.cliente).where(
-            Cliente.segmento_rfm == tipo_str)
+
+        query = query.where(
+            Pedido.id_cliente.in_(
+                select(Cliente.id_cliente).where(Cliente.segmento_rfm == tipo_str)
+            )
+        )
 
     if filters.nome_produto:
         subquery = (
             select(Produto.id_produto)
             .where(Produto.nome_produto.ilike(f"{filters.nome_produto}%"))
         )
-
         query = query.where(Pedido.id_produto.in_(subquery))
 
     if getattr(filters, 'id_cliente', None):
         query = query.where(Pedido.id_cliente == filters.id_cliente)
 
-    # If filtering by status_ticket, we need to filter the orders.
-    # EXISTS is usually faster than JOIN+DISTINCT for this scenario.
     if filters.status_ticket:
         status_str = filters.status_ticket.value if hasattr(
             filters.status_ticket, "value") else filters.status_ticket
-        # using EXISTS with a correlated subquery
-        query = query.where(
-            select(Ticket.id_ticket)
-            .where((Ticket.id_pedido == Pedido.id_pedido) & (Ticket.status == status_str))
-            .exists()
-        )
 
-    # --- Optimizing the count ---
-    # We do a fast count instead of a subquery if possible.
-    # Because we've removed the JOIN+DISTINCT logic and replaced it with EXISTS/direct filters,
-    # the count of `id_pedido` on the main query is now straightforward.
-
-    # However, because we have `.join(Pedido.cliente)` and `.join(Pedido.produto)` potentially,
-    # and they are N-1 or 1-1 relationships from the Order perspective (an order has one client, one product),
-    # there is NO row duplication happening! Thus, `func.count()` works perfectly without distinct subqueries.
+        ticket_subq = select(Ticket.id_pedido).where(Ticket.status == status_str)
+        query = query.where(Pedido.id_pedido.in_(ticket_subq))
 
     count_query = query.with_only_columns(func.count(Pedido.id_pedido))
-    # Reset order_by to avoid overhead during counting
     count_query = count_query.order_by(None)
 
     total = (await db.execute(count_query)).scalar_one()
 
     # --- Fetching data ---
-    # We eager load the relationships that are needed
-    query = query.options(selectinload(Pedido.produto),
-                          selectinload(Pedido.cliente))
+    # Eager load relationships
+    query = query.options(
+        selectinload(Pedido.produto),
+        selectinload(Pedido.cliente)
+    )
 
     result = await db.execute(query.offset(skip).limit(limit))
     data = result.scalars().all()

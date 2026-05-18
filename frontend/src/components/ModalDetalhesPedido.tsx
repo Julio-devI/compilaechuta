@@ -426,14 +426,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
 
                         {/* Segunda coluna */}
                         <div className="flex-1 ml-20">
-                          <button className="bg-[#ADE9FF] text-[#020854] ml-10 mb-2 px-3 py-1.5 rounded-xl text-[14px] font-black flex items-center gap-1">
-                            Visão 360 <ArrowUpRight className="w-4 h-4" />
-                          </button>
-
-                          <button className="bg-[#ADE9FF] text-[#020854] px-3 py-1.5 rounded-xl text-[14px] font-black flex items-center gap-1">
-                            Contatar cliente{" "}
-                            <ArrowUpRight className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
                     </div>

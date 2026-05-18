@@ -23,12 +23,13 @@ import { Operadores } from "./pages/Operadores";
 import { CadastroProduto } from "./pages/CadastroProduto";
 import { EditarProduto } from "./pages/EditarProduto";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import {AuthProvider, useAuth} from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ChatProvider, useChat } from "./contexts/ChatContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import {toast, Toaster} from "sonner";
-import {useEffect} from "react";
-import {AUTH_EXPIRED_EVENT} from "@/services/setupFetchInterceptor.ts";
-import {ChatIADrawer} from "@/components/ChatIADrawer.tsx";
+import { toast, Toaster } from "sonner";
+import { useEffect } from "react";
+import { AUTH_EXPIRED_EVENT } from "@/services/setupFetchInterceptor.ts";
+import { ChatIADrawer } from "@/components/ChatIADrawer.tsx";
 
 function AuthExpirationGuard() {
   const navigate = useNavigate()
@@ -48,7 +49,17 @@ function AuthExpirationGuard() {
 
 function AppLayout() {
   const location = useLocation()
-  const showDrawer = !['/chat-ia', '/configuracoes', '/operadores'].includes(location.pathname)
+  const { setLastRoute } = useChat()
+  const isChatRoute = location.pathname === '/chat-ia'
+  const isSettingsOrOperators = ['/configuracoes', '/operadores'].includes(location.pathname)
+  const showDrawer = !isChatRoute && !isSettingsOrOperators
+
+  useEffect(() => {
+    if (!isChatRoute) {
+      setLastRoute(location.pathname)
+    }
+  }, [location.pathname, isChatRoute, setLastRoute])
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -67,53 +78,55 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Toaster position="top-right" richColors />
-        <BrowserRouter>
-          <AuthExpirationGuard />
-          <Routes>
-            {/* Redireciona raiz para login */}
-            <Route index element={<Navigate to="/login" replace />} />
+        <ChatProvider>
+          <Toaster position="top-right" richColors />
+          <BrowserRouter>
+            <AuthExpirationGuard />
+            <Routes>
+              {/* Redireciona raiz para login */}
+              <Route index element={<Navigate to="/login" replace />} />
 
-            {/* Rotas públicas */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
-            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+              {/* Rotas públicas */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+              <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
-            {/* Rotas protegidas — qualquer usuário autenticado */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/clientes" element={<Clientes />} />
-                <Route path="/pedidos" element={<Pedidos />} />
-                <Route path="/produtos" element={<Produtos />} />
-                <Route path="/produtos/novo" element={<CadastroProduto />} />
-                <Route
-                  path="/produtos/editar/:id"
-                  element={<EditarProduto />}
-                />
-                <Route path="/suporte" element={<Suporte />} />
-                <Route path="/categorias" element={<Categorias />} />
+              {/* Rotas protegidas — qualquer usuário autenticado */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/pedidos" element={<Pedidos />} />
+                  <Route path="/produtos" element={<Produtos />} />
+                  <Route path="/produtos/novo" element={<CadastroProduto />} />
+                  <Route
+                    path="/produtos/editar/:id"
+                    element={<EditarProduto />}
+                  />
+                  <Route path="/suporte" element={<Suporte />} />
+                  <Route path="/categorias" element={<Categorias />} />
 
-                <Route path="/chat-ia" element={<ChatIA />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
+                  <Route path="/chat-ia" element={<ChatIA />} />
+                  <Route path="/configuracoes" element={<Configuracoes />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Rotas protegidas — apenas Admin e Super Admin */}
-            <Route
-              element={
-                <ProtectedRoute allowedRoles={["admin", "super_admin"]} />
-              }
-            >
-              <Route element={<AppLayout />}>
-                <Route path="/operadores" element={<Operadores />} />
+              {/* Rotas protegidas — apenas Admin e Super Admin */}
+              <Route
+                element={
+                  <ProtectedRoute allowedRoles={["admin", "super_admin"]} />
+                }
+              >
+                <Route element={<AppLayout />}>
+                  <Route path="/operadores" element={<Operadores />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Qualquer rota desconhecida redireciona para login */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </BrowserRouter>
+              {/* Qualquer rota desconhecida redireciona para login */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </ChatProvider>
       </AuthProvider>
     </ThemeProvider>
   );

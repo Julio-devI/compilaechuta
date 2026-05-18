@@ -20,6 +20,7 @@ async def get_all_tickets(
     agente: Optional[str] = None,
     tipo: Optional[str] = None,
     search: Optional[str] = None,
+    id_cliente: Optional[str] = None,
 ) -> list:
     # Converter filtros para lowercase
     if agente is not None:
@@ -66,6 +67,7 @@ async def get_all_tickets(
         agente=agente,
         tipo=tipo,
         search=search,
+        id_cliente=id_cliente,
     )
 
 

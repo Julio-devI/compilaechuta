@@ -78,15 +78,17 @@ async def get_revenue_over_time(
     db: AsyncSession = Depends(get_db),
     data_inicio: Optional[str] = Query(None, description="Data de início (YYYY-MM-DD)"),
     data_fim: Optional[str] = Query(None, description="Data de fim (YYYY-MM-DD)"),
-    categoria: Optional[str] = Query(None, description="Filtrar por nome da categoria") 
+    categoria: Optional[str] = Query(None, description="Filtrar por nome da categoria"),
+    granularidade: Optional[str] = Query('mes', description="Granularidade do agrupamento: 'dia' ou 'mes'"),
 ):
     inicio, fim = _parse_dates(data_inicio, data_fim)
-    
+
     result = await crud_dashboard.get_revenue_over_time(
-        db=db, 
-        data_inicio=inicio, 
+        db=db,
+        data_inicio=inicio,
         data_fim=fim,
-        categoria=categoria 
+        categoria=categoria,
+        granularidade=granularidade or 'mes',
     )
     return {"data": result}
 

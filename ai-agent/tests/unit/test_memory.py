@@ -419,3 +419,24 @@ async def test_ask_returns_controlled_response_when_generate_sql_parse_fails(mon
     assert response.developer_debug.error.stage == "sql_generation"
     assert response.developer_debug.sql == ""
     assert agent._history == []
+
+
+@pytest.mark.asyncio
+async def test_ask_passes_initial_context_only_to_sql_generation(monkeypatch):
+    agent = VCommerceAgent(db_path=":memory:")
+    captured_kwargs = {}
+
+    async def fake_load_schema():
+        return "schema", {"dim_cliente": {"columns": []}}
+
+    async def fake_generate_sql(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        raise LLMParseError("SQL malformado")
+
+    monkeypatch.setattr(agent, "_load_schema", fake_load_schema)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
+
+    await agent.ask("Qual?", initial_context="Contexto seguro da tela.")
+
+    assert captured_kwargs["initial_context"] == "Contexto seguro da tela."
+    assert agent.export_history() == []

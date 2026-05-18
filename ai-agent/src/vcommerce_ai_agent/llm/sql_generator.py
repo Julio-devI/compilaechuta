@@ -30,12 +30,35 @@ _TEMPORAL_TEXT_RE = re.compile(
 )
 
 
-def _load_system_prompt(schema: str, history_text: str = "") -> str:
+def _format_initial_context(initial_context: str | None) -> str:
+    """Formata o contexto inicial da tela para o prompt da Chamada 1."""
+    if not initial_context or not initial_context.strip():
+        return ""
+
+    return (
+        "## Contexto Inicial da Tela\n"
+        f"{initial_context.strip()}\n\n"
+        "Use este contexto apenas como ponto de partida para desambiguar a "
+        "primeira pergunta quando ela for genérica. Ele não restringe o "
+        "escopo da conversa e não deve prevalecer sobre pedidos explícitos "
+        "do usuário.\n"
+    )
+
+
+def _load_system_prompt(
+    schema: str,
+    history_text: str = "",
+    initial_context: str | None = None,
+) -> str:
     """Carrega o template do system prompt e injeta o schema dinâmico e o histórico."""
     if not _PROMPT_PATH.exists():
         raise FileNotFoundError(f"Prompt não encontrado: {_PROMPT_PATH}")
     template = _PROMPT_PATH.read_text(encoding="utf-8")
-    replacements = {"{schema}": schema, "{history}": history_text}
+    replacements = {
+        "{schema}": schema,
+        "{history}": history_text,
+        "{initial_context}": _format_initial_context(initial_context),
+    }
     pattern = re.compile("|".join(re.escape(k) for k in replacements))
     return pattern.sub(lambda m: replacements[m.group(0)], template)
 
@@ -230,6 +253,7 @@ async def generate_sql(
     schema: str,
     history: list[dict[str, Any]] | None = None,
     model: str | None = None,
+    initial_context: str | None = None,
 ) -> tuple[str, int | None]:
     """
     Gera uma query SQL a partir de uma pergunta em linguagem natural.
@@ -249,7 +273,11 @@ async def generate_sql(
         RuntimeError: Se a chamada ao LLM falhar.
     """
     history_text = format_history_for_sql(history)
-    system_prompt = _load_system_prompt(schema, history_text=history_text)
+    system_prompt = _load_system_prompt(
+        schema,
+        history_text=history_text,
+        initial_context=initial_context,
+    )
 
     agent = LLMAgent(
         system_prompt=system_prompt,

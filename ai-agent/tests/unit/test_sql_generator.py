@@ -149,3 +149,21 @@ def test_sql_system_prompt_guides_temporal_follow_ups():
     assert "comparado com os anteriores" in prompt
     assert "períodos anteriores comparáveis" in prompt
     assert "vedas" in prompt
+
+
+def test_sql_system_prompt_injects_initial_context():
+    prompt = _load_system_prompt(
+        "schema",
+        initial_context="Tela de clientes aberta no drawer.",
+    )
+
+    assert "## Contexto Inicial da Tela" in prompt
+    assert "Tela de clientes aberta no drawer." in prompt
+    assert "não restringe o escopo da conversa" in prompt
+
+
+def test_sql_system_prompt_omits_initial_context_when_empty():
+    prompt = _load_system_prompt("schema")
+
+    assert "## Contexto Inicial da Tela" not in prompt
+    assert "{initial_context}" not in prompt

@@ -427,6 +427,18 @@
 
 ---
 
+### DA-36: Contexto Inicial Seguro por Tela no Drawer
+
+- **Contexto:** O drawer de IA pode ser aberto a partir de diferentes telas da aplicação, e a primeira pergunta do usuário pode ser genérica o suficiente para se beneficiar do contexto visual atual. Ao mesmo tempo, o frontend não deve enviar texto de prompt manipulável nem prender toda a conversa ao domínio da tela inicial.
+
+- **Decisão:** O frontend envia apenas uma chave enumerada de tela (`page_context`) no `/ai-agent/ask`. O backend valida essa chave por allowlist e escolhe um texto interno de contexto, que é passado ao agente como `initial_context` somente quando a sessão ainda não possui histórico. O agente injeta esse contexto apenas no prompt de SQL da primeira pergunta e não o persiste no histórico exportado.
+
+- **Justificativa:** O contexto deve funcionar somente como orientação inicial, porque o usuário pode direcionar a conversa para outras áreas depois da primeira pergunta.
+
+- **Implicações:** O contrato público do endpoint `/ai-agent/ask` passa a aceitar `page_context` opcional, restrito a valores conhecidos pelo backend. Conversas carregadas do histórico ignoram qualquer `page_context` recebido, evitando reinjeção. O contexto inicial ajuda a desambiguar perguntas curtas, mas não altera o escopo geral do agente nem impede follow-ups fora da tela original.
+
+---
+
 ## Decisões de Frontend
 
 Esta seção agrupa decisões arquiteturais que pertencem primariamente ao frontend da aplicação principal, mas que impactam a integração com o `ai-agent` ou com o backend.

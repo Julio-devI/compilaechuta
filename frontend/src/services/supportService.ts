@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig'
+
 export interface SupportTicket {
   ticketId: string;
   ticketDisplayId: string;
@@ -23,7 +25,6 @@ export interface SupportTicketFilters {
   endDate?: string;
   skip?: number;
   limit?: number;
-  customer_id?: string;
 }
 
 export interface SupportTicketSummary {
@@ -60,7 +61,7 @@ interface SupportTicketSummaryApiResponse {
   problem_types: string[];
 }
 
-const API_URL = "http://localhost:8000/api/v1/tickets";
+const API_URL = apiUrl('/tickets')
 
 function mapSupportTicket(ticket: SupportTicketApiResponse): SupportTicket {
   const customerName = ticket.nome_cliente || ticket.id_cliente;
@@ -116,12 +117,10 @@ export type Ticket = {
 
 export async function getTicketPorPedido(
   idPedido: string,
-  registroConsistente: boolean = true
-): Promise<SupportTicket[] | null> {
-
-  const url = `${API_URL}/pedido/${encodeURIComponent(idPedido)}?registro_consistente=${registroConsistente}`;
-
-  const response = await fetch(url);
+): Promise<Ticket | null> {
+  const response = await fetch(
+    `${API_URL}/pedido/${encodeURIComponent(idPedido)}`,
+  );
 
   if (response.status === 404) {
     return null;
@@ -131,8 +130,16 @@ export async function getTicketPorPedido(
     throw new Error(`Erro ao buscar ticket por pedido: ${response.status}`);
   }
 
-  const result: SupportTicketApiResponse[] = await response.json();
-  return result.map(mapSupportTicket);
+  const result = await response.json();
+
+  return {
+    id: result.id_ticket,
+    status: result.status || "aberto",
+    prioridade: "normal",
+    assunto: result.tipo_problema || "Ticket de suporte",
+    dataAberturaRaw: result.data_abertura ?? null,
+    dataResolucaoRaw: result.data_resolucao ?? null,
+  };
 }
 
 export async function getSupportTickets(
@@ -205,7 +212,6 @@ function buildTicketParams(
   if (filters.problemType) params.append("tipo", filters.problemType);
   if (filters.startDate) params.append("start_date", filters.startDate);
   if (filters.endDate) params.append("end_date", filters.endDate);
-  if (filters.customer_id) params.append("id_cliente", filters.customer_id);
 
   return params;
 }

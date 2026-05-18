@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig'
+
 export interface Cliente {
   id: string | number
   nome: string
@@ -12,7 +14,6 @@ export interface Cliente {
   status: string
   tendencia: 'up' | 'down' | 'stable'
   categoriaInteresse: string | null
-  temTicketAberto: boolean | null
 }
 
 export interface FiltrosClientes {
@@ -54,9 +55,9 @@ export function getClienteStatusStyle(segmento: string | null | undefined): stri
   return 'bg-slate-100 text-slate-600 border border-slate-200'
 }
 
-const API_URL = 'http://localhost:8000/api/v1/clients/'
-const DASHBOARD_URL = 'http://localhost:8000/api/v1/dashboard'
-const TICKETS_URL = 'http://localhost:8000/api/v1/tickets'
+const API_URL = apiUrl('/clients/')
+const DASHBOARD_URL = apiUrl('/dashboard')
+const TICKETS_URL = apiUrl('/tickets')
 
 export async function getClientes(
   skip = 0,
@@ -112,7 +113,6 @@ export async function getClientes(
         status: c.segmento_rfm || 'Geral',
         tendencia: 'stable',
         categoriaInteresse: c.categoria_interesse ?? null,
-        temTicketAberto: c.tem_ticket_aberto ?? null,
       }
     })
 

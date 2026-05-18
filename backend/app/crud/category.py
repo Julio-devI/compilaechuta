@@ -54,14 +54,36 @@ async def get_all_categories(
         select(
             Categoria,
             func.count(Produto.id_produto).label("total_prod"),
-            func.coalesce(func.sum(Produto.estoque_disponivel), 0).label("estoque_total"),
-            func.coalesce(func.avg(Produto.preco), 0.0).label("prc_medio"),
-            func.sum(case((Produto.precisa_revisao == "Sim", 1), else_=0)).label("total_rev")
+
+            func.coalesce(
+                func.sum(Produto.estoque_disponivel),
+                0
+            ).label("estoque_total"),
+
+            func.coalesce(
+                func.sum(case((Produto.ativo == "Sim", 1), else_=0)),
+                0
+            ).label("total_ativos"),
+
+            func.coalesce(
+                func.avg(case((Produto.preco > 0, Produto.preco), else_=None)),
+                0.0
+            ).label("prc_medio"),
+
+            func.min(
+                case((Produto.preco > 0, Produto.preco), else_=None)
+            ).label("prc_minimo"),
+
+            func.max(Produto.preco).label("prc_maximo"),
+
+            func.coalesce(
+                func.sum(case((Produto.precisa_revisao == "Sim", 1), else_=0)),
+                0
+            ).label("total_rev")
         )
         .outerjoin(Produto, Categoria.id_categoria == Produto.id_categoria)
         .group_by(Categoria.id_categoria)
     )
-    
     if name:
         # Se houver filtro de nome no CRUD
         stmt = stmt.filter(Categoria.nome_categoria.ilike(f"%{name}%"))
@@ -75,9 +97,13 @@ async def get_all_categories(
         
         # Injeta os valores calculados dinamicamente nos atributos que o Frontend espera ler
         categoria_obj.total_produtos = row.total_prod
-        categoria_obj.total_com_estoque = row.estoque_total
+        categoria_obj.total_estoque_disponivel = row.estoque_total
+        categoria_obj.total_produtos_ativos = row.total_ativos
         categoria_obj.preco_medio = row.prc_medio
+        categoria_obj.preco_minimo = row.prc_minimo
+        categoria_obj.preco_maximo = row.prc_maximo
         categoria_obj.total_precisa_revisao = row.total_rev
+
         
         lista_categorias.append(categoria_obj)
         

@@ -129,6 +129,7 @@ async def get_all_products(
         categoria: Optional[str] = None,
         status: Optional[str] = None,
         preco_min: Optional[float] = None,
+        precisa_revisao: Optional[str] = None, 
         preco_max: Optional[float] = None
 ) -> List[Produto]:
     query = select(Produto).options(joinedload(Produto.categoria))
@@ -155,6 +156,9 @@ async def get_all_products(
 
     if preco_max is not None:
         query = query.filter(Produto.preco <= preco_max)
+
+    if precisa_revisao is not None:
+        query = query.filter(Produto.precisa_revisao == precisa_revisao)
 
     result = await db.execute(query.offset(skip).limit(limit))
     return list(result.scalars().all())

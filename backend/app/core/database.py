@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import event
 from dotenv import load_dotenv
+from app.core.config import settings
 
 
 load_dotenv()

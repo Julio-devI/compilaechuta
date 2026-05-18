@@ -8,6 +8,7 @@ from app.models.tickets import Ticket
 from app.models.products import Produto
 from app.models.orders_evaluation import AvaliacaoPedido as Avaliacao
 from app.models.clients import Cliente
+from app.models.category import Categoria
 
 
 def _calculate_percentage_change(current: float, previous: float) -> Optional[float]:
@@ -32,16 +33,17 @@ def _apply_filters(stmt, column_date, data_inicio: Optional[date] = None, data_f
 def _apply_category_filter(stmt, categoria: Optional[str] = None, is_review: bool = False):
     """
     Aplica o filtro de categoria dinamicamente.
-    NOTA PARA O CRUD: Na model Pedido (fato_vendas) fazemos JOIN com Produto, pois Pedido só tem id_produto. 
-    Na model Avaliacao (fato_avaliacoes_pedido), de acordo com o seu schema original, 
-    já existe a coluna 'categoria' nativa, então filtramos diretamente.
+    As tabelas de fato mantêm id_categoria ou id_produto, então o filtro usa
+    gold_categoria como fonte do nome exibido ao usuário.
     """
     if categoria:
         if is_review:
-            stmt = stmt.filter(Avaliacao.categoria == categoria)
+            stmt = stmt.join(Categoria, Avaliacao.id_categoria == Categoria.id_categoria)
+            stmt = stmt.filter(Categoria.nome_categoria == categoria)
         else:
             stmt = stmt.join(Produto, Pedido.id_produto == Produto.id_produto)
-            stmt = stmt.filter(Produto.categoria == categoria)
+            stmt = stmt.join(Categoria, Produto.id_categoria == Categoria.id_categoria)
+            stmt = stmt.filter(Categoria.nome_categoria == categoria)
     return stmt
 
 

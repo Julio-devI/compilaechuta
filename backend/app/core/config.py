@@ -2,10 +2,19 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from typing import Optional
 
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+SQLITE_ASYNC_PREFIX = "sqlite+aiosqlite:///"
+DEFAULT_DATABASE_URL = (
+    f"{SQLITE_ASYNC_PREFIX}{(BACKEND_ROOT / 'vcommerce.db').as_posix()}"
+)
+
+
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./scripts/vcommerce.db"
+    DATABASE_URL: str = DEFAULT_DATABASE_URL
     CSV_DIR: str = "./data"
+    AUTO_SEED_DATABASE: bool = True
     
     # App
     APP_NAME: str = "V-Commerce CRM 360"
@@ -25,15 +34,26 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE_INSIGHT: float = 0.3
 
     @property
+    def SQLALCHEMY_DATABASE_URL(self) -> str:
+        """Normaliza URLs SQLite relativas para a raiz do backend."""
+        url = self.DATABASE_URL
+        if not url.startswith(SQLITE_ASYNC_PREFIX):
+            return url
+
+        raw_path = url[len(SQLITE_ASYNC_PREFIX):]
+        path = Path(raw_path)
+        if not path.is_absolute():
+            path = BACKEND_ROOT / path
+
+        return f"{SQLITE_ASYNC_PREFIX}{path.resolve().as_posix()}"
+
+    @property
     def DB_PATH(self) -> str:
         """Extrai o caminho do arquivo SQLite a partir do DATABASE_URL."""
-        url = self.DATABASE_URL
-        prefix = "sqlite+aiosqlite:///"
-        if url.startswith(prefix):
-            path = url[len(prefix):]
-            import os
-            return os.path.abspath(path)
-        return self.DATABASE_URL
+        url = self.SQLALCHEMY_DATABASE_URL
+        if url.startswith(SQLITE_ASYNC_PREFIX):
+            return url[len(SQLITE_ASYNC_PREFIX):]
+        return url
 
     @property
     def AI_AGENT_SCHEMA_DESCRIPTIONS_PATH(self) -> str | None:

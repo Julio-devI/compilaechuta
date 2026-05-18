@@ -285,6 +285,44 @@ describe('ChatIADrawer', () => {
     expect(screen.queryByText('Pergunta removida')).not.toBeInTheDocument()
   })
 
+  it('ignora resposta pendente quando o usuario inicia nova conversa', async () => {
+    let resolveFirst!: (value: unknown) => void
+
+    askAgentMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveFirst = resolve
+        }),
+    )
+
+    const user = userEvent.setup()
+    renderDrawer()
+
+    await user.type(findInput(), 'Pergunta antiga')
+    await user.keyboard('{Enter}')
+    expect(await screen.findByText('Pergunta antiga')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Nova conversa/ }))
+    expect(screen.queryByText('Pergunta antiga')).not.toBeInTheDocument()
+
+    await act(async () => {
+      resolveFirst({
+        status: 'success',
+        session_id: 'sess-antiga',
+        user_response: {
+          answer_text: 'Resposta antiga',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+    })
+
+    expect(screen.queryByText('Resposta antiga')).not.toBeInTheDocument()
+    expect(screen.getByText(/Olá! Como posso te ajudar/)).toBeInTheDocument()
+  })
+
   it('exibe toast e mensagem de fallback quando askAgent rejeita', async () => {
     askAgentMock.mockRejectedValueOnce(new Error('Boom'))
 
@@ -353,6 +391,53 @@ describe('ChatIADrawer', () => {
     expect(await screen.findByText('Sugestao 1')).toBeInTheDocument()
     expect(screen.getByText('Sugestao 2')).toBeInTheDocument()
     expect(screen.getByText('Sugestao 3')).toBeInTheDocument()
+  })
+
+  it('processa pergunta enfileirada enquanto busca sugestoes', async () => {
+    let resolveSuggestions!: (value: unknown) => void
+
+    getSuggestionsMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveSuggestions = resolve
+        }),
+    )
+    askAgentMock.mockResolvedValueOnce({
+      status: 'success',
+      session_id: 'sess-1',
+      user_response: {
+        answer_text: 'Resposta enfileirada',
+        sources_text: null,
+        data: null,
+        chart: null,
+        truncated: false,
+      },
+    })
+
+    const user = userEvent.setup()
+    renderDrawer()
+
+    await user.type(findInput(), '/sugestao')
+    await user.keyboard('{Enter}')
+    await user.type(findInput(), 'Pergunta depois da sugestao')
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByTestId('queued-question')).toHaveTextContent(
+      'Pergunta depois da sugestao',
+    )
+    expect(askAgentMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveSuggestions({ suggestions: ['Sugestao 1'] })
+    })
+
+    expect(
+      await screen.findByText('Aqui vão algumas sugestões para você:'),
+    ).toBeInTheDocument()
+    await waitFor(() => expect(askAgentMock).toHaveBeenCalledTimes(1))
+    expect(askAgentMock.mock.calls[0][0]).toBe('Pergunta depois da sugestao')
+    expect(await screen.findByText('Resposta enfileirada')).toBeInTheDocument()
+    expect(screen.queryByTestId('queued-question')).not.toBeInTheDocument()
   })
 
   it('toggle do grafico mostra e esconde o AgentChart', async () => {

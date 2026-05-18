@@ -133,6 +133,7 @@ export function ChatIA() {
     resetActiveConversation,
   } = useAiAgentChat()
   const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
+  const conversationTokenRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS)
 
@@ -202,6 +203,7 @@ export function ChatIA() {
   const processQuestion = useCallback(async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
+    const requestToken = conversationTokenRef.current
 
     setActiveConversation(sessionId)
     setConversasHistorico(prev => [
@@ -221,6 +223,8 @@ export function ChatIA() {
 
     try {
       const response = await askAgent(text, sessionId)
+      if (conversationTokenRef.current !== requestToken) return
+
       const assistantText =
         response.user_response.answer_text ||
         (response.status === 'out_of_scope'
@@ -244,6 +248,7 @@ export function ChatIA() {
         refreshSessions()
       }
     } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
       const message = (err as Error).message
       toast.error(message)
       setMessages(prev => [
@@ -256,6 +261,8 @@ export function ChatIA() {
         },
       ])
     } finally {
+      if (conversationTokenRef.current !== requestToken) return
+
       const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
       if (nextQuestion) {
         pendingQuestionsRef.current = remainingQuestions
@@ -301,6 +308,7 @@ export function ChatIA() {
   }
 
   const runSugestaoCommand = async () => {
+    const requestToken = conversationTokenRef.current
     setMessages(prev => [
       ...prev,
       {
@@ -313,6 +321,8 @@ export function ChatIA() {
     setIsTyping(true)
     try {
       const { suggestions: list } = await getSuggestions(sessionId)
+      if (conversationTokenRef.current !== requestToken) return
+
       setMessages(prev => [
         ...prev,
         {
@@ -324,9 +334,19 @@ export function ChatIA() {
         },
       ])
     } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
       toast.error((err as Error).message)
     } finally {
-      setIsTyping(false)
+      if (conversationTokenRef.current !== requestToken) return
+
+      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      if (nextQuestion) {
+        pendingQuestionsRef.current = remainingQuestions
+        setPendingQuestions(remainingQuestions)
+        processQuestion(nextQuestion)
+      } else {
+        setIsTyping(false)
+      }
     }
   }
 
@@ -369,9 +389,13 @@ export function ChatIA() {
   }
 
   const handleNovaConversa = () => {
+    conversationTokenRef.current += 1
+    pendingQuestionsRef.current = []
     resetActiveConversation()
+    setPendingQuestions([])
     setInputValue('')
     setSlashMenuOpen(false)
+    setIsTyping(false)
     setExpandedCharts(new Set())
     setExpandedTables(new Set())
     loadInitialSuggestions()
@@ -411,9 +435,13 @@ export function ChatIA() {
       toast.success('Conversa apagada com sucesso.')
 
       if (deletedActiveConversation) {
+        conversationTokenRef.current += 1
+        pendingQuestionsRef.current = []
         resetActiveConversation()
+        setPendingQuestions([])
         setInputValue('')
         setSlashMenuOpen(false)
+        setIsTyping(false)
         setExpandedCharts(new Set())
         setExpandedTables(new Set())
         loadInitialSuggestions()
@@ -426,13 +454,19 @@ export function ChatIA() {
   }
 
   const handleConversaHistorico = async (id: string) => {
+    const requestToken = conversationTokenRef.current + 1
+    conversationTokenRef.current = requestToken
     setActiveConversation(id)
     setSessionId(id)
     setInputValue('')
     setSlashMenuOpen(false)
     setIsTyping(false)
+    pendingQuestionsRef.current = []
+    setPendingQuestions([])
     try {
       const detail = await getSessionDetail(id)
+      if (conversationTokenRef.current !== requestToken) return
+
       const mapped: AiAgentMessage[] = detail.history.map(entry => ({
         id: nextMessageId(),
         type: entry.role,
@@ -446,6 +480,7 @@ export function ChatIA() {
       setExpandedCharts(new Set())
       setExpandedTables(new Set())
     } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
       toast.error((err as Error).message)
     }
   }

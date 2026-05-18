@@ -145,6 +145,7 @@ export function ChatIADrawer() {
     resetActiveConversation,
   } = useAiAgentChat(chatKey)
   const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
+  const conversationTokenRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS_COMPACT)
 
@@ -202,6 +203,7 @@ export function ChatIADrawer() {
   }, [historyOpen, isOpen, isTyping, refreshHistory])
 
   const handleNewConversation = () => {
+    conversationTokenRef.current += 1
     pendingQuestionsRef.current = []
     resetActiveConversation()
     setPendingQuestions([])
@@ -214,6 +216,8 @@ export function ChatIADrawer() {
   }
 
   const loadConversationFromHistory = async (id: string) => {
+    const requestToken = conversationTokenRef.current + 1
+    conversationTokenRef.current = requestToken
     setInputValue('')
     setSlashMenuOpen(false)
     setIsTyping(false)
@@ -222,6 +226,8 @@ export function ChatIADrawer() {
 
     try {
       const detail = await getSessionDetail(id)
+      if (conversationTokenRef.current !== requestToken) return
+
       const mappedMessages: AiAgentMessage[] = detail.history.map(entry => ({
         id: nextMessageId(),
         type: entry.role,
@@ -239,6 +245,7 @@ export function ChatIADrawer() {
       setExpandedTables(new Set())
       setHistoryOpen(false)
     } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
       toast.error((err as Error).message)
     }
   }
@@ -246,6 +253,7 @@ export function ChatIADrawer() {
   const processQuestion = useCallback(async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
+    const requestToken = conversationTokenRef.current
 
     setActiveConversation(sessionId)
     setConversationHistory(prev => [
@@ -269,6 +277,8 @@ export function ChatIADrawer() {
         sessionId,
         getPageContext(location.pathname),
       )
+      if (conversationTokenRef.current !== requestToken) return
+
       const assistantText =
         response.user_response.answer_text ||
         (response.status === 'out_of_scope'
@@ -290,6 +300,7 @@ export function ChatIADrawer() {
         if (historyOpen) refreshHistory()
       }
     } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
       const message = (err as Error).message
       toast.error(message)
       setMessages(prev => [
@@ -302,6 +313,8 @@ export function ChatIADrawer() {
         },
       ])
     } finally {
+      if (conversationTokenRef.current !== requestToken) return
+
       const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
       if (nextQuestion) {
         pendingQuestionsRef.current = remainingQuestions
@@ -349,6 +362,7 @@ export function ChatIADrawer() {
   }
 
   const runSugestaoCommand = async () => {
+    const requestToken = conversationTokenRef.current
     setMessages(prev => [
       ...prev,
       {
@@ -361,6 +375,8 @@ export function ChatIADrawer() {
     setIsTyping(true)
     try {
       const { suggestions: list } = await getSuggestions(sessionId)
+      if (conversationTokenRef.current !== requestToken) return
+
       setMessages(prev => [
         ...prev,
         {
@@ -372,9 +388,19 @@ export function ChatIADrawer() {
         },
       ])
     } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
       toast.error((err as Error).message)
     } finally {
-      setIsTyping(false)
+      if (conversationTokenRef.current !== requestToken) return
+
+      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      if (nextQuestion) {
+        pendingQuestionsRef.current = remainingQuestions
+        setPendingQuestions(remainingQuestions)
+        processQuestion(nextQuestion)
+      } else {
+        setIsTyping(false)
+      }
     }
   }
 

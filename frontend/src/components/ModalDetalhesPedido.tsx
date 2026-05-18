@@ -1,6 +1,5 @@
 import {
-  X, Clock, Truck, Package,
-  Check, MapPin, ArrowUpRight, Headphones, Star, Ticket as TicketIcon, Loader2,
+  X, Clock, Truck, Package, MapPin, ArrowUpRight, Headphones, Star, Ticket as TicketIcon, Loader2,
   CreditCard
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'

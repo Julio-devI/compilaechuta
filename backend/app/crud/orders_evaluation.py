@@ -13,7 +13,11 @@ async def get_evaluation_by_id(db: AsyncSession, id_avaliacao: str) -> Optional[
 async def get_evaluations_by_product_id(db: AsyncSession, id_produto: str, limit: int = 5) -> List[str]:
     result = await db.execute(
         select(AvaliacaoPedido.comentario)
-        .where(AvaliacaoPedido.id_produto == id_produto, AvaliacaoPedido.comentario.isnot(None))
+        .where(
+            AvaliacaoPedido.id_produto == id_produto, 
+            AvaliacaoPedido.comentario.isnot(None),
+            AvaliacaoPedido.comentario_consistente == True
+        )
         .order_by(AvaliacaoPedido.data_avaliacao.desc())
         .limit(limit)
     )

@@ -31,6 +31,14 @@ class PedidoUpdate(BaseModel):
 
 
 class PedidoOut(PedidoBase):
+    nome_cliente: Optional[str] = None
+    cidade_cliente: Optional[str] = None
+    estado_cliente: Optional[str] = None
+    segmento_cliente: Optional[str] = None
+    qtd_tickets_cliente: Optional[int] = None
+    media_estrelas_cliente: Optional[float] = None
+    qtd_pedidos_cliente: Optional[int] = None
+
     @field_validator("quantidade_vendas", mode="before")
     @classmethod
     def tratar_quantidade(cls, v):

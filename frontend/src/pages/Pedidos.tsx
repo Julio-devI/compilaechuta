@@ -8,6 +8,7 @@ import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
 import { ExportCsvButton, OrderFilters } from '../components/ExportCsvButton'
 import { Toaster, toast } from 'react-hot-toast'
 import { getPedidos, FiltrosPedidos } from '../services/orderService'
+import { apiUrl } from '../services/apiConfig'
 
 // --- Interfaces ---
 // Mantemos a interface do layout original para não quebrar os cards
@@ -93,7 +94,7 @@ export function Pedidos() {
   const [searchTerm, setSearchTerm] = useState('')
   const [productNameFilter, setProductNameFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('')
-  const [tipoClienteFilter] = useState<string>('')  // kept for type compat; no UI setter
+  const [tipoClienteFilter] = useState<string>('')
   const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
   const [ticketFilter, setTicketFilter] = useState<string>('')
   const [dataInicioFilter, setDataInicioFilter] = useState<string>("");
@@ -325,14 +326,9 @@ export function Pedidos() {
               orderDateFloor: dataInicioFilter,
               orderDateCeil: dataFimFilter,
               productName: productNameFilter,
-              ticketStatus:
-                ticketFilter === "Aberto"
-                  ? "aberto"
-                  : ticketFilter === "Finalizado"
-                    ? "resolvido"
-                    : undefined,
+              ticketStatus: ticketFilter === "Finalizado" ? "resolvido" : undefined,
             }}
-            endpoint="http://localhost:8000/api/v1/orders/exportar"
+            endpoint={apiUrl('/orders/exportar')}
             onSuccess={(msg) => toast.success(msg)}
             onError={(err) => toast.error(err)}
           />
@@ -488,6 +484,12 @@ export function Pedidos() {
                     <Ticket className="w-4 h-4" /> Ticket
                   </label>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleTicket("Não tem")}
+                      className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Não tem" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
+                    >
+                      Não tem
+                    </button>
                     <button
                       onClick={() => toggleTicket("Aberto")}
                       className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Aberto" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}

@@ -1,6 +1,5 @@
 import { getAuthHeaders } from './authService'
-
-const API_BASE = 'http://127.0.0.1:8000/api/v1'
+import { apiUrl } from './apiConfig'
 
 export type OperatorRole = 'super_admin' | 'admin' | 'user'
 
@@ -36,7 +35,7 @@ export interface OperatorUpdate {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: {
       'Content-Type': 'application/json',

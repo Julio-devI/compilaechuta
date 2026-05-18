@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig'
+
 export interface SupportTicket {
   ticketId: string;
   ticketDisplayId: string;
@@ -23,7 +25,6 @@ export interface SupportTicketFilters {
   endDate?: string;
   skip?: number;
   limit?: number;
-  customer_id?: string;
 }
 
 export interface SupportTicketSummary {
@@ -60,7 +61,7 @@ interface SupportTicketSummaryApiResponse {
   problem_types: string[];
 }
 
-const API_URL = "http://localhost:8000/api/v1/tickets";
+const API_URL = apiUrl('/tickets')
 
 function mapSupportTicket(ticket: SupportTicketApiResponse): SupportTicket {
   const customerName = ticket.nome_cliente || ticket.id_cliente;
@@ -211,7 +212,6 @@ function buildTicketParams(
   if (filters.problemType) params.append("tipo", filters.problemType);
   if (filters.startDate) params.append("start_date", filters.startDate);
   if (filters.endDate) params.append("end_date", filters.endDate);
-  if (filters.customer_id) params.append("id_cliente", filters.customer_id);
 
   return params;
 }

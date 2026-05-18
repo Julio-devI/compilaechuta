@@ -31,6 +31,8 @@ def _capture_log_calls(monkeypatch, target):
     calls = []
 
     def fake_log(msg, *args, extra=None, **kwargs):
+        if args:
+            msg = msg % args
         calls.append({"message": msg, "extra": extra or {}})
 
     monkeypatch.setattr(target, "info", fake_log)
@@ -134,7 +136,7 @@ async def test_llm_retry_attempted_logged(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_no_pii_in_logs(monkeypatch):
+async def test_agent_response_debug_logs_full_success_response(monkeypatch):
     from vcommerce_ai_agent.core import logger as core_logger
 
     calls = _capture_log_calls(monkeypatch, core_logger.logger)
@@ -150,12 +152,23 @@ async def test_no_pii_in_logs(monkeypatch):
     monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
     monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_: sql)
 
+    async def fake_execute_query(sql):
+        return [{"nome_cliente": "João"}], False
+
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+
     await agent.ask("Qual o nome do cliente?")
 
-    all_logs = " ".join(str(c["message"]) + " " + str(c["extra"]) for c in calls)
-    assert "Qual o nome do cliente?" not in all_logs
-    assert "João" not in all_logs
-    assert "token_to_value" not in all_logs
+    records = [
+        c for c in calls if c["message"].startswith("agent_response_debug")
+    ]
+    assert records
+    assert '"nome_cliente": "João"' in records[-1]["message"]
+    response_log = records[-1]["extra"]["response"]
+    assert response_log["status"] == "success"
+    assert response_log["user_response"]["data"] == [{"nome_cliente": "João"}]
+    assert response_log["developer_debug"]["sql"] == "SELECT nome_cliente FROM dim_cliente"
+    assert response_log["developer_debug"]["error"] is None
 
 
 @pytest.mark.asyncio
@@ -202,40 +215,36 @@ async def test_sensitive_masking_applied_count_only(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_sql_only_in_error_logs(monkeypatch):
+async def test_sql_is_logged_in_response_debug_on_success(monkeypatch):
     from vcommerce_ai_agent.core import logger as core_logger
 
     calls = _capture_log_calls(monkeypatch, core_logger.logger)
     agent = VCommerceAgent(db_path=":memory:")
 
     async def fake_generate_sql(*args, **kwargs):
-        return "DROP TABLE dim_cliente", 0
+        return "SELECT id_cliente FROM dim_cliente", 0
 
-    async def fake_generate_sql_correction(*args, **kwargs):
-        return "DROP TABLE dim_cliente", 0
+    async def fake_generate_insight(*args, **kwargs):
+        return _fake_insight(), 0
+
+    async def fake_execute_query(sql):
+        return [{"id_cliente": 1}], False
 
     monkeypatch.setattr("vcommerce_ai_agent.agent.generate_sql", fake_generate_sql)
-    monkeypatch.setattr(
-        "vcommerce_ai_agent.agent.generate_sql_correction", fake_generate_sql_correction
+    monkeypatch.setattr("vcommerce_ai_agent.agent.generate_insight", fake_generate_insight)
+    monkeypatch.setattr("vcommerce_ai_agent.agent.apply_layer_2", lambda sql, *_: sql)
+    monkeypatch.setattr(agent._db, "execute_query", fake_execute_query)
+
+    response = await agent.ask("Liste clientes")
+
+    assert response.status == "success"
+    records = [
+        c for c in calls if c["message"].startswith("agent_response_debug")
+    ]
+    assert "SELECT id_cliente FROM dim_cliente" in records[-1]["message"]
+    assert records[-1]["extra"]["response"]["developer_debug"]["sql"] == (
+        "SELECT id_cliente FROM dim_cliente"
     )
-
-    await agent.ask("Apague tudo")
-
-    messages = [c["message"] for c in calls]
-    # sql_generated e logado apos Chamada 1 sucesso, mas sem SQL no extra
-    assert "sql_generated" in messages
-    assert "ask_finished" in messages
-
-    # Verifica que layer_2_blocked contem SQL no extra (erro de validacao)
-    layer2 = [c for c in calls if c["message"] == "layer_2_blocked"]
-    assert layer2
-    assert "sql" in layer2[-1]["extra"]
-    assert "DROP TABLE" in layer2[-1]["extra"]["sql"]
-
-    # Verifica que nenhum log de sucesso (exceto layer_2_blocked) contem SQL
-    success_logs = [c for c in calls if c["message"] not in ("layer_2_blocked", "ask_finished")]
-    for log in success_logs:
-        assert "sql" not in log["extra"] or log["extra"].get("sql") is None
 
 
 @pytest.mark.asyncio

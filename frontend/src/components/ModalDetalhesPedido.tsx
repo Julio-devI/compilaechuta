@@ -1,43 +1,73 @@
 import {
-  X, Clock, Truck, Package, MapPin, ArrowUpRight, Headphones, Star, Ticket as TicketIcon, Loader2,
-  CreditCard
-} from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { MouseEvent, useEffect, useState } from 'react'
-import { getTicketPorPedido, Ticket } from '../services/supportService'
+  X,
+  Clock,
+  Truck,
+  Package,
+  MapPin,
+  Headphones,
+  Star,
+  Ticket as TicketIcon,
+  Loader2,
+  CreditCard,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { MouseEvent, useEffect, useState } from "react";
+// Importamos SupportTicket (o retorno real da função) em vez de Ticket
+import { getTicketPorPedido, SupportTicket } from "../services/supportService";
 
 interface ModalProps {
-  isOpen: boolean
-  onClose: () => void
-  pedido: any // Idealmente usar a interface Pedido definida anteriormente
+  isOpen: boolean;
+  onClose: () => void;
+  pedido: any; // Idealmente usar a interface Pedido definida anteriormente
 }
 
 export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
-  const [ticket, setTicket] = useState<Ticket | null>(null);
+  // Alterado o estado para usar a interface correta do serviço
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loadingTicket, setLoadingTicket] = useState(false);
 
+  // 1. Novo estado para controlar a exibição de registros inconsistentes
+  const [verInconsistentes, setVerInconsistentes] = useState(false);
+
   useEffect(() => {
-    async function fetchTicket() {
-      // Usa idReal (ID interno do banco) estritamente para não falhar com o ID de exibição
+    async function fetchTickets() {
       const idParaBusca = pedido?.idReal;
-      
+
       if (idParaBusca) {
         setLoadingTicket(true);
-        const data = await getTicketPorPedido(idParaBusca);
-        setTicket(data);
-        setLoadingTicket(false);
+        try {
+          // 2. Passa 'false' se a caixinha de inconsistentes estiver marcada,
+          // disparando a rota sem o filtro restritivo de consistência do backend
+          const registroConsistente = verInconsistentes ? false : true;
+          const data = await getTicketPorPedido(
+            idParaBusca,
+            registroConsistente,
+          );
+
+          setTickets(Array.isArray(data) ? data : data ? [data] : []);
+        } catch (error) {
+          console.error("Erro ao carregar os tickets:", error);
+          setTickets([]);
+        } finally {
+          setLoadingTicket(false);
+        }
       } else {
-        console.warn("Nenhum ID encontrado no pedido. Não é possível buscar o ticket.", pedido);
-        setTicket(null);
+        console.warn(
+          "Nenhum ID encontrado no pedido. Não é possível buscar os tickets.",
+          pedido,
+        );
+        setTickets([]);
       }
     }
-    
+
     if (isOpen && pedido) {
-      fetchTicket();
+      fetchTickets();
     } else {
-      setTicket(null);
+      setTickets([]);
+      setVerInconsistentes(false); // Reseta a caixinha ao fechar o modal
     }
-  }, [pedido, isOpen]);
+    // 3. Adicionado 'verInconsistentes' como dependência para refazer a requisição ao clicar
+  }, [pedido, isOpen, verInconsistentes]);
 
   const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -53,29 +83,9 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
     default: "bg-slate-50 text-slate-600 border-slate-100",
   };
 
-  const getTempoAberto = () => {
-    if (!ticket || !ticket.dataAberturaRaw) {
-      return pedido?.tempoAberto !== '----' ? `${pedido.tempoAberto.split(' ')[0]} dias` : '----';
-    }
-
-    const dataAbertura = new Date(ticket.dataAberturaRaw);
-    const dataFim = ticket.dataResolucaoRaw ? new Date(ticket.dataResolucaoRaw) : new Date();
-
-    const diffMs = Math.abs(dataFim.getTime() - dataAbertura.getTime());
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Hoje';
-    if (diffDays === 1) return '1 dia';
-    if (diffDays < 30) return `${diffDays} dias`;
-    
-    const diffMonths = Math.floor(diffDays / 30);
-    if (diffMonths === 1) return '1 mês';
-    if (diffMonths < 12) return `${diffMonths} meses`;
-
-    const diffYears = Math.floor(diffDays / 365);
-    if (diffYears === 1) return '1 ano';
-    return `${diffYears} anos`;
-  }
+  const temTicketAberto = tickets.some((t) => t.status === "aberto");
+  const todosResolvidos =
+    tickets.length > 0 && tickets.every((t) => t.status === "resolvido");
 
   if (!pedido) return null;
 
@@ -86,7 +96,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
           className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={handleOverlayClick}
         >
-          {/* Adicionado o bloco de estilo para esconder o scrollbar */}
           <style>{`
             .scrollbar-hide::-webkit-scrollbar {
               display: none;
@@ -96,6 +105,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
               scrollbar-width: none;
             }
           `}</style>
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -137,37 +147,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                   </p>
 
                   <div className="grid grid-cols-3 gap-4 mt-6">
-                    <div
-                      className={`p-4 rounded-2xl border ${
-                        ticket?.status === "resolvido"
-                          ? "bg-emerald-50 text-emerald-500 border-emerald-100"
-                          : ticket?.status === "aberto"
-                            ? "bg-amber-50 text-amber-600 border-amber-100" // Estilo para o estado Aberto
-                            : "bg-background text-foreground border-border" // Estilo padrão
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground mb-1">
-                        <Clock className="w-3 h-3" /> Tempo aberto
-                      </span>
-
-                      <span className="text-lg font-bold">
-                        {getTempoAberto()}
-                      </span>
-
-                      {/* Tag para Resolvido */}
-                      {ticket?.status === "resolvido" && (
-                        <span className="text-[10px] font-bold text-emerald-600 block mt-1 uppercase">
-                          Resolvido
-                        </span>
-                      )}
-
-                      {/* Tag para Aberto */}
-                      {ticket?.status === "aberto" && (
-                        <span className="text-[10px] font-bold text-amber-600 block mt-1 uppercase">
-                          Aberto
-                        </span>
-                      )}
-                    </div>
                     <div className="p-4 rounded-2xl border bg-background text-foreground border-border">
                       <span className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground mb-1">
                         <CreditCard className="w-3 h-3" /> Forma de Pagamento
@@ -183,6 +162,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                         </span>
                       )}
                     </div>
+
                     <div
                       className={`p-4 rounded-2xl border ${statusStyles[pedido.status] || statusStyles.default}`}
                     >
@@ -191,6 +171,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                       </span>
                       <span className="text-lg font-bold">{pedido.status}</span>
                     </div>
+
                     <div className="bg-background p-4 rounded-2xl border border-border">
                       <span className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground mb-1">
                         <Package className="w-3 h-3" /> Transportadora
@@ -211,7 +192,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                     </span>
                     <div className="flex justify-between items-center relative">
                       {(() => {
-                        // Definimos os passos lógicos do modal
                         const pipelineSteps = [
                           "Processando",
                           "Reembolsado",
@@ -226,7 +206,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                           const isActive = statusName === pedido.status;
                           const isCompleted = i < currentStepIndex;
 
-                          // Estilo dinâmico baseado no dicionário statusStyles
                           const stepStyle = isActive
                             ? statusStyles[statusName]
                             : isCompleted
@@ -238,29 +217,26 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                               key={statusName}
                               className="flex flex-col items-center flex-1 relative"
                             >
-                              {/* Bolinha com Número Fixo */}
                               <div
                                 className={`w-10 h-10 rounded-full flex items-center justify-center z-10 border-2 transition-all duration-300
-              ${stepStyle} ${isActive ? "scale-110 shadow-sm" : ""}`}
+                                ${stepStyle} ${isActive ? "scale-110 shadow-sm" : ""}`}
                               >
                                 <span className="font-black text-xs">
                                   {i + 1}
                                 </span>
                               </div>
 
-                              {/* Label do Status */}
                               <span
                                 className={`text-[10px] font-bold mt-2 transition-colors duration-300
-              ${isActive ? "text-foreground" : "text-slate-400"}`}
+                                ${isActive ? "text-foreground" : "text-slate-400"}`}
                               >
                                 {statusName}
                               </span>
 
-                              {/* Linha Conectora (posicionada absolutamente atrás das bolinhas) */}
                               {i < arr.length - 1 && (
                                 <div
                                   className={`absolute h-[2px] w-full top-5 left-1/2 -z-0 transition-colors duration-500
-                ${isCompleted ? "bg-slate-700" : "bg-border"}`}
+                                  ${isCompleted ? "bg-slate-700" : "bg-border"}`}
                                 />
                               )}
                             </div>
@@ -274,97 +250,87 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                 {/* Suporte e Resolução */}
                 <div
                   className={`rounded-3xl p-6 border transition-colors ${
-                    ticket?.status === "resolvido"
+                    todosResolvidos
                       ? "bg-emerald-50 border-emerald-100"
-                      : ticket
+                      : temTicketAberto
                         ? "bg-amber-50 border-amber-100"
                         : "bg-background border-border"
                   }`}
                 >
                   <div
                     className={`flex items-center gap-2 font-black text-xs uppercase tracking-wider mb-4 ${
-                      ticket?.status === "resolvido"
+                      todosResolvidos
                         ? "text-emerald-700"
-                        : ticket
+                        : temTicketAberto
                           ? "text-blue-900"
                           : "text-muted-foreground"
                     }`}
                   >
                     <Headphones className="w-4 h-4" /> Suporte e Resolução
                   </div>
-                  <h4
-                    className={`text-lg font-black mb-4 ${
-                      ticket?.status === "resolvido"
-                        ? "text-emerald-900"
-                        : ticket
-                          ? "text-[#020854]"
-                          : "text-foreground"
-                    }`}
-                  >
-                    Ticket vinculado
-                  </h4>
+
+                  {/* Alteração na seção do Título: Alinhamento flex para acomodar o Checkbox */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <h4
+                      className={`text-lg font-black ${
+                        todosResolvidos
+                          ? "text-emerald-900"
+                          : temTicketAberto
+                            ? "text-[#020854]"
+                            : "text-foreground"
+                      }`}
+                    >
+                      Tickets vinculados
+                    </h4>
+
+                    {/* Elemento de caixinha de seleção (Checkbox) */}
+                    <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={verInconsistentes}
+                        onChange={(e) => setVerInconsistentes(e.target.checked)}
+                        className="w-4 h-4 rounded border-border text-[#020854] focus:ring-[#020854] accent-[#020854]"
+                      />
+                      Ver registros inconsistentes
+                    </label>
+                  </div>
 
                   {loadingTicket ? (
-                    <div className="flex justify-center items-center py-4">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     </div>
-                  ) : ticket ? (
-                    <>
-                      <div
-                        className={`text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 mb-4 transition-colors ${
-                          ticket.status === "resolvido"
-                            ? "bg-emerald-500"
-                            : "bg-amber-400"
-                        }`}
-                      >
-                        {ticket.status === "resolvido"
-                          ? "Problema resolvido com sucesso — Nenhuma ação necessária"
-                          : `Pedido com Ticket ${ticket.status} — Ação recomendada`}
-                      </div>
-                      <div className="bg-background rounded-2xl p-4 flex items-center justify-between shadow-sm">
-                        <div>
-                          <div className="flex gap-2 mb-1">
-                            <span className="font-black text-foreground">
-                              TK - {ticket.id}
+                  ) : tickets.length > 0 ? (
+                    <div className="space-y-3 max-h-[320px] overflow-y-auto scrollbar-hide">
+                      {tickets.map((itemTicket) => (
+                        <div
+                          key={itemTicket.ticketId}
+                          className="bg-background border border-border p-4 rounded-xl flex justify-between items-center"
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-bold text-sm text-[#020854] dark:text-foreground">
+                              {itemTicket.ticketDisplayId}
                             </span>
-                            <span
-                              className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                                ticket.prioridade === "alta" ||
-                                ticket.prioridade === "urgente"
-                                  ? "bg-amber-100 text-amber-600"
-                                  : "bg-blue-100 text-blue-600"
-                              }`}
-                            >
-                              {ticket.prioridade}
-                            </span>
-                            <span
-                              className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase ${
-                                ticket.status === "aberto" ||
-                                ticket.status === "em_andamento"
-                                  ? "bg-amber-400 text-white"
-                                  : "bg-emerald-400 text-white"
-                              }`}
-                            >
-                              {ticket.status.replace("_", " ")}
+                            <span className="text-xs text-muted-foreground">
+                              Tipo: {itemTicket.problemType}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground font-medium">
-                            {ticket.assunto}
-                          </p>
+                          <span
+                            className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${
+                              itemTicket.status === "resolvido"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {itemTicket.status}
+                          </span>
                         </div>
-                        <button className="bg-[#020854] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-900 transition-colors">
-                          Ver ticket <ArrowUpRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </>
+                      ))}
+                    </div>
                   ) : (
                     <div className="bg-background rounded-2xl p-6 text-center border border-dashed border-border">
                       <p className="text-sm text-muted-foreground font-medium mb-2">
                         Nenhum ticket de suporte aberto para este pedido.
                       </p>
-                      <button className="text-[#020854] font-bold text-xs hover:underline">
-                        Abrir novo ticket
-                      </button>
                     </div>
                   )}
                 </div>
@@ -374,7 +340,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
               <div className="space-y-6">
                 {/* Contexto do Cliente */}
                 <div className="border border-[#ADE9FF] rounded-3xl p-6 bg-card">
-                  <div className="flex justify-between items-start mb-4 ">
+                  <div className="flex justify-between items-start mb-4">
                     <div>
                       <span className="text-[10px] font-bold text-blue-500 uppercase">
                         Contexto do cliente
@@ -386,7 +352,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-sky-200 rounded-4xl mb-17 flex items-center justify-center text-sky-700 font-black text-xl">
+                    <div className="w-14 h-14 bg-sky-200 rounded-4xl flex items-center justify-center text-sky-700 font-black text-xl">
                       {pedido.cliente?.substring(0, 2).toUpperCase() || "AA"}
                     </div>
                     <div className="flex-1">
@@ -401,17 +367,16 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                         )}
                       </div>
                       <div className="flex gap-6 mt-2">
-                        {/* Lista vertical de informações */}
                         <div className="flex flex-col gap-1 min-w-0 flex-1">
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />{" "}
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
                             Média de Estrelas dada:{" "}
                             {pedido.mediaEstrelas?.toFixed(1) || "0.0"}
                           </span>
 
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
-                            <TicketIcon className="w-4 h-4 text-blue-500" />{" "}
-                            Tickets de suporte: {pedido.ticket || "0"}
+                            <TicketIcon className="w-4 h-4 text-blue-500" />
+                            Tickets deste pedido: {tickets.length}
                           </span>
                           <span className="flex items-center gap-1.5 text-muted-foreground text-xs font-bold">
                             <MapPin className="w-3 h-3 flex-shrink-0" />
@@ -422,18 +387,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                           <span className="text-muted-foreground text-xs font-bold">
                             {pedido.totalPedidosCliente || "1"} pedidos no total
                           </span>
-                        </div>
-
-                        {/* Segunda coluna */}
-                        <div className="flex-1 ml-20">
-                          <button className="bg-[#ADE9FF] text-[#020854] ml-10 mb-2 px-3 py-1.5 rounded-xl text-[14px] font-black flex items-center gap-1">
-                            Visão 360 <ArrowUpRight className="w-4 h-4" />
-                          </button>
-
-                          <button className="bg-[#ADE9FF] text-[#020854] px-3 py-1.5 rounded-xl text-[14px] font-black flex items-center gap-1">
-                            Contatar cliente{" "}
-                            <ArrowUpRight className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -473,7 +426,6 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
                           </span>
                         </div>
                         <div className="flex gap-2 mt-1">
-                          {/* Tags visuais - Se quiser torná-las dinâmicas depois, basta puxar da API também */}
                           <span className="text-[8px] font-black px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-500 border-emerald-100">
                             Mais vendido
                           </span>

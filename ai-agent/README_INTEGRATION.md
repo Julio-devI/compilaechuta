@@ -77,14 +77,14 @@ Quando o `ai-agent` é consumido como dependência local do backend, as variáve
 
 Não é necessário manter um `.env` específico para o `ai-agent` nesse cenário. O arquivo `ai-agent/.env` continua útil apenas para execução isolada do módulo, por exemplo smoke tests ou testes manuais rodados diretamente dentro de `ai-agent/`.
 
-O ponto importante é que `GEMINI_API_KEY` e `LLM_TEMPERATURE_INSIGHT`, quando usada, precisam estar disponíveis antes do primeiro import de `vcommerce_ai_agent`, porque o módulo lê essas variáveis durante o carregamento de `vcommerce_ai_agent.core.config`.
+O pacote carrega automaticamente `backend/.env` como padrão durante o primeiro import de `vcommerce_ai_agent`. Se `backend/.env` não existir, `ai-agent/.env` é aceito como fallback para execução isolada do módulo. Variáveis já exportadas no processo têm precedência sobre ambos os arquivos.
 
-Exemplo com `python-dotenv` no bootstrap do backend:
+O backend pode continuar carregando seu `.env` no bootstrap, mas isso não é mais obrigatório apenas para atender o import do agente:
 
 ```python
 from dotenv import load_dotenv
 
-load_dotenv()  # carrega o .env do backend
+load_dotenv()
 
 from vcommerce_ai_agent import VCommerceAgent
 ```
@@ -160,13 +160,15 @@ Para APIs HTTP com múltiplas sessões de chat, a memória de conversa é respon
 
 ## Funções Públicas Disponíveis
 
-### `async ask(question: str) -> AgentResponse`
+### `async ask(question: str, initial_context: str | None = None) -> AgentResponse`
 
 Processa uma pergunta do usuário.
 
 Comportamento:
 
 - Aceita perguntas em português brasileiro.
+- `initial_context` é opcional e deve ser usado apenas pelo backend para injetar contexto seguro da tela na primeira pergunta de uma sessão nova.
+- O contexto inicial não é persistido no histórico e não restringe a conversa; ele serve apenas como ponto de partida para desambiguação.
 - Retorna sempre `AgentResponse` para falhas esperadas do pipeline.
 - Não levanta exceção para input vazio, input longo, tipo inválido, erro de LLM, erro de SQL ou timeout de banco; esses casos viram `status="error"`.
 - Perguntas fora do escopo viram `status="out_of_scope"`.
@@ -175,7 +177,10 @@ Comportamento:
 Exemplo:
 
 ```python
-response = await agent.ask("Quais foram os 10 produtos com maior receita?")
+response = await agent.ask(
+    "Quais foram os 10 produtos com maior receita?",
+    initial_context="O usuário abriu o drawer a partir da tela de produtos.",
+)
 
 if response.status == "success":
     return response.user_response
@@ -360,6 +365,7 @@ router = APIRouter()
 
 class AskRequest(BaseModel):
     question: str
+    page_context: str | None = None
     history: list[dict[str, str | None]] | None = None
 
 
@@ -370,7 +376,14 @@ async def ask_agent(payload: AskRequest) -> dict[str, Any]:
     if payload.history is not None:
         agent.import_history(payload.history)
 
-    response = await agent.ask(payload.question)
+    initial_context = None
+    if payload.page_context == "produtos" and not payload.history:
+        initial_context = "O usuário abriu o drawer a partir da tela de produtos."
+
+    response = await agent.ask(
+        payload.question,
+        initial_context=initial_context,
+    )
     history = agent.export_history()
 
     return {
@@ -672,7 +685,7 @@ O backend ainda deve manter seus próprios controles de autenticação, autoriza
 
 ## Logging e Observabilidade
 
-O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. O backend deve configurar handlers, nível e formato. O pacote **nunca** chama `logging.basicConfig`.
+O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")`. Se o backend ainda não registrou handlers nesse logger, o pacote instala um `StreamHandler` em `INFO` para garantir saída no console. O pacote **nunca** chama `logging.basicConfig`.
 
 Exemplo de configuração mínima no backend:
 
@@ -682,7 +695,7 @@ import logging
 vcommerce_logger = logging.getLogger("vcommerce_ai_agent")
 vcommerce_logger.setLevel(logging.INFO)
 
-# Opcional: adicionar um handler se o root logger ainda nao estiver configurado
+# Opcional: substituir ou complementar o handler padrao do pacote
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
 vcommerce_logger.addHandler(handler)
@@ -699,6 +712,7 @@ Eventos úteis para dashboards:
 | `query_executed` | INFO | `elapsed_ms`, `rows_count`, `truncated` |
 | `sensitive_masking_applied` | INFO | `masked_columns_count` |
 | `insight_generated` | INFO | `elapsed_ms`, `tokens_used`, `model` |
+| `agent_response_debug` | INFO | `response.user_response`, `response.developer_debug` |
 | `ask_finished` | INFO | `status`, `total_time_ms`, `tokens_used`, `error_code` |
 | `llm_retry_attempted` | INFO | `attempt`, `error_code`, `backoff_seconds` |
 
@@ -707,7 +721,7 @@ Interpretação de níveis:
 - `INFO` indica progresso normal do pipeline.
 - `WARNING` indica tentativas de ataque (prompt injection, `layer_2_blocked`) ou situações que exigem atenção. O backend pode usar esses eventos para alertas de segurança.
 
-O pacote garante que nenhum log contém PII: a pergunta do usuário, dados do banco, mapa de tokens e nomes de colunas sensíveis nunca aparecem nos extras dos eventos. O campo `sql` é incluído apenas em eventos de erro, como `layer_2_blocked`, para facilitar auditoria de tentativas maliciosas.
+O evento `agent_response_debug` registra a resposta completa para facilitar debug no console do backend. Ele pode conter `user_response.data`, `answer_text`, `sources_text`, `chart` e `developer_debug.sql`. O payload é enviado no texto do log e no campo `extra.response`, garantindo visibilidade mesmo quando o formatter ativo não imprime campos extras. Esse conteúdo não altera o contrato HTTP: o frontend continua recebendo apenas os campos retornados pelo endpoint do backend, e `developer_debug` permanece restrito a logs/auditoria. O mapa interno `token -> valor real` nunca é retornado nem registrado.
 
 ## Checklist de Integração
 
@@ -723,3 +737,4 @@ O pacote garante que nenhum log contém PII: a pergunta do usuário, dados do ba
 10. Aplicar lock por `session_id` para serializar perguntas simultâneas da mesma conversa.
 11. Usar `developer_debug` apenas para logs/auditoria.
 12. Chamar `invalidate_schema()` quando o schema Gold ou as descrições mudarem.
+13. Se o frontend informar uma chave de tela, validar a chave no backend e passar texto interno via `initial_context` somente quando a sessão ainda não possuir histórico.

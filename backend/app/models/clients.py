@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, Integer
+from sqlalchemy import Column, String, Float, DateTime, Integer, Index
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -23,3 +23,7 @@ class Cliente(Base):
 
     tickets = relationship("Ticket", back_populates="cliente", lazy="select")
     pedidos = relationship("Pedido", back_populates="cliente", lazy="select")
+
+    __table_args__ = (
+        Index("ix_dim_cliente_segmento_id", "segmento_rfm", "id_cliente"),
+    )

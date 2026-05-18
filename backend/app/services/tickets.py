@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import tickets as crud
-from app.schemas.tickets import TicketCreate, TicketUpdate, TicketOut
+from app.schemas.tickets import TicketCreate, TicketUpdate, TicketOut, TicketListOut
 
 VALID_TICKET_STATUS = {"aberto", "resolvido"}
 
@@ -29,7 +29,7 @@ async def get_all_tickets(
         tipo = tipo.lower()
     if search is not None:
         search = search.lower()
-    
+
     if status is not None and status not in VALID_TICKET_STATUS:
         raise HTTPException(
             status_code=400,
@@ -123,9 +123,10 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: str) -> TicketOut:
         raise HTTPException(status_code=404, detail="Ticket não encontrado")
     return ticket
 
-async def buscar_ticket_por_pedido(db: AsyncSession, id_pedido: str) -> Optional[TicketOut]:
-    ticket = await crud.get_ticket_by_pedido(db, id_pedido)
-    return ticket
+
+async def buscar_ticket_por_pedido(db: AsyncSession, id_pedido: str, registro_consistente: Optional[bool] = None) -> list[TicketOut]:
+    return await crud.get_ticket_by_pedido(db, id_pedido, registro_consistente)
+
 
 async def create_ticket(db: AsyncSession, ticket: TicketCreate) -> TicketOut:
     return await crud.create_ticket(db, ticket)

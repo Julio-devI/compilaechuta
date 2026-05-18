@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig'
+
 export interface PedidoBackend {
   id_pedido_display: string;
   id_pedido: string;
@@ -43,11 +45,10 @@ export interface FiltrosPedidos {
   tipo_cliente?: string;
   nome_produto?: string;
   status_ticket?: string;
-  id_cliente?: string;
 }
 
-const API_URL = 'http://localhost:8000/api/v1/orders'
-const CLIENT_API_URL = 'http://localhost:8000/api/v1/clients'
+const API_URL = apiUrl('/orders')
+const CLIENT_API_URL = apiUrl('/clients')
 
 // Cache local simples para evitar múltiplas chamadas à API pelo mesmo cliente
 const clientCache = new Map<string, any>();
@@ -90,7 +91,6 @@ export async function getPedidos(
     if (filtros?.tipo_cliente) params.append('tipo_cliente', filtros.tipo_cliente);
     if (filtros?.nome_produto) params.append('nome_produto', filtros.nome_produto);
     if (filtros?.status_ticket) params.append('status_ticket', filtros.status_ticket);
-    if (filtros?.id_cliente) params.append('id_cliente', filtros.id_cliente);
 
     const response = await fetch(`${API_URL}/?${params.toString()}`);
 

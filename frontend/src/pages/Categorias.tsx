@@ -241,7 +241,9 @@ export function Categorias() {
               </tr>
             </thead>
             <tbody>
-              {categoriasFiltradas.length === 0 ? (
+              {isLoading ? (
+                <CategoriaTableSkeleton />
+              ): categoriasFiltradas.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 border-0">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">

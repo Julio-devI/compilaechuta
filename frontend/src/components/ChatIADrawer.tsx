@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAiAgentChat } from '@/contexts/AiAgentChatContext'
 import { getRouteSuggestions } from '@/lib/chatSuggestionsByRoute'
 import {
   AGENT_PLACEHOLDERS_COMPACT,
@@ -21,11 +22,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
-import {
-  askAgent,
-  getSuggestions,
-  type ChartSuggestion,
-} from '@/services/aiAgentService'
+import { askAgent, getSuggestions } from '@/services/aiAgentService'
 import { AgentChart } from '@/components/AgentChart'
 import { AgentDataTable } from '@/components/AgentDataTable'
 import {
@@ -33,17 +30,6 @@ import {
   SlashCommandMenu,
 } from '@/components/SlashCommandMenu'
 import { shouldShowAgentDataTable } from '@/lib/agentDataDisplay'
-
-interface Message {
-  id: number
-  type: 'user' | 'assistant'
-  content: string
-  timestamp: string
-  sources_text?: string | null
-  data?: Array<Record<string, unknown>> | null
-  chart?: ChartSuggestion | null
-  suggestions?: string[]
-}
 
 const SUGGESTIONS_REQUEST_MESSAGE =
   'Estou sem ideias do que perguntar agora. Com base no que conversamos até aqui, pode me sugerir algumas perguntas?'
@@ -59,25 +45,27 @@ function nowHHmm(): string {
 
 export function ChatIADrawer() {
   const [isOpen, setIsOpen] = useState(false)
-  const [mensagens, setMensagens] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
   const [quickActions, setQuickActions] = useState<string[]>([])
-  const [sessionId] = useState<string>(() => crypto.randomUUID())
   const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
   const [expandedTables, setExpandedTables] = useState<Set<number>>(new Set())
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const messageIdRef = useRef(0)
   const navigate = useNavigate()
   const location = useLocation()
+  const chatKey = location.pathname
+  const {
+    messages,
+    setMessages,
+    sessionId,
+    setActiveConversation,
+    setSelectedChatKey,
+    isTyping,
+    setIsTyping,
+    nextMessageId,
+  } = useAiAgentChat(chatKey)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS_COMPACT)
-
-  const nextMessageId = () => {
-    messageIdRef.current += 1
-    return messageIdRef.current
-  }
 
   const toggleChart = (messageId: number) => {
     setExpandedCharts(prev => {
@@ -109,13 +97,13 @@ export function ChatIADrawer() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [mensagens, isTyping])
+  }, [messages, isTyping])
 
   const sendQuestion = async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
 
-    setMensagens(prev => [
+    setMessages(prev => [
       ...prev,
       {
         id: nextMessageId(),
@@ -135,7 +123,7 @@ export function ChatIADrawer() {
         (response.status === 'out_of_scope'
           ? 'Não consegui responder a essa pergunta com os dados disponíveis.'
           : 'Ocorreu um erro ao processar a resposta.')
-      setMensagens(prev => [
+      setMessages(prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -147,10 +135,13 @@ export function ChatIADrawer() {
           chart: response.user_response.chart,
         },
       ])
+      if (response.status === 'success') {
+        setActiveConversation(sessionId)
+      }
     } catch (err) {
       const message = (err as Error).message
       toast.error(message)
-      setMensagens(prev => [
+      setMessages(prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -165,7 +156,7 @@ export function ChatIADrawer() {
   }
 
   const runSugestaoCommand = async () => {
-    setMensagens(prev => [
+    setMessages(prev => [
       ...prev,
       {
         id: nextMessageId(),
@@ -177,7 +168,7 @@ export function ChatIADrawer() {
     setIsTyping(true)
     try {
       const { suggestions: list } = await getSuggestions(sessionId)
-      setMensagens(prev => [
+      setMessages(prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -271,6 +262,7 @@ export function ChatIADrawer() {
         >
           <button
             onClick={() => {
+              setSelectedChatKey(chatKey)
               navigate('/chat-ia')
               setIsOpen(false)
             }}
@@ -293,7 +285,7 @@ export function ChatIADrawer() {
         </div>
 
         {/* Chat content */}
-        {mensagens.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="flex-1 flex flex-col px-6 py-8">
             <h2 className="text-2xl font-bold text-foreground mb-8 leading-tight">
               Olá! Como posso te ajudar?
@@ -325,7 +317,7 @@ export function ChatIADrawer() {
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto themed-scrollbar px-4 py-4 space-y-4">
-            {mensagens.map(msg => (
+            {messages.map(msg => (
               <div
                 key={msg.id}
                 className={`flex gap-3 ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}
@@ -552,6 +544,7 @@ export function ChatIADrawer() {
             <div className="flex items-center justify-between">
               <button
                 onClick={() => {
+                  setSelectedChatKey(chatKey)
                   navigate('/chat-ia')
                   setIsOpen(false)
                 }}

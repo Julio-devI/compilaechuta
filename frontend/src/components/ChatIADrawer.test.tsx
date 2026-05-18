@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { renderWithRouter, screen, waitFor, within } from '@/test/test-utils'
+import {
+  render,
+  renderWithRouter,
+  screen,
+  waitFor,
+  within,
+} from '@/test/test-utils'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ChartSuggestion } from '@/services/aiAgentService'
+import { AiAgentChatProvider } from '@/contexts/AiAgentChatContext'
 
 vi.mock('@/services/aiAgentService', () => ({
   askAgent: vi.fn(),
@@ -37,6 +45,15 @@ import { askAgent, getSuggestions } from '@/services/aiAgentService'
 const askAgentMock = askAgent as unknown as ReturnType<typeof vi.fn>
 const getSuggestionsMock = getSuggestions as unknown as ReturnType<typeof vi.fn>
 
+function renderDrawer(route = '/') {
+  return renderWithRouter(
+    <AiAgentChatProvider>
+      <ChatIADrawer />
+    </AiAgentChatProvider>,
+    { route },
+  )
+}
+
 function findTriggerButton(): HTMLElement {
   const triggers = screen.getAllByRole('button').filter(btn => {
     return btn.querySelector('svg.lucide-sparkles') !== null
@@ -63,7 +80,7 @@ afterEach(() => {
 
 describe('ChatIADrawer', () => {
   it('renderiza o botao flutuante de abertura e a saudacao do drawer', () => {
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
     expect(findTriggerButton()).toBeInTheDocument()
     expect(screen.getByText(/Olá! Como posso te ajudar/)).toBeInTheDocument()
     expect(screen.getByText('Sugestao alpha')).toBeInTheDocument()
@@ -84,7 +101,7 @@ describe('ChatIADrawer', () => {
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     const input = findInput()
     await user.type(input, 'Qual foi a receita?')
@@ -104,7 +121,7 @@ describe('ChatIADrawer', () => {
     askAgentMock.mockRejectedValueOnce(new Error('Boom'))
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     await user.type(findInput(), 'Pergunta com erro')
     await user.keyboard('{Enter}')
@@ -129,7 +146,7 @@ describe('ChatIADrawer', () => {
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     await user.type(findInput(), 'Pergunta fora do escopo')
     await user.keyboard('{Enter}')
@@ -147,7 +164,7 @@ describe('ChatIADrawer', () => {
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     await user.type(findInput(), '/sugestao')
     await user.keyboard('{Enter}')
@@ -189,7 +206,7 @@ describe('ChatIADrawer', () => {
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     await user.type(findInput(), 'Quais os top produtos?')
     await user.keyboard('{Enter}')
@@ -225,7 +242,7 @@ describe('ChatIADrawer', () => {
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     await user.type(findInput(), 'Liste os clientes')
     await user.keyboard('{Enter}')
@@ -267,7 +284,7 @@ describe('ChatIADrawer', () => {
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     await user.type(findInput(), 'Qual foi a receita total?')
     await user.keyboard('{Enter}')
@@ -294,7 +311,7 @@ describe('ChatIADrawer', () => {
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<ChatIADrawer />)
+    renderDrawer()
 
     const card = screen.getByText('Sugestao alpha')
     const button = card.closest('button')
@@ -304,6 +321,137 @@ describe('ChatIADrawer', () => {
     expect(askAgentMock).toHaveBeenCalledTimes(1)
     expect(askAgentMock.mock.calls[0][0]).toBe('Sugestao alpha')
     expect(await screen.findByText('Resposta para a sugestao.')).toBeInTheDocument()
+  })
+
+  it('preserva erro em memoria quando o drawer desmonta e remonta no mesmo provider', async () => {
+    askAgentMock.mockRejectedValueOnce(new Error('Erro preservado'))
+
+    const user = userEvent.setup()
+    const view = renderWithRouter(
+      <AiAgentChatProvider>
+        <ChatIADrawer />
+      </AiAgentChatProvider>,
+    )
+
+    await user.type(findInput(), 'Pergunta instavel')
+    await user.keyboard('{Enter}')
+
+    expect(
+      await screen.findByText('Ops, algo deu errado: Erro preservado'),
+    ).toBeInTheDocument()
+
+    view.rerender(
+      <AiAgentChatProvider>
+        <div>Outra tela</div>
+      </AiAgentChatProvider>,
+    )
+    expect(
+      screen.queryByText('Ops, algo deu errado: Erro preservado'),
+    ).not.toBeInTheDocument()
+
+    view.rerender(
+      <AiAgentChatProvider>
+        <ChatIADrawer />
+      </AiAgentChatProvider>,
+    )
+    expect(
+      await screen.findByText('Ops, algo deu errado: Erro preservado'),
+    ).toBeInTheDocument()
+  })
+
+  it('mantem uma conversa separada por pagina do drawer', async () => {
+    askAgentMock
+      .mockResolvedValueOnce({
+        status: 'success',
+        session_id: 'sess-dashboard',
+        user_response: {
+          answer_text: 'Resposta do dashboard.',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        status: 'success',
+        session_id: 'sess-pedidos',
+        user_response: {
+          answer_text: 'Resposta de pedidos.',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <AiAgentChatProvider>
+          <Routes>
+            <Route
+              path="/dashboard"
+              element={
+                <>
+                  <ChatIADrawer />
+                  <Link to="/pedidos">Ir para pedidos</Link>
+                </>
+              }
+            />
+            <Route
+              path="/pedidos"
+              element={
+                <>
+                  <ChatIADrawer />
+                  <Link to="/dashboard">Ir para dashboard</Link>
+                </>
+              }
+            />
+          </Routes>
+        </AiAgentChatProvider>
+      </MemoryRouter>,
+    )
+
+    await user.type(findInput(), 'Pergunta do dashboard')
+    await user.keyboard('{Enter}')
+    expect(await screen.findByText('Resposta do dashboard.')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Ir para pedidos'))
+    expect(screen.queryByText('Pergunta do dashboard')).not.toBeInTheDocument()
+    expect(screen.queryByText('Resposta do dashboard.')).not.toBeInTheDocument()
+    expect(screen.getByText(/Olá! Como posso te ajudar/)).toBeInTheDocument()
+
+    await user.type(findInput(), 'Pergunta de pedidos')
+    await user.keyboard('{Enter}')
+    expect(await screen.findByText('Resposta de pedidos.')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Ir para dashboard'))
+    expect(await screen.findByText('Pergunta do dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Resposta do dashboard.')).toBeInTheDocument()
+    expect(screen.queryByText('Pergunta de pedidos')).not.toBeInTheDocument()
+    expect(screen.queryByText('Resposta de pedidos.')).not.toBeInTheDocument()
+  })
+
+  it('limpa mensagens transitorias quando um novo provider e montado', async () => {
+    askAgentMock.mockRejectedValueOnce(new Error('Erro descartavel'))
+
+    const user = userEvent.setup()
+    const firstView = renderDrawer()
+
+    await user.type(findInput(), 'Pergunta descartavel')
+    await user.keyboard('{Enter}')
+
+    expect(
+      await screen.findByText('Ops, algo deu errado: Erro descartavel'),
+    ).toBeInTheDocument()
+
+    firstView.unmount()
+    renderDrawer()
+
+    expect(
+      screen.queryByText('Ops, algo deu errado: Erro descartavel'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(/Olá! Como posso te ajudar/)).toBeInTheDocument()
   })
 })
 

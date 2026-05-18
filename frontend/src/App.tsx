@@ -24,9 +24,10 @@ import { CadastroProduto } from "./pages/CadastroProduto";
 import { EditarProduto } from "./pages/EditarProduto";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import {AuthProvider, useAuth} from "./contexts/AuthContext";
+import { AiAgentChatProvider } from "./contexts/AiAgentChatContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import {toast, Toaster} from "sonner";
-import {useEffect} from "react";
+import {useEffect, type ReactNode} from "react";
 import {AUTH_EXPIRED_EVENT} from "@/services/setupFetchInterceptor.ts";
 import {ChatIADrawer} from "@/components/ChatIADrawer.tsx";
 
@@ -63,6 +64,16 @@ function AppLayout() {
   );
 }
 
+function AuthenticatedAiAgentChatProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth()
+
+  if (!isAuthenticated) {
+    return <>{children}</>
+  }
+
+  return <AiAgentChatProvider>{children}</AiAgentChatProvider>
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -70,49 +81,51 @@ function App() {
         <Toaster position="top-right" richColors />
         <BrowserRouter>
           <AuthExpirationGuard />
-          <Routes>
-            {/* Redireciona raiz para login */}
-            <Route index element={<Navigate to="/login" replace />} />
+          <AuthenticatedAiAgentChatProvider>
+            <Routes>
+              {/* Redireciona raiz para login */}
+              <Route index element={<Navigate to="/login" replace />} />
 
-            {/* Rotas públicas */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
-            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+              {/* Rotas públicas */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+              <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
-            {/* Rotas protegidas — qualquer usuário autenticado */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/clientes" element={<Clientes />} />
-                <Route path="/pedidos" element={<Pedidos />} />
-                <Route path="/produtos" element={<Produtos />} />
-                <Route path="/produtos/novo" element={<CadastroProduto />} />
-                <Route
-                  path="/produtos/editar/:id"
-                  element={<EditarProduto />}
-                />
-                <Route path="/suporte" element={<Suporte />} />
-                <Route path="/categorias" element={<Categorias />} />
+              {/* Rotas protegidas — qualquer usuário autenticado */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/pedidos" element={<Pedidos />} />
+                  <Route path="/produtos" element={<Produtos />} />
+                  <Route path="/produtos/novo" element={<CadastroProduto />} />
+                  <Route
+                    path="/produtos/editar/:id"
+                    element={<EditarProduto />}
+                  />
+                  <Route path="/suporte" element={<Suporte />} />
+                  <Route path="/categorias" element={<Categorias />} />
 
-                <Route path="/chat-ia" element={<ChatIA />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
+                  <Route path="/chat-ia" element={<ChatIA />} />
+                  <Route path="/configuracoes" element={<Configuracoes />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Rotas protegidas — apenas Admin e Super Admin */}
-            <Route
-              element={
-                <ProtectedRoute allowedRoles={["admin", "super_admin"]} />
-              }
-            >
-              <Route element={<AppLayout />}>
-                <Route path="/operadores" element={<Operadores />} />
+              {/* Rotas protegidas — apenas Admin e Super Admin */}
+              <Route
+                element={
+                  <ProtectedRoute allowedRoles={["admin", "super_admin"]} />
+                }
+              >
+                <Route element={<AppLayout />}>
+                  <Route path="/operadores" element={<Operadores />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Qualquer rota desconhecida redireciona para login */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
+              {/* Qualquer rota desconhecida redireciona para login */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </AuthenticatedAiAgentChatProvider>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

@@ -148,16 +148,19 @@ async def get_kpis(
 
 
 async def get_revenue_over_time(
-    db: AsyncSession, 
-    data_inicio: date, 
+    db: AsyncSession,
+    data_inicio: date,
     data_fim: date,
-    categoria: Optional[str] = None  
+    categoria: Optional[str] = None,
+    granularidade: str = 'mes'
 ):
     """
-    Gráfico: Média de Receita por Mês (Tendências).
+    Gráfico: Receita ao longo do tempo.
+    granularidade='dia' agrupa por YYYY-MM-DD; 'mes' agrupa por YYYY-MM.
     """
-    # NOTA PARA O CRUD: strftime é para SQLite. Se usar Postgres, altere para func.to_char(Pedido.id_data, 'YYYY-MM')
-    time_period = func.strftime('%Y-%m', Pedido.id_data).label('time_period')
+    # NOTA PARA O CRUD: strftime é para SQLite. Se usar Postgres, altere para func.to_char(Pedido.id_data, 'YYYY-MM-DD' ou 'YYYY-MM')
+    fmt = '%Y-%m-%d' if granularidade == 'dia' else '%Y-%m'
+    time_period = func.strftime(fmt, Pedido.id_data).label('time_period')
     
     stmt = select(
         time_period,

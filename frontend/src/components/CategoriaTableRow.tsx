@@ -69,13 +69,13 @@ export function CategoriaTableRow({
 
       {/* Coluna: Estoque Consolidado */}
       <td className="py-4 px-6 border-0 text-center">
-        {cat.total_com_estoque === 0 ? (
+        {cat.total_estoque_disponivel === 0 ? (
           <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap border border-[#FECACA] bg-[#FEE2E2] text-[#B91C1C]">
             Esgotado
           </span>
         ) : (
           <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap border border-sky-200 bg-sky-100 text-sky-700">
-            {cat.total_com_estoque} un
+            {cat.total_estoque_disponivel} un
           </span>
         )}
       </td>

@@ -82,7 +82,7 @@ export function Categorias() {
         case "mais_revisoes":
           return b.total_precisa_revisao - a.total_precisa_revisao;
         case "maior_estoque":
-          return b.total_com_estoque - a.total_com_estoque;
+          return b.total_estoque_disponivel - a.total_estoque_disponivel;
         case "maior_preco":
           return (b.preco_medio ?? 0) - (a.preco_medio ?? 0);
         case "nome":

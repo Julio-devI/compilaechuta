@@ -54,7 +54,7 @@ async def read_clickstreams(
         canal_mais_usado=canal_mais_usado,
         dispositivo_mais_usado=dispositivo_mais_usado,
     )
-    return ClickstreamListResponse(total=total, skip=skip, limit=limit, data=[ClickstreamResponse.from_orm(item) for item in data])
+    return ClickstreamListResponse(total=total,skip=skip,limit=limit,data=[ClickstreamResponse.model_validate(item) for item in data])
 
 @router.get("/{id_cliente}", response_model=ClickstreamResponse)
 async def read_clickstream_by_cliente_id(
@@ -64,4 +64,4 @@ async def read_clickstream_by_cliente_id(
     clickstream = await crud_click.get_clickstream_by_cliente_id(db, id_cliente)
     if not clickstream:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clickstream not found")
-    return ClickstreamResponse.from_orm(clickstream)
+    return ClickstreamResponse.model_validate(clickstream) 

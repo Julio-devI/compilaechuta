@@ -4,7 +4,8 @@ import {
   Box, ChevronDown, ChevronUp, Crown, Sparkles, X,
   Loader2, Star, Ticket as TicketIcon, UserMinus, Trophy, Activity, Heart, AlertTriangle,
   ShoppingBag, ExternalLink, ArrowLeft, Clock, Package, Headphones,
-  CheckCircle2, AlertCircle, MessageSquare
+  CheckCircle2, AlertCircle, MessageSquare,
+  MousePointer, Zap, Globe, Monitor
 } from 'lucide-react'
 
 import type { Cliente, FiltrosClientes, ClientesKPIs } from '../services/customerService'
@@ -91,6 +92,9 @@ export function Clientes() {
   const [orderDetailModal, setOrderDetailModal] = useState<PedidoService | null>(null)
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null)
 
+  const [clickstream, setClickstream] = useState<any>(null)
+  const [clickstreamLoading, setClickstreamLoading] = useState(false)
+
   const fetchClientes = useCallback(async () => {
     setIsLoadingData(true)
     try {
@@ -133,6 +137,7 @@ export function Clientes() {
     if (!selectedCliente || !showModal) {
       setClientOrders([])
       setClientTickets([])
+      setClickstream(null)
       return
     }
     const id = String(selectedCliente.id)
@@ -146,6 +151,13 @@ export function Clientes() {
     getSupportTickets({ customer_id: id, limit: 10 })
       .then(setClientTickets)
       .finally(() => setClientTicketsLoading(false))
+
+    setClickstreamLoading(true)
+    fetch(`http://localhost:8000/api/v1/clickstream/${id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setClickstream(data))
+      .catch(() => setClickstream(null))
+      .finally(() => setClickstreamLoading(false))
   }, [selectedCliente, showModal])
 
   const totalPages = Math.ceil(totalItems / pageSize)
@@ -1051,6 +1063,68 @@ export function Clientes() {
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                {/* Clickstream section */}
+                <div className="mt-5">
+                  <h4 className="text-sm font-bold text-[#020854] mb-3 flex items-center gap-2">
+                    <MousePointer className="w-4 h-4" /> Comportamento de Navegação
+                  </h4>
+                  {clickstreamLoading ? (
+                    <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-[#1E5EFF]" /></div>
+                  ) : !clickstream ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum dado de navegação encontrado.</p>
+                  ) : (
+                    <>
+                      {/* Métricas principais */}
+                      <div className="grid grid-cols-4 gap-3 mb-3">
+                        {[
+                          { label: 'Sessões', value: clickstream.total_sessoes ?? '—', icon: <Activity className="w-3.5 h-3.5" /> },
+                          { label: 'Eventos', value: clickstream.total_eventos ?? '—', icon: <Zap className="w-3.5 h-3.5" /> },
+                          { label: 'Canal Principal', value: clickstream.canal_mais_usado ?? '—', icon: <Globe className="w-3.5 h-3.5" /> },
+                          { label: 'Dispositivo', value: clickstream.dispositivo_mais_usado ?? '—', icon: <Monitor className="w-3.5 h-3.5" /> },
+                        ].map(({ label, value, icon }) => (
+                          <div key={label} className="bg-[#F8FAFC] rounded-2xl p-4">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                              {icon} {label}
+                            </p>
+                            <p className="text-base font-bold text-[#020854] truncate">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Funil de conversão */}
+                      <div className="bg-[#F8FAFC] rounded-2xl p-4">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                          Funil de Conversão
+                        </p>
+                        <div className="flex items-end gap-2">
+                          {[
+                            { label: 'Visualizações', value: clickstream.qtd_visualizacao_produto ?? 0, color: 'bg-blue-200' },
+                            { label: 'Adições', value: clickstream.qtd_adicoes_carrinho ?? 0, color: 'bg-indigo-300' },
+                            { label: 'Abandonos', value: clickstream.qtd_abandonos_carrinho ?? 0, color: 'bg-orange-300' },
+                            { label: 'Compras', value: clickstream.qtd_compras ?? 0, color: 'bg-emerald-400' },
+                          ].map(({ label, value, color }) => {
+                            const max = Math.max(clickstream.qtd_visualizacao_produto ?? 0, 1)
+                            const pct = Math.max(8, Math.round((value / max) * 80))
+                            return (
+                              <div key={label} className="flex-1 flex flex-col items-center gap-1">
+                                <span className="text-xs font-bold text-[#020854]">{value}</span>
+                                <div className={`w-full rounded-t-lg ${color} transition-all`} style={{ height: `${pct}px` }} />
+                                <span className="text-[10px] text-muted-foreground text-center leading-tight">{label}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {clickstream.data_ultima_sessao && (
+                        <p className="text-[11px] text-muted-foreground mt-2 text-right">
+                          Última sessão: {new Date(clickstream.data_ultima_sessao).toLocaleString('pt-BR')}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

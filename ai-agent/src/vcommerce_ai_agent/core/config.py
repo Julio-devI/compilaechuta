@@ -7,13 +7,59 @@ utilizadas pelos demais módulos do pacote.
 
 import os
 import warnings
+from collections.abc import Iterable
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Carrega variáveis do .env localizado na raiz do módulo ai-agent
-_ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
-load_dotenv(dotenv_path=_ENV_PATH)
+_AI_AGENT_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT = _AI_AGENT_ROOT.parent
+_BACKEND_ENV_PATH = _REPO_ROOT / "backend" / ".env"
+_AI_AGENT_ENV_PATH = _AI_AGENT_ROOT / ".env"
+
+
+def _candidate_env_paths() -> tuple[Path, ...]:
+    """
+    Retorna arquivos `.env` aceitos em ordem de precedência.
+
+    O ambiente do processo sempre tem precedência porque `load_dotenv`
+    é chamado com `override=False`. Em seguida, o carregamento privilegia
+    o `.env` do backend e usa o `.env` do módulo apenas como fallback para
+    execuções isoladas.
+    """
+    paths = (
+        _BACKEND_ENV_PATH,
+        _AI_AGENT_ENV_PATH,
+    )
+    unique_paths: list[Path] = []
+    seen: set[Path] = set()
+    for path in paths:
+        marker = path.resolve(strict=False)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        unique_paths.append(path)
+    return tuple(unique_paths)
+
+
+def _load_env_files(paths: Iterable[Path]) -> tuple[Path, ...]:
+    """Carrega arquivos `.env` existentes sem sobrescrever o ambiente."""
+    loaded_paths: list[Path] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        load_dotenv(dotenv_path=path, override=False)
+        loaded_paths.append(path)
+    return tuple(loaded_paths)
+
+
+_ENV_PATHS = _candidate_env_paths()
+_LOADED_ENV_PATHS = _load_env_files(_ENV_PATHS)
+
+
+def _format_env_paths(paths: Iterable[Path]) -> str:
+    """Formata caminhos de `.env` para mensagens de erro e warning."""
+    return ", ".join(str(path) for path in paths)
 
 
 DB_PATH: str = os.getenv("DB_PATH", "")
@@ -65,8 +111,9 @@ def _validate() -> None:
     via `assert_gemini_key()`.
     """
     if not GEMINI_API_KEY:
+        expected_paths = _format_env_paths(_ENV_PATHS)
         warnings.warn(
-            f"GEMINI_API_KEY não está definida. Verifique o arquivo .env em {_ENV_PATH}. "
+            f"GEMINI_API_KEY não está definida. Verifique os arquivos .env em {expected_paths}. "
             "A chamada ao LLM falhará caso a chave não seja configurada.",
             stacklevel=2,
         )
@@ -75,9 +122,10 @@ def _validate() -> None:
 def assert_gemini_key() -> None:
     """Falha com exceção se a chave da API não estiver configurada."""
     if not GEMINI_API_KEY:
+        expected_paths = _format_env_paths(_ENV_PATHS)
         raise EnvironmentError(
             f"Variável de ambiente obrigatória não definida: GEMINI_API_KEY. "
-            f"Verifique o arquivo .env em {_ENV_PATH}"
+            f"Verifique os arquivos .env em {expected_paths}"
         )
 
 

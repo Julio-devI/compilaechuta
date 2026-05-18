@@ -77,14 +77,14 @@ Quando o `ai-agent` é consumido como dependência local do backend, as variáve
 
 Não é necessário manter um `.env` específico para o `ai-agent` nesse cenário. O arquivo `ai-agent/.env` continua útil apenas para execução isolada do módulo, por exemplo smoke tests ou testes manuais rodados diretamente dentro de `ai-agent/`.
 
-O ponto importante é que `GEMINI_API_KEY` e `LLM_TEMPERATURE_INSIGHT`, quando usada, precisam estar disponíveis antes do primeiro import de `vcommerce_ai_agent`, porque o módulo lê essas variáveis durante o carregamento de `vcommerce_ai_agent.core.config`.
+O pacote carrega automaticamente `backend/.env` como padrão durante o primeiro import de `vcommerce_ai_agent`. Se `backend/.env` não existir, `ai-agent/.env` é aceito como fallback para execução isolada do módulo. Variáveis já exportadas no processo têm precedência sobre ambos os arquivos.
 
-Exemplo com `python-dotenv` no bootstrap do backend:
+O backend pode continuar carregando seu `.env` no bootstrap, mas isso não é mais obrigatório apenas para atender o import do agente:
 
 ```python
 from dotenv import load_dotenv
 
-load_dotenv()  # carrega o .env do backend
+load_dotenv()
 
 from vcommerce_ai_agent import VCommerceAgent
 ```

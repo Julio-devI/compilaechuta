@@ -21,8 +21,13 @@ cd ai-agent
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -e ".[test]"
-cp .env.example .env      # preencher GEMINI_API_KEY e DB_PATH
+# opcional para execução isolada, quando backend/.env não existir:
+cp .env.example .env
 ```
+
+Por padrão, o pacote carrega variáveis de `backend/.env`. O arquivo
+`ai-agent/.env` é usado apenas como fallback para smoke tests e execuções
+manuais isoladas do módulo.
 
 ## Uso Programático
 
@@ -273,6 +278,10 @@ Garantias de segurança nos logs:
 - O backend pode usar esses eventos para dashboards de observabilidade, auditoria e alertas de segurança.
 
 ## Variáveis de Ambiente
+
+Ordem de carregamento: variáveis já exportadas no processo, `backend/.env`
+e, por fim, `ai-agent/.env` como fallback. Arquivos carregados depois não
+sobrescrevem valores já definidos.
 
 | Variável | Descrição |
 |---|---|

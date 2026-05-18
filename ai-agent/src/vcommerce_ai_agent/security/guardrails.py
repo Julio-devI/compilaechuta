@@ -66,16 +66,19 @@ def validate_input_length(question: str) -> None:
 # Inclui variantes em inglês e português brasileiro
 _PROMPT_INJECTION_PATTERNS = [
     # Inglês
-    r"ignore\s+(previous|all|above)\s+instructions?",
+    r"ignore\s+(all\s+|previous\s+|above\s+|your\s+|the\s+)*(previous\s+|above\s+|your\s+|the\s+)*instructions?",
+    r"ignore\s+(all\s+|previous\s+|above\s+|your\s+|the\s+)*(rules|directives|limits|guidelines)",
     r"you\s+are\s+now",
     r"disregard\s+your",
     r"forget\s+(everything|all|your)",
     r"act\s+as\s+(if\s+you\s+are|a|an)",
     # Português brasileiro
-    r"ignor[ae]r?\s+(todas\s+as\s+)?(instru[cç][õo]es|regras|limites)",
+    # Aceita pronomes opcionais ("suas", "tuas", "seus", "minhas") e quantificadores
+    # ("todas as", "todos os", "essas", "esses") entre o verbo e o substantivo alvo.
+    r"ignor[ae]r?\s+(todas?\s+(as|os)\s+|essas?\s+|esses?\s+)?(suas?\s+|tuas?\s+|seus?\s+|teus?\s+|as\s+|os\s+)?(instru[cç][õo]es|regras|limites|diretrizes|orienta[cç][õo]es)",
     r"voc[êe]\s+(é|esta|está|eh)\s+agora",
-    r"desconsidere\s+(seu|sua|os|as)",
-    r"esque[çc]a\s+(tudo|todos|seu|sua|sua\s+programa[cç][ãa]o)",
+    r"desconsidere\s+(seu|sua|os|as|suas?|tuas?)",
+    r"esque[çc]a\s+(tudo|todos|seu|sua|sua\s+programa[cç][ãa]o|suas?\s+(instru[cç][õo]es|regras))",
     r"(aja|atue|comporte-se)\s+como\s+(se\s+voc[êe]\s+fosses?|se\s+fosse|um|uma)",
     r"agora\s+voc[êe]\s+(é|esta|está|eh)",
     # Exfiltração do system prompt — PT-BR

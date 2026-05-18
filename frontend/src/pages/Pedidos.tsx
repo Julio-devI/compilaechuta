@@ -8,6 +8,7 @@ import { ModalDetalhesPedido } from '../components/ModalDetalhesPedido'
 import { ExportCsvButton, OrderFilters } from '../components/ExportCsvButton'
 import { Toaster, toast } from 'react-hot-toast'
 import { getPedidos, FiltrosPedidos } from '../services/orderService'
+import { apiUrl } from '../services/apiConfig'
 
 // --- Interfaces ---
 // Mantemos a interface do layout original para não quebrar os cards
@@ -327,7 +328,7 @@ export function Pedidos() {
               productName: productNameFilter,
               ticketStatus: ticketFilter === "Finalizado" ? "resolvido" : undefined,
             }}
-            endpoint="http://localhost:8000/api/v1/orders/exportar"
+            endpoint={apiUrl('/orders/exportar')}
             onSuccess={(msg) => toast.success(msg)}
             onError={(err) => toast.error(err)}
           />

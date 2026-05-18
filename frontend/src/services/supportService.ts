@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig'
+
 export interface SupportTicket {
   ticketId: string;
   ticketDisplayId: string;
@@ -59,7 +61,7 @@ interface SupportTicketSummaryApiResponse {
   problem_types: string[];
 }
 
-const API_URL = "http://localhost:8000/api/v1/tickets";
+const API_URL = apiUrl('/tickets')
 
 function mapSupportTicket(ticket: SupportTicketApiResponse): SupportTicket {
   const customerName = ticket.nome_cliente || ticket.id_cliente;

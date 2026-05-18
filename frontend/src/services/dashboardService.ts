@@ -1,4 +1,6 @@
-const BASE = 'http://localhost:8000/api/v1/dashboard'
+import { apiUrl } from './apiConfig'
+
+const BASE = apiUrl('/dashboard')
 
 export interface DateRange {
   inicio: string

@@ -1,4 +1,4 @@
-const API_BASE = 'http://127.0.0.1:8000/api/v1'
+import { apiUrl } from './apiConfig'
 
 export type UserRole = 'super_admin' | 'admin' | 'user'
 
@@ -17,7 +17,7 @@ export interface LoginResponse {
 }
 
 export async function loginRequest(username: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+  const res = await fetch(apiUrl('/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -35,7 +35,7 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export async function forgotPasswordRequest(email: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/auth/esqueci-senha`, {
+  const res = await fetch(apiUrl('/auth/esqueci-senha'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -47,7 +47,7 @@ export async function forgotPasswordRequest(email: string): Promise<void> {
 }
 
 export async function resetPasswordRequest(token: string, new_password: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/auth/redefinir-senha`, {
+  const res = await fetch(apiUrl('/auth/redefinir-senha'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, new_password }),

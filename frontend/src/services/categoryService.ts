@@ -1,4 +1,6 @@
-const API_URL = "http://localhost:8000/api/v1/categories";
+import { apiUrl } from './apiConfig'
+
+const API_URL = apiUrl('/categories')
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 

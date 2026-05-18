@@ -82,7 +82,7 @@ def _load_csv_table(conn: sqlite3.Connection, csv_dir: Path, table_name: str) ->
     dataframe.to_sql(
         table_name,
         conn,
-        if_exists="replace",
+        if_exists="append",
         index=False,
         chunksize=SEED_CHUNKSIZE,
     )

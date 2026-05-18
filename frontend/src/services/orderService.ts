@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig'
+
 export interface PedidoBackend {
   id_pedido_display: string;
   id_pedido: string;
@@ -45,8 +47,8 @@ export interface FiltrosPedidos {
   status_ticket?: string;
 }
 
-const API_URL = 'http://localhost:8000/api/v1/orders'
-const CLIENT_API_URL = 'http://localhost:8000/api/v1/clients'
+const API_URL = apiUrl('/orders')
+const CLIENT_API_URL = apiUrl('/clients')
 
 // Cache local simples para evitar múltiplas chamadas à API pelo mesmo cliente
 const clientCache = new Map<string, any>();

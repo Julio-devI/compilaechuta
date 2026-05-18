@@ -93,7 +93,7 @@ export function Pedidos() {
   const [searchTerm, setSearchTerm] = useState('')
   const [productNameFilter, setProductNameFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('')
-  const [tipoClienteFilter] = useState<string>('')
+  const [tipoClienteFilter] = useState<string>('')  // kept for type compat; no UI setter
   const [periodoFilter, setPeriodoFilter] = useState<string>('Todos')
   const [ticketFilter, setTicketFilter] = useState<string>('')
   const [dataInicioFilter, setDataInicioFilter] = useState<string>("");
@@ -483,12 +483,6 @@ export function Pedidos() {
                     <Ticket className="w-4 h-4" /> Ticket
                   </label>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => toggleTicket("Não tem")}
-                      className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Não tem" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}
-                    >
-                      Não tem
-                    </button>
                     <button
                       onClick={() => toggleTicket("Aberto")}
                       className={`px-5 py-2.5 rounded-full text-xs font-bold ${ticketFilter === "Aberto" ? "bg-blue-600 text-white" : "bg-background text-muted-foreground"}`}

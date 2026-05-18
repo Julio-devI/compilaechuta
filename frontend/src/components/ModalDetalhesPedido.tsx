@@ -84,7 +84,7 @@ export function ModalDetalhesPedido({ isOpen, onClose, pedido }: ModalProps) {
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={handleOverlayClick}
         >
           {/* Adicionado o bloco de estilo para esconder o scrollbar */}

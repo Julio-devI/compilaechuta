@@ -200,6 +200,51 @@ describe('ChatIADrawer', () => {
     )
   })
 
+  it('renderiza fonte e mostra tabela apenas depois do toggle', async () => {
+    askAgentMock.mockResolvedValueOnce({
+      status: 'success',
+      session_id: 'sess-1',
+      user_response: {
+        answer_text: 'Clientes encontrados na consulta.',
+        sources_text: 'Fonte: base Gold de clientes.',
+        data: [
+          { cliente: 'Cliente Alpha', receita_total: 1200.5 },
+          { cliente: 'Cliente Beta', receita_total: 980 },
+        ],
+        chart: null,
+        truncated: false,
+      },
+    })
+
+    const user = userEvent.setup()
+    renderWithRouter(<ChatIADrawer />)
+
+    await user.type(findInput(), 'Liste os clientes')
+    await user.keyboard('{Enter}')
+
+    expect(
+      await screen.findByText('Clientes encontrados na consulta.'),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('Fonte: base Gold de clientes.')).toBeInTheDocument()
+
+    const toggle = await screen.findByRole('button', {
+      name: /Visualizar tabela/,
+    })
+    expect(screen.queryByText('Cliente Alpha')).not.toBeInTheDocument()
+
+    await user.click(toggle)
+
+    expect(await screen.findByText('Cliente')).toBeInTheDocument()
+    expect(await screen.findByText('Receita Total')).toBeInTheDocument()
+    expect(await screen.findByText('Cliente Alpha')).toBeInTheDocument()
+    expect(await screen.findByText('1.200,5')).toBeInTheDocument()
+
+    await user.click(toggle)
+    await waitFor(() =>
+      expect(screen.queryByText('Cliente Alpha')).not.toBeInTheDocument(),
+    )
+  })
+
   it('clicar em uma quick action envia a pergunta correspondente', async () => {
     askAgentMock.mockResolvedValueOnce({
       status: 'success',

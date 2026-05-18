@@ -32,6 +32,7 @@ import {
   SlashCommandMenu,
 } from '@/components/SlashCommandMenu'
 import { AgentChart } from '@/components/AgentChart'
+import { AgentDataTable } from '@/components/AgentDataTable'
 import {
   AGENT_PLACEHOLDERS,
   useRotatingPlaceholder,
@@ -108,6 +109,7 @@ export function ChatIA() {
   const [sessionId, setSessionId] = useState<string>(() => crypto.randomUUID())
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
   const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
+  const [expandedTables, setExpandedTables] = useState<Set<number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ConversaHistorico | null>(null)
   const [isDeletingConversation, setIsDeletingConversation] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -117,6 +119,18 @@ export function ChatIA() {
 
   const toggleChart = (messageId: number) => {
     setExpandedCharts(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) {
+        next.delete(messageId)
+      } else {
+        next.add(messageId)
+      }
+      return next
+    })
+  }
+
+  const toggleTable = (messageId: number) => {
+    setExpandedTables(prev => {
       const next = new Set(prev)
       if (next.has(messageId)) {
         next.delete(messageId)
@@ -301,6 +315,7 @@ export function ChatIA() {
     setSlashMenuOpen(false)
     setSessionId(crypto.randomUUID())
     setExpandedCharts(new Set())
+    setExpandedTables(new Set())
     setIsTyping(false)
     loadInitialSuggestions()
     sessionStorage.removeItem('ai_agent_last_session')
@@ -346,6 +361,7 @@ export function ChatIA() {
         setSlashMenuOpen(false)
         setSessionId(crypto.randomUUID())
         setExpandedCharts(new Set())
+        setExpandedTables(new Set())
         setIsTyping(false)
         sessionStorage.removeItem('ai_agent_last_session')
         loadInitialSuggestions()
@@ -377,6 +393,7 @@ export function ChatIA() {
       }))
       setMensagens(mapped)
       setExpandedCharts(new Set())
+      setExpandedTables(new Set())
     } catch (err) {
       toast.error((err as Error).message)
     }
@@ -670,6 +687,32 @@ export function ChatIA() {
                           {expandedCharts.has(msg.id) && (
                             <div className="mt-3">
                               <AgentChart chart={msg.chart} data={msg.data} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {msg.type === 'assistant' && !msg.chart && msg.data && msg.data.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
+                          <button
+                            type="button"
+                            onClick={() => toggleTable(msg.id)}
+                            className="flex items-center gap-1.5 text-xs font-semibold w-full transition-colors"
+                            style={{ color: 'var(--chat-accent)' }}
+                          >
+                            <ChevronDown
+                              className="w-3.5 h-3.5 transition-transform"
+                              style={{
+                                transform: expandedTables.has(msg.id)
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                              }}
+                            />
+                            Visualizar tabela
+                          </button>
+                          {expandedTables.has(msg.id) && (
+                            <div className="mt-3">
+                              <AgentDataTable data={msg.data} />
                             </div>
                           )}
                         </div>

@@ -149,6 +149,20 @@ def _derive_title(history_json: str | None) -> str:
     return "Sessão sem título"
 
 
+def _sanitize_history_for_frontend(
+    history: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Remove campos técnicos do histórico antes de devolvê-lo ao frontend."""
+    sanitized_history: list[dict[str, Any]] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        sanitized_entry = entry.copy()
+        sanitized_entry["sql"] = None
+        sanitized_history.append(sanitized_entry)
+    return sanitized_history
+
+
 @router.post(
     "/ask",
     response_model=AgentResponseSchema,
@@ -395,9 +409,9 @@ async def list_user_sessions(
 @router.get(
     "/sessions/{session_id}",
     response_model=SessionDetailResponse,
-    summary="Recupera o histórico completo de uma sessão",
+    summary="Recupera o histórico exibível de uma sessão",
     response_description=(
-        "Histórico alternado user/assistant no formato exportado pelo agente."
+        "Histórico alternado user/assistant sem SQL técnico ou developer_debug."
     ),
     responses={
         401: {"description": "Token JWT ausente ou inválido."},
@@ -422,7 +436,10 @@ async def get_user_session(
             history = []
     except json.JSONDecodeError:
         history = []
-    return SessionDetailResponse(session_id=session_id, history=history)
+    return SessionDetailResponse(
+        session_id=session_id,
+        history=_sanitize_history_for_frontend(history),
+    )
 
 
 @router.delete(

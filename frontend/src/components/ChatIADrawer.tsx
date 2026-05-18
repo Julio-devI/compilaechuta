@@ -27,6 +27,7 @@ import {
   type ChartSuggestion,
 } from '@/services/aiAgentService'
 import { AgentChart } from '@/components/AgentChart'
+import { AgentDataTable } from '@/components/AgentDataTable'
 import {
   SLASH_COMMANDS,
   SlashCommandMenu,
@@ -60,6 +61,7 @@ export function ChatIADrawer() {
   const [quickActions, setQuickActions] = useState<string[]>([])
   const [sessionId] = useState<string>(() => crypto.randomUUID())
   const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
+  const [expandedTables, setExpandedTables] = useState<Set<number>>(new Set())
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messageIdRef = useRef(0)
@@ -75,6 +77,18 @@ export function ChatIADrawer() {
 
   const toggleChart = (messageId: number) => {
     setExpandedCharts(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) {
+        next.delete(messageId)
+      } else {
+        next.add(messageId)
+      }
+      return next
+    })
+  }
+
+  const toggleTable = (messageId: number) => {
+    setExpandedTables(prev => {
       const next = new Set(prev)
       if (next.has(messageId)) {
         next.delete(messageId)
@@ -374,6 +388,32 @@ export function ChatIADrawer() {
                         {expandedCharts.has(msg.id) && (
                           <div className="mt-3">
                             <AgentChart chart={msg.chart} data={msg.data} height={200} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {msg.type === 'assistant' && !msg.chart && msg.data && msg.data.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
+                        <button
+                          type="button"
+                          onClick={() => toggleTable(msg.id)}
+                          className="flex items-center gap-1.5 text-xs font-semibold w-full transition-colors"
+                          style={{ color: 'var(--chat-accent)' }}
+                        >
+                          <ChevronDown
+                            className="w-3.5 h-3.5 transition-transform"
+                            style={{
+                              transform: expandedTables.has(msg.id)
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                            }}
+                          />
+                          Visualizar tabela
+                        </button>
+                        {expandedTables.has(msg.id) && (
+                          <div className="mt-3">
+                            <AgentDataTable data={msg.data} />
                           </div>
                         )}
                       </div>

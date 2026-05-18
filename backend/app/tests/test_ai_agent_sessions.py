@@ -276,7 +276,14 @@ def test_get_session_detail_returns_saved_history(monkeypatch) -> None:
                 "data": None,
                 "chart": None,
             },
-            saved_history[1],
+            {
+                "role": "assistant",
+                "content": "A receita foi R$ 10.",
+                "sql": None,
+                "sources_text": "Fonte: base Gold.",
+                "data": [{"receita": 10}],
+                "chart": None,
+            },
         ],
     }
 

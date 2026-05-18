@@ -209,7 +209,10 @@ class SessionHistoryEntry(BaseModel):
     content: str = Field(..., description="Texto da mensagem.")
     sql: Optional[str] = Field(
         None,
-        description="SQL gerado pelo agente (apenas em turnos assistant).",
+        description=(
+            "Sempre null na API pública. O SQL técnico é mantido apenas no "
+            "backend para memória, auditoria e debugging interno."
+        ),
     )
     sources_text: Optional[str] = Field(
         None,
@@ -239,7 +242,8 @@ class SessionDetailResponse(BaseModel):
         ...,
         description=(
             "Histórico alternado user/assistant. Cada entrada traz role, "
-            "content, sql, sources_text e, quando aplicável, data e chart "
-            "para restauração de visualizações no frontend."
+            "content, sources_text e, quando aplicável, data e chart "
+            "para restauração de visualizações no frontend. O campo sql "
+            "é sempre null na resposta pública."
         ),
     )

@@ -8,44 +8,54 @@ import { ChartSkeleton } from './ChartSkeleton'
 
 const MONTH_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
-function parsePeriod(value: string) {
-  const [year, month] = value.split('-')
-  return { year, label: MONTH_SHORT[parseInt(month, 10) - 1] ?? value }
-}
-
 interface Props {
   dateRange: DateRange
+  granularity: 'dia' | 'mes'
 }
 
-export function RevenueChart({ dateRange }: Props) {
+export function RevenueChart({ dateRange, granularity }: Props) {
   const [data, setData] = useState<ReceitaMensal[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    getReceitaMensal(dateRange).then((d) => {
+    getReceitaMensal(dateRange, granularity).then((d) => {
       setData(d)
       setLoading(false)
     })
-  }, [dateRange.inicio, dateRange.fim])
+  }, [dateRange.inicio, dateRange.fim, granularity])
 
   const multiYear = useMemo(() => {
     const years = new Set(data.map((d) => d.mes.split('-')[0]))
     return years.size > 1
   }, [data])
 
-  // mostra a cada 6 meses em multi-ano, ou cada mês em view curta
-  const tickInterval = multiYear ? 5 : 0
+  const tickInterval = useMemo(() => {
+    if (granularity === 'dia') return Math.max(0, Math.floor(data.length / 6) - 1)
+    return multiYear ? 5 : 0
+  }, [granularity, data.length, multiYear])
 
   function formatTick(value: string) {
-    const { year, label } = parsePeriod(value)
+    if (granularity === 'dia') {
+      const [, month, day] = value.split('-')
+      return `${day}/${month}`
+    }
+    const [year, month] = value.split('-')
+    const label = MONTH_SHORT[parseInt(month, 10) - 1] ?? value
     return multiYear ? `${label}/${year.slice(2)}` : label
   }
 
   function formatTooltipLabel(value: string) {
-    const { year, label } = parsePeriod(value)
+    if (granularity === 'dia') {
+      const [year, month, day] = value.split('-')
+      return `${day} ${MONTH_SHORT[parseInt(month, 10) - 1]}/${year}`
+    }
+    const [year, month] = value.split('-')
+    const label = MONTH_SHORT[parseInt(month, 10) - 1] ?? value
     return multiYear ? `${label}/${year}` : label
   }
+
+  const chartTitle = granularity === 'dia' ? 'Receita por Dia' : 'Receita por Mês'
 
   return (
     <div className="bg-card rounded-2xl p-5 border border-border shadow-sm h-full flex flex-col">
@@ -53,7 +63,7 @@ export function RevenueChart({ dateRange }: Props) {
         <TrendingUp className="w-3.5 h-3.5 text-muted" />
         <span className="text-xs font-medium text-muted uppercase tracking-wider">Tendências</span>
       </div>
-      <h3 className="text-lg font-semibold text-[#020854] dark:text-foreground mb-0.5">Receita por Mês</h3>
+      <h3 className="text-lg font-semibold text-[#020854] dark:text-foreground mb-0.5">{chartTitle}</h3>
       <p className="text-xs text-muted mb-4">Evolução do faturamento no período</p>
 
       {loading ? (

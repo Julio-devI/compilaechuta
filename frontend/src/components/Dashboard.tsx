@@ -189,7 +189,14 @@ export function Dashboard() {
       {/* Row 1: AreaChart Receita (2/3) + PieChart Categorias (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <RevenueChart dateRange={dateRange} />
+          <RevenueChart
+            dateRange={dateRange}
+            granularity={
+              (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000 <= 30
+                ? 'dia'
+                : 'mes'
+            }
+          />
         </div>
         <CategoryPieChart dateRange={dateRange} />
       </div>

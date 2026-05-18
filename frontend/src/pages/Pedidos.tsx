@@ -325,7 +325,12 @@ export function Pedidos() {
               orderDateFloor: dataInicioFilter,
               orderDateCeil: dataFimFilter,
               productName: productNameFilter,
-              ticketStatus: ticketFilter === "Finalizado" ? "resolvido" : undefined,
+              ticketStatus:
+                ticketFilter === "Aberto"
+                  ? "aberto"
+                  : ticketFilter === "Finalizado"
+                    ? "resolvido"
+                    : undefined,
             }}
             endpoint="http://localhost:8000/api/v1/orders/exportar"
             onSuccess={(msg) => toast.success(msg)}

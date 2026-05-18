@@ -1,4 +1,6 @@
 from typing import List, Optional
+from warnings import filters
+
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,10 +33,18 @@ async def create_product(
     print(product_in)
     return await product_service.create_product(db=db, product_in=product_in)
 
-@router.get("/exportar/csv")
-async def exportar_produtos_csv(db: AsyncSession = Depends(get_db)):
-    produtos_data = await product_service.get_all_products(db=db, skip=0, limit=99999)
-    produtos = produtos_data.data
+@router.get("/exportar")
+async def exportar_produtos_csv(
+    nome_produto: Optional[str] = None,
+    categoria: Optional[str] = None,
+    status: Optional[str] = None,       
+    preco_min: Optional[float] = None,
+    preco_max: Optional[float] = None,  
+    db: AsyncSession = Depends(get_db)
+):
+        
+    produtos_data = await product_service.exportar_produtos_csv(db=db, nome_produto=nome_produto, categoria=categoria, status=status, preco_min=preco_min, preco_max=preco_max)
+    produtos = produtos_data[0] # Ou lidar com o retorno baseando se `produtos_data` volta tupla ou o model. O seu service tá retornando (products, total)    
     
     output = io.StringIO()
     writer = csv.writer(output)

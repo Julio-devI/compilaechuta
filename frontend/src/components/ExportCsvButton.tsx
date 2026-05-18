@@ -21,10 +21,18 @@ export interface OrderFilters {
   ticketStatus?: string;
 }
 
-type FiltersType = ClientFilters | OrderFilters;
+export interface ProductFilters { 
+  productName?: string;
+  category?: string;
+  status?: string;
+  price_min?: number;
+  price_max?: number;
+}
+
+type FiltersType = ClientFilters | OrderFilters | ProductFilters;
 
 interface ExportCsvButtonProps<T extends FiltersType = FiltersType> {
-  type: 'client' | 'order';
+  type: 'client' | 'order' | 'product';
   filters: T;
   endpoint: string;
   onSuccess?: (message: string) => void;
@@ -69,6 +77,18 @@ export function ExportCsvButton<T extends FiltersType = FiltersType>({
       };
     }
 
+    else if (type === 'product') {
+
+      const productFilters = rawFilters as ProductFilters;
+      return {
+        nome_produto: productFilters.productName,
+        categoria: productFilters.category,
+        status: productFilters.status,
+        preco_min: productFilters.price_min,
+        preco_max: productFilters.price_max,
+      };
+    }
+
     return {};
   };
 
@@ -95,7 +115,7 @@ export function ExportCsvButton<T extends FiltersType = FiltersType>({
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = type === 'client' ? `clientes_${new Date().getTime()}.csv` : `pedidos_${new Date().getTime()}.csv`;
+      link.download = type === 'client' ? `clientes_${new Date().getTime()}.csv` : type === 'order' ? `pedidos_${new Date().getTime()}.csv` : `produtos_${new Date().getTime()}.csv`;
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);

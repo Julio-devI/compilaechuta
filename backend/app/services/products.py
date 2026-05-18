@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -43,6 +44,26 @@ async def get_all_products(
     )
     total = await crud_products.get_total_products_count(db=db)
     return ProductListOut(data=products, total=total, skip=skip, limit=limit)
+
+
+async def exportar_produtos_csv(
+    db: AsyncSession,
+    categoria: Optional[str] = None,
+    status: Optional[str] = None,
+    preco_min: Optional[float] = None,
+    preco_max: Optional[float] = None,
+    nome_produto: Optional[str] = None
+):
+    products = await crud_products.get_all_products_for_export(
+        db=db,
+        categoria=categoria,
+        status=status,
+        preco_min=preco_min,
+        preco_max=preco_max,
+        nome_produto=nome_produto
+    )
+    total = await crud_products.get_total_products_count(db=db)
+    return products, total
 
 
 async def get_all_suppliers(db: AsyncSession) -> int:

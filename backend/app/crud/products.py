@@ -12,6 +12,54 @@ from app.models.orders import Pedido
 from app.schemas.products import ProductCreate, ProductUpdate
 
 
+class ProductFilters:
+    def __init__(
+        self,
+        categoria: Optional[str] = None,
+        status: Optional[str] = None,
+        preco_min: Optional[float] = None,
+        preco_max: Optional[float] = None,
+        nome_produto: Optional[str] = None
+    ):
+        self.categoria = categoria
+        self.status = status
+        self.preco_min = preco_min
+        self.preco_max = preco_max
+        self.nome_produto = nome_produto
+    
+    
+
+
+def _filters_query(query, filters: ProductFilters):
+    
+    if filters.categoria and filters.categoria != 'Todas as Categorias':
+        query = query.join(Produto.categoria).filter(Produto.categoria.has(nome_categoria=filters.categoria))
+
+    if filters.status:
+        if filters.status == 'ativo':
+            query = query.filter(Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True]))
+
+        elif filters.status == 'inativo':
+            query = query.filter(Produto.ativo.in_(['Não', 'não', 'Nao', 'nao', 'False', 'false', '0', False]))
+
+        elif filters.status == 'baixo_estoque':
+            query = query.filter(
+                Produto.estoque_disponivel < 10,
+                Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True])
+            )
+
+    if filters.preco_min is not None:
+        query = query.filter(Produto.preco >= filters.preco_min)
+
+    if filters.preco_max is not None:
+        query = query.filter(Produto.preco <= filters.preco_max)
+    
+    if filters.nome_produto:
+        query = query.filter(Produto.nome_produto.ilike(f"%{filters.nome_produto}%"))
+
+    return query
+
+
 
 async def generate_product_id(db: AsyncSession) -> str:
     query = select(Produto.id_produto).order_by(
@@ -161,6 +209,46 @@ async def get_all_products(
         query = query.filter(Produto.precisa_revisao == precisa_revisao)
 
     result = await db.execute(query.offset(skip).limit(limit))
+    return list(result.scalars().all())
+
+
+async def get_all_products_for_export(
+        db: AsyncSession,
+        categoria: Optional[str] = None,
+        status: Optional[str] = None,
+        preco_min: Optional[float] = None,
+        preco_max: Optional[float] = None,
+        nome_produto: Optional[str] = None
+    ) -> list[Produto]:
+    
+    query = select(Produto).options(joinedload(Produto.categoria))
+
+    if categoria and categoria != 'Todas as Categorias':
+        query = query.join(Produto.categoria).filter(Produto.categoria.has(nome_categoria=categoria))
+
+    if status:
+        if status == 'ativo':
+            query = query.filter(Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True]))
+
+        elif status == 'inativo':
+            query = query.filter(Produto.ativo.in_(['Não', 'não', 'Nao', 'nao', 'False', 'false', '0', False]))
+
+        elif status == 'baixo_estoque':
+            query = query.filter(
+                Produto.estoque_disponivel < 10,
+                Produto.ativo.in_(['Sim', 'sim', 'True', 'true', '1', True])
+            )
+
+    if preco_min is not None:
+        query = query.filter(Produto.preco >= preco_min)
+
+    if preco_max is not None:
+        query = query.filter(Produto.preco <= preco_max)
+
+    if nome_produto:
+        query = query.filter(Produto.nome_produto.contains(nome_produto))
+
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 

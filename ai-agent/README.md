@@ -4,8 +4,9 @@ Módulo Python independente que traduz perguntas em linguagem natural (portuguê
 
 Documentos auxiliares:
 
-- [`README_INTEGRATION.md`](README_INTEGRATION.md) -> Guia para integração do módulo. 
-- [`README_DECISOES.md`](README_DECISOES.md) -> Arquivo contendo justificativas das decisões arquiteturais tomadas.
+- [`README_INTEGRATION.md`](README_INTEGRATION.md): guia de integração do módulo com o backend FastAPI (endpoints, schemas, locks de sessão e migration de histórico).
+- [`README_DECISOES.md`](README_DECISOES.md): registro das decisões arquiteturais tomadas durante o desenvolvimento (DA-01 a DA-35), com contexto, justificativa e implicações de cada uma.
+- [`README_DEMO.md`](README_DEMO.md): roteiro versionado de apresentação para a banca, com 9 cenários cobrindo memória, masking de PII, gráficos dinâmicos, fora de escopo e prompt injection, mais logs da execução bem-sucedida contra a API Gemini.
 
 ## Requisitos
 
@@ -56,7 +57,7 @@ agent.clear_history()
 # Sugestões de perguntas para o início do chat (lista fixa, sem LLM)
 suggestions = await agent.initial_suggestions()
 print(suggestions)
-# Exemplo: ['Qual é a receita total agrupada por região do país?', 'Quais são os principais clientes do segmento Campeões que mais gastaram na loja?', ...]
+# Exemplo: ['Qual é a receita total agrupada por região do país?', 'Quais são os principais clientes do segmento Campeão que mais gastaram na loja?', ...]
 
 # Sugestões contextuais durante a conversa (gera follow-ups via LLM)
 history = agent.export_history()
@@ -142,8 +143,9 @@ Regras do contrato:
 - `src/vcommerce_ai_agent/llm/`: Geração de prompts, chamadas à API Gemini, clientes LLM e geração de sugestões iniciais
 - `src/vcommerce_ai_agent/security/`: Validações de segurança, guardrails e mascaramento reversível de dados sensíveis
 - `src/vcommerce_ai_agent/llm/prompts/`: Prompts do sistema para SQL, insight, correção de SQL e sugestões iniciais
-- `tests/unit/`: Testes automatizados rápidos e isolados
-- `tests/integration/`: Smoke tests contra a API real e banco sintético
+- `tests/unit/`: Testes automatizados rápidos e isolados (sem cota API)
+- `tests/integration/`: Testes de integração com banco SQLite temporário e LLM mockado
+- `tests/smoke/`: Smoke tests manuais contra a API Gemini real e banco sintético
 
 ## Testes
 
@@ -164,20 +166,25 @@ pytest tests/integration/test_integration_offline.py -v
 ### 3. Smoke tests manuais (consomem cota da API Gemini real)
 
 ```bash
-python tests/integration/smoke_test.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_guardrails.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_memory.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_anonymization.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_suggestions.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_chart_decision.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_demo.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_guardrails.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_memory.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_anonymization.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_suggestions.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_chart_decision.py --api-key SUA_CHAVE
 ```
 
 Também é possível passar a chave via variável de ambiente:
 
 ```bash
-GEMINI_API_KEY=SUA_CHAVE python tests/integration/smoke_test.py
+GEMINI_API_KEY=SUA_CHAVE python tests/smoke/smoke_test.py
 ```
+
+> O `smoke_test_demo.py` é o roteiro consolidado para validar a demo
+> de apresentação. Roda os 9 cenários do `README_DEMO.md` ponta a
+> ponta e valida cada um com asserts específicos.
 
 ## Smoke Test
 
@@ -193,29 +200,31 @@ O smoke test executa o fluxo completo de ponta a ponta contra a API Gemini real.
      ```
    - Ou passada diretamente por linha de comando:
      ```bash
-     python tests/integration/smoke_test.py --api-key SUA_CHAVE
+     python tests/smoke/smoke_test.py --api-key SUA_CHAVE
      ```
 
 ### Como executar
 
 ```bash
 # Usando variável de ambiente (padrão)
-python tests/integration/smoke_test.py
-python tests/integration/smoke_test_guardrails.py
-python tests/integration/smoke_test_memory.py
-python tests/integration/smoke_test_anonymization.py
-python tests/integration/smoke_test_sensitive_data_masking.py
-python tests/integration/smoke_test_suggestions.py
-python tests/integration/smoke_test_chart_decision.py
+python tests/smoke/smoke_test.py
+python tests/smoke/smoke_test_demo.py
+python tests/smoke/smoke_test_guardrails.py
+python tests/smoke/smoke_test_memory.py
+python tests/smoke/smoke_test_anonymization.py
+python tests/smoke/smoke_test_sensitive_data_masking.py
+python tests/smoke/smoke_test_suggestions.py
+python tests/smoke/smoke_test_chart_decision.py
 
 # Ou passando a chave diretamente via flag
-python tests/integration/smoke_test.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_guardrails.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_memory.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_anonymization.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_suggestions.py --api-key SUA_CHAVE
-python tests/integration/smoke_test_chart_decision.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_demo.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_guardrails.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_memory.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_anonymization.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_sensitive_data_masking.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_suggestions.py --api-key SUA_CHAVE
+python tests/smoke/smoke_test_chart_decision.py --api-key SUA_CHAVE
 ```
 
 ### O que o script faz
@@ -230,7 +239,7 @@ python tests/integration/smoke_test_chart_decision.py --api-key SUA_CHAVE
    - **Edge cases:** Pergunta fora do escopo (piada), pergunta ambígua ("Qual a receita?")
 4. **Remove o banco temporário** automaticamente ao final (bloco `try/finally`).
 
-> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Perguntas de fluxo feliz disparam 2 chamadas ao LLM (geração de SQL + geração de insight), perguntas fora do escopo normalmente disparam 1 chamada, e bloqueios pré-LLM disparam 0 chamadas. Cada script valida o orçamento antes de executar o próximo cenário e não deve ultrapassar 20 requisições planejadas por chave. Para reduzir estouro de quota, os smoke tests usam 1 tentativa por chamada LLM; retries continuam habilitados no agente em uso normal. Os limites dos smoke tests são constantes hardcoded e centralizadas em `tests/integration/smoke_tests_config.py`, pois refletem limites fixos do free tier.
+> **Nota:** Os tempos de resposta variam conforme a latência da API Gemini. Perguntas de fluxo feliz disparam 2 chamadas ao LLM (geração de SQL + geração de insight), perguntas fora do escopo normalmente disparam 1 chamada, e bloqueios pré-LLM disparam 0 chamadas. Cada script valida o orçamento antes de executar o próximo cenário e não deve ultrapassar 20 requisições planejadas por chave. Para reduzir estouro de quota, os smoke tests usam 1 tentativa por chamada LLM; retries continuam habilitados no agente em uso normal. Os limites dos smoke tests são constantes hardcoded e centralizadas em `tests/smoke/smoke_tests_config.py`, pois refletem limites fixos do free tier.
 
 O script `smoke_test_anonymization.py` valida o fluxo principal de mascaramento reversível em três cenários: consulta agregada sem dado sensível, consulta simples com nome de cliente e consulta complexa com joins entre Vendas, Clientes, Produtos e Calendário. O cenário complexo confirma múltiplos prefixos de tokens (`Cliente_`, `Email_`, `Telefone_`, `Documento_`, `Pedido_`), restauração dos valores reais na resposta final e ausência de tokens no texto exibido ao usuário.
 
@@ -244,18 +253,18 @@ O pacote emite eventos estruturados via `logging.getLogger("vcommerce_ai_agent")
 
 Eventos principais emitidos:
 
-- `ask_started` — início do processamento de uma pergunta.
-- `prompt_injection_detected` — tentativa de prompt injection detectada na Camada 1.
-- `schema_loaded` — schema carregado com sucesso.
-- `sql_generated` — SQL gerado pela Chamada 1.
-- `layer_2_blocked` — guardrail da Camada 2 bloqueou o SQL (nível WARNING).
-- `sql_correction_attempted` — tentativa de correção automática do SQL.
-- `query_executed` — query executada no banco.
-- `sensitive_masking_applied` — dados sensíveis foram mascarados antes da Chamada 2.
-- `insight_generated` — insight gerado pela Chamada 2.
-- `ask_finished` — fim do processamento, com status e métricas.
-- `suggestions_started`, `suggestions_generated`, `suggestions_fallback`, `suggestions_finished` — ciclo de geração de sugestões iniciais.
-- `llm_retry_attempted` — retry automático em caso de instabilidade do LLM.
+- `ask_started`: início do processamento de uma pergunta.
+- `prompt_injection_detected`: tentativa de prompt injection detectada na Camada 1.
+- `schema_loaded`: schema carregado com sucesso.
+- `sql_generated`: SQL gerado pela Chamada 1.
+- `layer_2_blocked`: guardrail da Camada 2 bloqueou o SQL (nível WARNING).
+- `sql_correction_attempted`: tentativa de correção automática do SQL.
+- `query_executed`: query executada no banco.
+- `sensitive_masking_applied`: dados sensíveis foram mascarados antes da Chamada 2.
+- `insight_generated`: insight gerado pela Chamada 2.
+- `ask_finished`: fim do processamento, com status e métricas.
+- `suggestions_started`, `suggestions_generated`, `suggestions_fallback`, `suggestions_finished`: ciclo de geração de sugestões iniciais.
+- `llm_retry_attempted`: retry automático em caso de instabilidade do LLM.
 
 Garantias de segurança nos logs:
 

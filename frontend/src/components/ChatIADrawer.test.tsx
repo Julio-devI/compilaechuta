@@ -135,6 +135,29 @@ describe('ChatIADrawer', () => {
     expect(await screen.findByText('A receita foi R$ 10.')).toBeInTheDocument()
   })
 
+  it('envia o contexto da tela como chave enumerada', async () => {
+    askAgentMock.mockResolvedValueOnce({
+      status: 'success',
+      session_id: 'sess-clientes',
+      user_response: {
+        answer_text: 'Resposta de clientes.',
+        sources_text: null,
+        data: null,
+        chart: null,
+        truncated: false,
+      },
+    })
+
+    const user = userEvent.setup()
+    renderDrawer('/clientes')
+
+    await user.type(findInput(), 'Quais clientes mais compraram?')
+    await user.keyboard('{Enter}')
+
+    expect(askAgentMock).toHaveBeenCalledTimes(1)
+    expect(askAgentMock.mock.calls[0][2]).toBe('clientes')
+  })
+
   it('enfileira novas perguntas enquanto o agente responde e preserva a ordem visual', async () => {
     let resolveFirst!: (value: unknown) => void
     let resolveSecond!: (value: unknown) => void

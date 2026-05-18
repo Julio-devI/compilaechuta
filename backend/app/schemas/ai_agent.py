@@ -144,6 +144,26 @@ class AskRequest(BaseModel):
         ),
         examples=["sessao-usuario-123"],
     )
+    page_context: Optional[
+        Literal[
+            "dashboard",
+            "clientes",
+            "pedidos",
+            "produtos",
+            "suporte",
+            "categorias",
+            "relatorios",
+        ]
+    ] = Field(
+        None,
+        description=(
+            "Chave opcional da tela que abriu o drawer. O backend usa apenas "
+            "valores permitidos para escolher um contexto interno de prompt "
+            "na primeira pergunta de uma sessão nova. Sessões com histórico "
+            "ignoram este campo."
+        ),
+        examples=["dashboard"],
+    )
 
 
 class SuggestionsRequest(BaseModel):

@@ -40,6 +40,51 @@ _EXCLUDED_TABLES: set[str] = {
     "gold_operador",
 }
 
+_PAGE_CONTEXT_PROMPTS: dict[str, str] = {
+    "dashboard": (
+        "O usuário abriu o drawer a partir do dashboard executivo. "
+        "Use esse contexto apenas para desambiguar a primeira pergunta, "
+        "priorizando indicadores gerais de vendas, clientes, pedidos, "
+        "receita, canais e operação comercial quando a pergunta for ambígua."
+    ),
+    "clientes": (
+        "O usuário abriu o drawer a partir da tela de clientes. "
+        "Use esse contexto apenas para desambiguar a primeira pergunta, "
+        "priorizando análises de clientes, segmentos, regiões, recorrência, "
+        "ticket médio e comportamento de compra quando a pergunta for ambígua."
+    ),
+    "pedidos": (
+        "O usuário abriu o drawer a partir da tela de pedidos. "
+        "Use esse contexto apenas para desambiguar a primeira pergunta, "
+        "priorizando análises de pedidos, status, valores, datas, entregas "
+        "e evolução de volume quando a pergunta for ambígua."
+    ),
+    "produtos": (
+        "O usuário abriu o drawer a partir da tela de produtos. "
+        "Use esse contexto apenas para desambiguar a primeira pergunta, "
+        "priorizando análises de produtos, categorias, vendas, avaliações "
+        "e desempenho comercial quando a pergunta for ambígua."
+    ),
+    "suporte": (
+        "O usuário abriu o drawer a partir da tela de suporte. "
+        "Use esse contexto apenas para desambiguar a primeira pergunta, "
+        "priorizando análises de tickets, tipos de problema, tempo de "
+        "resolução, satisfação e atendimento quando a pergunta for ambígua."
+    ),
+    "categorias": (
+        "O usuário abriu o drawer a partir da tela de categorias. "
+        "Use esse contexto apenas para desambiguar a primeira pergunta, "
+        "priorizando análises de categorias de produto, receita, vendas, "
+        "avaliações e desempenho comparativo quando a pergunta for ambígua."
+    ),
+    "relatorios": (
+        "O usuário abriu o drawer a partir da tela de relatórios. "
+        "Use esse contexto apenas para desambiguar a primeira pergunta, "
+        "priorizando análises temporais, comparativos, evolução de métricas "
+        "e indicadores consolidados quando a pergunta for ambígua."
+    ),
+}
+
 _ERROR_MESSAGES: dict[str, str] = {
     "EMPTY_INPUT": "Por favor, digite uma pergunta válida.",
     "INPUT_TOO_LONG": "Sua pergunta é muito longa. Tente ser mais breve.",
@@ -188,6 +233,15 @@ def _complete_turns_for_agent(
     return history
 
 
+def _initial_page_context_for_agent(
+    page_context: str | None,
+    history: list[dict[str, Any]],
+) -> str | None:
+    if history or not page_context:
+        return None
+    return _PAGE_CONTEXT_PROMPTS.get(page_context)
+
+
 @router.post(
     "/ask",
     response_model=AgentResponseSchema,
@@ -257,6 +311,10 @@ async def ask_agent(
         )
 
         agent_history = _complete_turns_for_agent(history)
+        initial_context = _initial_page_context_for_agent(
+            payload.page_context,
+            history,
+        )
 
         if agent_history:
             try:
@@ -283,7 +341,10 @@ async def ask_agent(
             ),
         )
 
-        response = await agent.ask(payload.question)
+        response = await agent.ask(
+            payload.question,
+            initial_context=initial_context,
+        )
 
         if response.status == "success":
             await create_or_update_session(

@@ -30,6 +30,7 @@ import {
   getSessionDetail,
   getSuggestions,
   listSessions,
+  type AiAgentPageContext,
   type SessionSummary,
 } from '@/services/aiAgentService'
 import type { AiAgentMessage } from '@/contexts/AiAgentChatContext'
@@ -96,6 +97,19 @@ function buildOptimisticHistoryItem(
     title,
     timestamp: nowHHmm(),
   }
+}
+
+function getPageContext(pathname: string): AiAgentPageContext | undefined {
+  if (pathname === '/dashboard') return 'dashboard'
+  if (pathname === '/clientes') return 'clientes'
+  if (pathname === '/pedidos') return 'pedidos'
+  if (pathname === '/produtos' || pathname.startsWith('/produtos/')) {
+    return 'produtos'
+  }
+  if (pathname === '/suporte') return 'suporte'
+  if (pathname === '/categorias') return 'categorias'
+  if (pathname === '/relatorios') return 'relatorios'
+  return undefined
 }
 
 export function ChatIADrawer() {
@@ -250,7 +264,11 @@ export function ChatIADrawer() {
     setIsTyping(true)
 
     try {
-      const response = await askAgent(text, sessionId)
+      const response = await askAgent(
+        text,
+        sessionId,
+        getPageContext(location.pathname),
+      )
       const assistantText =
         response.user_response.answer_text ||
         (response.status === 'out_of_scope'
@@ -295,6 +313,7 @@ export function ChatIADrawer() {
     }
   }, [
     nextMessageId,
+    location.pathname,
     sessionId,
     setActiveConversation,
     setIsTyping,

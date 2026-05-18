@@ -84,6 +84,29 @@ describe('askAgent', () => {
     })
   })
 
+  it('envia page_context quando informado', async () => {
+    const fetchMock = mockFetchOk({
+      status: 'success',
+      session_id: 's1',
+      user_response: {
+        answer_text: 'ok',
+        sources_text: null,
+        data: null,
+        chart: null,
+        truncated: false,
+      },
+    })
+
+    await askAgent('Qual?', 's1', 'clientes')
+
+    const [, options] = fetchMock.mock.calls[0]
+    expect(JSON.parse(options.body)).toEqual({
+      question: 'Qual?',
+      session_id: 's1',
+      page_context: 'clientes',
+    })
+  })
+
   it('lanca Error com detail quando fetch retorna nao-ok', async () => {
     mockFetchErr(500, 'Servidor caiu')
     await expect(askAgent('x', 's1')).rejects.toThrow('Servidor caiu')

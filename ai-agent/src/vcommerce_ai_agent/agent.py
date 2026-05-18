@@ -808,7 +808,11 @@ class VCommerceAgent:
             y_axis_format=y_axis_format,
         )
 
-    async def ask(self, question: str) -> AgentResponse:
+    async def ask(
+        self,
+        question: str,
+        initial_context: str | None = None,
+    ) -> AgentResponse:
         """
         Processa uma pergunta em linguagem natural e retorna uma resposta estruturada.
 
@@ -822,6 +826,8 @@ class VCommerceAgent:
 
         Args:
             question: Pergunta do usuário em português brasileiro.
+            initial_context: Contexto seguro opcional injetado apenas na
+                Chamada 1 para desambiguar a primeira pergunta da conversa.
 
         Returns:
             AgentResponse com payload de usuário e debug técnico separados.
@@ -954,7 +960,11 @@ class VCommerceAgent:
         sql_start = time.perf_counter()
         try:
             sql, sql_tokens = await generate_sql(
-                question, schema, history=self._history, model=self._llm_model
+                question,
+                schema,
+                history=self._history,
+                model=self._llm_model,
+                initial_context=initial_context,
             )
             if sql_tokens is not None:
                 tokens_used = (tokens_used or 0) + sql_tokens

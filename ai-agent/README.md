@@ -72,7 +72,7 @@ print(next_suggestions)
 
 ## Contrato de Resposta
 
-`VCommerceAgent.ask(question)` retorna um `AgentResponse` com contrato estável para o backend:
+`VCommerceAgent.ask(question, initial_context=None)` retorna um `AgentResponse` com contrato estável para o backend:
 
 ```python
 @dataclass

@@ -2,6 +2,14 @@ import { getAuthHeaders } from './authService'
 import { apiUrl } from './apiConfig'
 
 export type ChartValueFormat = 'percent' | 'currency' | 'number'
+export type AiAgentPageContext =
+  | 'dashboard'
+  | 'clientes'
+  | 'pedidos'
+  | 'produtos'
+  | 'suporte'
+  | 'categorias'
+  | 'relatorios'
 
 export interface ChartSuggestion {
   type: 'bar' | 'line' | 'pie' | 'area'
@@ -65,11 +73,16 @@ async function parseError(res: Response, fallback: string): Promise<never> {
 export async function askAgent(
   question: string,
   sessionId: string,
+  pageContext?: AiAgentPageContext,
 ): Promise<AgentResponse> {
   const res = await fetch(apiUrl('/ai-agent/ask'), {
     method: 'POST',
     headers: buildHeaders(),
-    body: JSON.stringify({ question, session_id: sessionId }),
+    body: JSON.stringify({
+      question,
+      session_id: sessionId,
+      page_context: pageContext,
+    }),
   })
   if (!res.ok) await parseError(res, 'Erro ao consultar o agente')
   return res.json()

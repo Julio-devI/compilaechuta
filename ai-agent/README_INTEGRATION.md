@@ -160,13 +160,15 @@ Para APIs HTTP com múltiplas sessões de chat, a memória de conversa é respon
 
 ## Funções Públicas Disponíveis
 
-### `async ask(question: str) -> AgentResponse`
+### `async ask(question: str, initial_context: str | None = None) -> AgentResponse`
 
 Processa uma pergunta do usuário.
 
 Comportamento:
 
 - Aceita perguntas em português brasileiro.
+- `initial_context` é opcional e deve ser usado apenas pelo backend para injetar contexto seguro da tela na primeira pergunta de uma sessão nova.
+- O contexto inicial não é persistido no histórico e não restringe a conversa; ele serve apenas como ponto de partida para desambiguação.
 - Retorna sempre `AgentResponse` para falhas esperadas do pipeline.
 - Não levanta exceção para input vazio, input longo, tipo inválido, erro de LLM, erro de SQL ou timeout de banco; esses casos viram `status="error"`.
 - Perguntas fora do escopo viram `status="out_of_scope"`.
@@ -175,7 +177,10 @@ Comportamento:
 Exemplo:
 
 ```python
-response = await agent.ask("Quais foram os 10 produtos com maior receita?")
+response = await agent.ask(
+    "Quais foram os 10 produtos com maior receita?",
+    initial_context="O usuário abriu o drawer a partir da tela de produtos.",
+)
 
 if response.status == "success":
     return response.user_response
@@ -360,6 +365,7 @@ router = APIRouter()
 
 class AskRequest(BaseModel):
     question: str
+    page_context: str | None = None
     history: list[dict[str, str | None]] | None = None
 
 
@@ -370,7 +376,14 @@ async def ask_agent(payload: AskRequest) -> dict[str, Any]:
     if payload.history is not None:
         agent.import_history(payload.history)
 
-    response = await agent.ask(payload.question)
+    initial_context = None
+    if payload.page_context == "produtos" and not payload.history:
+        initial_context = "O usuário abriu o drawer a partir da tela de produtos."
+
+    response = await agent.ask(
+        payload.question,
+        initial_context=initial_context,
+    )
     history = agent.export_history()
 
     return {
@@ -724,3 +737,4 @@ O evento `agent_response_debug` registra a resposta completa para facilitar debu
 10. Aplicar lock por `session_id` para serializar perguntas simultâneas da mesma conversa.
 11. Usar `developer_debug` apenas para logs/auditoria.
 12. Chamar `invalidate_schema()` quando o schema Gold ou as descrições mudarem.
+13. Se o frontend informar uma chave de tela, validar a chave no backend e passar texto interno via `initial_context` somente quando a sessão ainda não possuir histórico.

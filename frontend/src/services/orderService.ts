@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig'
+
 export interface PedidoBackend {
   id_pedido_display: string;
   id_pedido: string;
@@ -10,13 +12,6 @@ export interface PedidoBackend {
   valor_total_venda?: number;
   status?: string;
   metodo_pagamento?: string;
-  nome_cliente?: string;
-  cidade_cliente?: string;
-  estado_cliente?: string;
-  segmento_cliente?: string;
-  qtd_tickets_cliente?: number;
-  media_estrelas_cliente?: number;
-  qtd_pedidos_cliente?: number;
 }
 
 export interface Pedido {
@@ -50,10 +45,32 @@ export interface FiltrosPedidos {
   tipo_cliente?: string;
   nome_produto?: string;
   status_ticket?: string;
-  id_cliente?: string;
 }
 
-const API_URL = 'http://localhost:8000/api/v1/orders'
+const API_URL = apiUrl('/orders')
+const CLIENT_API_URL = apiUrl('/clients')
+
+// Cache local simples para evitar múltiplas chamadas à API pelo mesmo cliente
+const clientCache = new Map<string, any>();
+
+async function getClientData(id_cliente: string) {
+  if (clientCache.has(id_cliente)) {
+    return clientCache.get(id_cliente);
+  }
+  
+  try {
+    const response = await fetch(`${CLIENT_API_URL}/${id_cliente}`);
+    if (response.ok) {
+      const data = await response.json();
+      clientCache.set(id_cliente, data);
+      return data;
+    }
+  } catch (error) {
+    console.error(`Erro ao buscar dados do cliente ${id_cliente}:`, error);
+  }
+  
+  return null;
+}
 
 export async function getPedidos(
   skip: number = 0,
@@ -74,37 +91,42 @@ export async function getPedidos(
     if (filtros?.tipo_cliente) params.append('tipo_cliente', filtros.tipo_cliente);
     if (filtros?.nome_produto) params.append('nome_produto', filtros.nome_produto);
     if (filtros?.status_ticket) params.append('status_ticket', filtros.status_ticket);
-    if (filtros?.id_cliente) params.append('id_cliente', filtros.id_cliente);
 
     const response = await fetch(`${API_URL}/?${params.toString()}`);
 
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
     const result = await response.json();
 
-    // Como já carregamos os dados do cliente no backend via propriedades eager load, não precisamos mais chamar getClientData
-    const mappedData: Pedido[] = result.data.map((p: any) => {
+    // Como getClientData é assíncrono, usaremos Promise.all
+    const mappedData: Pedido[] = await Promise.all(
+      result.data.map(async (p: any) => {
+        
+        // Busca os dados adicionais do cliente para exibir na interface
+        const clientData = await getClientData(p.id_cliente);
+        
         return {
           id: p.id_pedido_display,
           idReal: p.id_pedido, // ID real do banco (necessário para buscar o ticket)
-          cliente: p.nome_cliente || p.id_cliente, // Agora usa o nome do cliente que já veio do backend
-          cidade: p.cidade_cliente || 'N/A',
-          estado: p.estado_cliente || 'N/A',
+          cliente: clientData?.nome_cliente || p.id_cliente, // Agora usa o nome do cliente se existir
+          cidade: clientData?.cidade || 'N/A',
+          estado: clientData?.estado || 'N/A',
           produtos: p.quantidade_vendas || 1,
           valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_total_venda || 0),
           data: p.id_data ? new Date(p.id_data).toLocaleDateString('pt-BR') : 'N/A',
           status: p.status || 'No prazo',
-          recorrente: p.segmento_cliente?.toLowerCase().includes('recorrente') || false,
-          ticket: p.qtd_tickets_cliente || 0,
+          recorrente: clientData?.segmento_rfm?.toLowerCase().includes('recorrente') || false,
+          ticket: clientData?.qtd_tickets_suporte || 0,
           tempoAberto: 'N/A',
           progresso: p.status === 'Aprovado' ? 2 : p.status === 'Processando' ? 3 : p.status === 'Reembolsado' ? 1 : 5,
-          mediaEstrelas: p.media_estrelas_cliente || 0,
-          totalPedidosCliente: p.qtd_pedidos_cliente || 1,
+          mediaEstrelas: clientData?.media_estrelas_dadas || 0,
+          totalPedidosCliente: clientData?.qtd_pedidos_realizados || 1,
           nomeProduto: p.nome_produto || 'Produto Principal',
           valorUnitario: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_unitario || 0),
           skuProduto: p.id_produto || 'SKU-001',
           metodo_pagamento: p.metodo_pagamento || 'N/A'
         }
-    });
+      })
+    );
 
     return { data: mappedData, total: result.total };
   } catch (error) {

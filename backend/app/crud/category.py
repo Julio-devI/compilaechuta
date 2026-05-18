@@ -84,14 +84,15 @@ async def get_all_categories(
     return lista_categorias
 
 
-async def create_category(db: AsyncSession, *, obj_in: CategoryCreate, slug_categoria: str,) -> Categoria:
+async def create_category(db: AsyncSession, *, obj_in: CategoryCreate) -> Categoria:
 
     category_id = await generate_category_id(db)
+    slug = generate_slug(obj_in.nome_categoria)
 
     category = Categoria(
         id_categoria=category_id,
         nome_categoria=obj_in.nome_categoria.strip(),
-        slug_categoria=slug_categoria,
+        slug_categoria=slug,
         imagem_url=obj_in.imagem_url,
     )
 

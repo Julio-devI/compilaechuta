@@ -17,7 +17,7 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-DATABASE_PATH = BASE_DIR / "scripts" / "vcommerce.db"
+DATABASE_PATH = BASE_DIR / "vcommerce.db"
 
 SQLALCHEMY_DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_PATH}"
 

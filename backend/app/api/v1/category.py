@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from app.api import deps
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 from app.services import category as service_category
+from app.crud import category as crud_category
 
 router = APIRouter()
 
@@ -33,7 +34,7 @@ async def read_categories(
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
-    categories = await crud_category.get_multi_categories(db, skip=skip, limit=limit)
+    categories = await crud_category.get_all_categories(db, skip=skip, limit=limit)
     return categories
 
 @router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)

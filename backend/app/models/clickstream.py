@@ -15,4 +15,3 @@ class Clickstream(Base):
     qtd_compras = Column(Integer)
     canal_mais_usado = Column(String)
     dispositivo_mais_usado = Column(String)
-    timestamp_ingestion_gold = Column(DateTime)

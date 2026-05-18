@@ -13,7 +13,6 @@ class ClickstreamResponse(BaseModel):
     qtd_compras: Optional[int] = None
     canal_mais_usado: Optional[str] = None
     dispositivo_mais_usado: Optional[str] = None
-    timestamp_ingestion_gold: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

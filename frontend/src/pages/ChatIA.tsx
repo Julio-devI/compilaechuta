@@ -1,5 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  useAiAgentChat,
+  type AiAgentMessage,
+} from '@/contexts/AiAgentChatContext'
 import {
   Send,
   Bot,
@@ -8,26 +12,44 @@ import {
   Users,
   BarChart,
   Search,
+  X,
   MessageSquare,
   Plus,
   Lightbulb,
   ChevronDown,
   Trash2,
-  Minimize2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import {
+  askAgent,
+  getSuggestions,
+  listSessions,
+  getSessionDetail,
+  deleteSession,
+  type SessionSummary,
+} from '@/services/aiAgentService'
+import {
   SLASH_COMMANDS,
   SlashCommandMenu,
 } from '@/components/SlashCommandMenu'
 import { AgentChart } from '@/components/AgentChart'
+import { AgentDataTable } from '@/components/AgentDataTable'
 import {
   AGENT_PLACEHOLDERS,
   useRotatingPlaceholder,
 } from '@/lib/useRotatingPlaceholder'
-import { useChat, ConversaHistorico } from '@/contexts/ChatContext'
+import { shouldShowAgentDataTable } from '@/lib/agentDataDisplay'
+
+interface ConversaHistorico {
+  id: string
+  titulo: string
+  timestamp: string
+}
+
+const SUGGESTIONS_REQUEST_MESSAGE =
+  'Estou sem ideias do que perguntar agora. Com base no que conversamos até aqui, pode me sugerir algumas perguntas?'
 
 const SUGGESTION_ICONS: LucideIcon[] = [
   Sparkles,
@@ -37,58 +59,303 @@ const SUGGESTION_ICONS: LucideIcon[] = [
   MessageSquare,
 ]
 
+function nowHHmm(): string {
+  return new Date().toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatSessionTimestamp(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const today = new Date()
+  const sameDay =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  if (sameDay) {
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+function summaryToHistorico(s: SessionSummary): ConversaHistorico {
+  return {
+    id: s.session_id,
+    titulo: s.title,
+    timestamp: formatSessionTimestamp(s.updated_at),
+  }
+}
+
+function buildOptimisticHistorico(
+  sessionId: string,
+  question: string,
+): ConversaHistorico {
+  const title = question.length > 80 ? `${question.slice(0, 77)}...` : question
+  return {
+    id: sessionId,
+    titulo: title,
+    timestamp: nowHHmm(),
+  }
+}
+
 export function ChatIA() {
   const navigate = useNavigate()
-  const {
-    mensagens,
-    inputValue,
-    setInputValue,
-    isTyping,
-    conversaAtiva,
-    expandedCharts,
-    toggleChart,
-    conversasHistorico,
-    searchHistorico,
-    setSearchHistorico,
-    suggestions,
-    setDrawerOpen,
-    lastRoute,
-    sendQuestion,
-    handleConversaHistorico,
-    handleNovaConversa,
-    handleDeleteConversation,
-    runSugestaoCommand,
-  } = useChat()
-
+  const [inputValue, setInputValue] = useState('')
+  const [searchHistorico, setSearchHistorico] = useState('')
+  const [conversasHistorico, setConversasHistorico] = useState<
+    ConversaHistorico[]
+  >([])
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
+  const [expandedCharts, setExpandedCharts] = useState<Set<number>>(new Set())
+  const [expandedTables, setExpandedTables] = useState<Set<number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ConversaHistorico | null>(null)
   const [isDeletingConversation, setIsDeletingConversation] = useState(false)
-  const [isVisible, setIsVisible] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const {
+    messages,
+    setMessages,
+    sessionId,
+    setSessionId,
+    activeConversation,
+    setActiveConversation,
+    initialSuggestions,
+    setInitialSuggestions,
+    isTyping,
+    setIsTyping,
+    pendingQuestions,
+    setPendingQuestions,
+    nextMessageId,
+    resetActiveConversation,
+  } = useAiAgentChat()
+  const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
+  const conversationTokenRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS)
 
+  const toggleChart = (messageId: number) => {
+    setExpandedCharts(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) {
+        next.delete(messageId)
+      } else {
+        next.add(messageId)
+      }
+      return next
+    })
+  }
+
+  const toggleTable = (messageId: number) => {
+    setExpandedTables(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) {
+        next.delete(messageId)
+      } else {
+        next.add(messageId)
+      }
+      return next
+    })
+  }
+
+  const refreshSessions = async () => {
+    try {
+      const sessions = await listSessions()
+      setConversasHistorico(sessions.map(summaryToHistorico))
+      return sessions
+    } catch (err) {
+      toast.error((err as Error).message)
+      return []
+    }
+  }
+
+  const loadInitialSuggestions = async () => {
+    try {
+      const { suggestions: list } = await getSuggestions('')
+      setInitialSuggestions(list)
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
   useEffect(() => {
-    // Aciona a transição de entrada assim que a página é montada
-    requestAnimationFrame(() => setIsVisible(true))
+    const initChat = async () => {
+      await refreshSessions()
+      if (messages.length === 0 && initialSuggestions.length === 0) {
+        loadInitialSuggestions()
+      }
+    }
+    initChat()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [mensagens, isTyping])
+  }, [messages, isTyping])
 
-  const handleMinimize = () => {
-    setIsVisible(false)
-    setTimeout(() => {
-      setDrawerOpen(true)
-      navigate(lastRoute)
-    }, 300)
+  useEffect(() => {
+    pendingQuestionsRef.current = pendingQuestions
+  }, [pendingQuestions])
+
+  const processQuestion = useCallback(async (rawText: string) => {
+    const text = rawText.trim()
+    if (!text) return
+    const requestToken = conversationTokenRef.current
+
+    setActiveConversation(sessionId)
+    setConversasHistorico(prev => [
+      buildOptimisticHistorico(sessionId, text),
+      ...prev.filter(conversa => conversa.id !== sessionId),
+    ])
+    setMessages(prev => [
+      ...prev,
+      {
+        id: nextMessageId(),
+        type: 'user',
+        content: text,
+        timestamp: nowHHmm(),
+      },
+    ])
+    setIsTyping(true)
+
+    try {
+      const response = await askAgent(text, sessionId)
+      if (conversationTokenRef.current !== requestToken) return
+
+      const assistantText =
+        response.user_response.answer_text ||
+        (response.status === 'out_of_scope'
+          ? 'Não consegui responder a essa pergunta com os dados disponíveis.'
+          : 'Ocorreu um erro ao processar a resposta.')
+
+      setMessages(prev => [
+        ...prev,
+        {
+          id: nextMessageId(),
+          type: 'assistant',
+          content: assistantText,
+          timestamp: nowHHmm(),
+          sources_text: response.user_response.sources_text,
+          data: response.user_response.data,
+          chart: response.user_response.chart,
+        },
+      ])
+
+      if (response.status === 'success') {
+        refreshSessions()
+      }
+    } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
+      const message = (err as Error).message
+      toast.error(message)
+      setMessages(prev => [
+        ...prev,
+        {
+          id: nextMessageId(),
+          type: 'assistant',
+          content: `Ops, algo deu errado: ${message}`,
+          timestamp: nowHHmm(),
+        },
+      ])
+    } finally {
+      if (conversationTokenRef.current !== requestToken) return
+
+      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      if (nextQuestion) {
+        pendingQuestionsRef.current = remainingQuestions
+        setPendingQuestions(remainingQuestions)
+        processQuestion(nextQuestion)
+      } else {
+        setIsTyping(false)
+      }
+    }
+  }, [
+    nextMessageId,
+    refreshSessions,
+    sessionId,
+    setActiveConversation,
+    setIsTyping,
+    setMessages,
+    setPendingQuestions,
+  ])
+
+  const sendQuestion = (rawText: string) => {
+    const text = rawText.trim()
+    if (!text) return
+
+    setInputValue('')
+    setSlashMenuOpen(false)
+
+    if (isTyping) {
+      const nextQuestions = [...pendingQuestionsRef.current, text]
+      pendingQuestionsRef.current = nextQuestions
+      setPendingQuestions(nextQuestions)
+      return
+    }
+
+    processQuestion(text)
+  }
+
+  const removePendingQuestion = (indexToRemove: number) => {
+    const nextQuestions = pendingQuestionsRef.current.filter(
+      (_, index) => index !== indexToRemove,
+    )
+    pendingQuestionsRef.current = nextQuestions
+    setPendingQuestions(nextQuestions)
+  }
+
+  const runSugestaoCommand = async () => {
+    const requestToken = conversationTokenRef.current
+    setMessages(prev => [
+      ...prev,
+      {
+        id: nextMessageId(),
+        type: 'user',
+        content: SUGGESTIONS_REQUEST_MESSAGE,
+        timestamp: nowHHmm(),
+      },
+    ])
+    setIsTyping(true)
+    try {
+      const { suggestions: list } = await getSuggestions(sessionId)
+      if (conversationTokenRef.current !== requestToken) return
+
+      setMessages(prev => [
+        ...prev,
+        {
+          id: nextMessageId(),
+          type: 'assistant',
+          content: 'Aqui vão algumas sugestões para você:',
+          timestamp: nowHHmm(),
+          suggestions: list,
+        },
+      ])
+    } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
+      toast.error((err as Error).message)
+    } finally {
+      if (conversationTokenRef.current !== requestToken) return
+
+      const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
+      if (nextQuestion) {
+        pendingQuestionsRef.current = remainingQuestions
+        setPendingQuestions(remainingQuestions)
+        processQuestion(nextQuestion)
+      } else {
+        setIsTyping(false)
+      }
+    }
   }
 
   const executeSlashCommand = (command: string) => {
     setInputValue('')
     setSlashMenuOpen(false)
-    if (command === '/sugestao') runSugestaoCommand()
+    if (command === '/sugestao') {
+      runSugestaoCommand()
+    }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,31 +364,41 @@ export function ChatIA() {
     setSlashMenuOpen(value.startsWith('/'))
   }
 
-  const tryExecuteSlashCommand = (): boolean => {
-    const match = SLASH_COMMANDS.find(
-      c => c.command.toLowerCase() === inputValue.trim().toLowerCase(),
-    )
-    if (match) {
-      executeSlashCommand(match.command)
-      return true
-    }
-    return false
-  }
-
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
     if (slashMenuOpen) {
       e.preventDefault()
-      if (tryExecuteSlashCommand()) return
+      const match = SLASH_COMMANDS.find(
+        c => c.command.toLowerCase() === inputValue.toLowerCase(),
+      )
+      if (match) executeSlashCommand(match.command)
+      return
     }
     sendQuestion(inputValue)
-    setSlashMenuOpen(false)
   }
 
   const handleEnviar = () => {
-    if (slashMenuOpen && tryExecuteSlashCommand()) return
+    if (slashMenuOpen) {
+      const match = SLASH_COMMANDS.find(
+        c => c.command.toLowerCase() === inputValue.toLowerCase(),
+      )
+      if (match) executeSlashCommand(match.command)
+      return
+    }
     sendQuestion(inputValue)
+  }
+
+  const handleNovaConversa = () => {
+    conversationTokenRef.current += 1
+    pendingQuestionsRef.current = []
+    resetActiveConversation()
+    setPendingQuestions([])
+    setInputValue('')
     setSlashMenuOpen(false)
+    setIsTyping(false)
+    setExpandedCharts(new Set())
+    setExpandedTables(new Set())
+    loadInitialSuggestions()
   }
 
   const handleHistoryItemKeyDown = (
@@ -142,14 +419,69 @@ export function ChatIA() {
     setDeleteTarget(conversa)
   }
 
-  const confirmDeleteConversation = async () => {
+  const handleDeleteConversation = async () => {
     if (!deleteTarget) return
+
+    const deletedConversationId = deleteTarget.id
+    const deletedActiveConversation = activeConversation === deletedConversationId
     setIsDeletingConversation(true)
+
     try {
-      await handleDeleteConversation(deleteTarget.id)
+      await deleteSession(deletedConversationId)
+      setConversasHistorico(prev =>
+        prev.filter(conversa => conversa.id !== deletedConversationId),
+      )
       setDeleteTarget(null)
+      toast.success('Conversa apagada com sucesso.')
+
+      if (deletedActiveConversation) {
+        conversationTokenRef.current += 1
+        pendingQuestionsRef.current = []
+        resetActiveConversation()
+        setPendingQuestions([])
+        setInputValue('')
+        setSlashMenuOpen(false)
+        setIsTyping(false)
+        setExpandedCharts(new Set())
+        setExpandedTables(new Set())
+        loadInitialSuggestions()
+      }
+    } catch (err) {
+      toast.error((err as Error).message)
     } finally {
       setIsDeletingConversation(false)
+    }
+  }
+
+  const handleConversaHistorico = async (id: string) => {
+    const requestToken = conversationTokenRef.current + 1
+    conversationTokenRef.current = requestToken
+    setActiveConversation(id)
+    setSessionId(id)
+    setInputValue('')
+    setSlashMenuOpen(false)
+    setIsTyping(false)
+    pendingQuestionsRef.current = []
+    setPendingQuestions([])
+    try {
+      const detail = await getSessionDetail(id)
+      if (conversationTokenRef.current !== requestToken) return
+
+      const mapped: AiAgentMessage[] = detail.history.map(entry => ({
+        id: nextMessageId(),
+        type: entry.role,
+        content: entry.content,
+        timestamp: '',
+        sources_text: entry.sources_text,
+        data: entry.data,
+        chart: entry.chart,
+      }))
+      setMessages(mapped)
+      setExpandedCharts(new Set())
+      setExpandedTables(new Set())
+    } catch (err) {
+      if (conversationTokenRef.current !== requestToken) return
+      toast.error((err as Error).message)
     }
   }
 
@@ -159,8 +491,7 @@ export function ChatIA() {
 
   return (
     <div
-      className={`fixed inset-y-0 right-0 z-10 flex flex-col transition-all duration-300 ease-out ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
-        }`}
+      className="fixed inset-y-0 right-0 z-10 flex flex-col"
       style={{ left: '80px', background: 'var(--chat-bg)' }}
     >
       {/* Header */}
@@ -184,11 +515,11 @@ export function ChatIA() {
 
         <div className="flex items-center gap-1">
           <button
-            onClick={handleMinimize}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors text-muted hover:text-foreground hover:bg-[var(--chat-item-hover)]"
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted hover:text-foreground rounded-lg transition-colors hover:bg-(--chat-item-hover)"
           >
-            <Minimize2 className="w-4 h-4" />
-            Minimizar
+            <X className="w-3.5 h-3.5" />
+            Fechar
           </button>
         </div>
       </div>
@@ -234,20 +565,20 @@ export function ChatIA() {
                 className="relative w-full text-left p-3 pr-9 pb-8 rounded-xl transition-colors cursor-pointer"
                 style={{
                   background:
-                    conversaAtiva === conversa.id
+                    activeConversation === conversa.id
                       ? 'var(--chat-history-active-bg)'
                       : 'transparent',
                   border:
-                    conversaAtiva === conversa.id
+                    activeConversation === conversa.id
                       ? '1px solid var(--chat-history-active-border)'
                       : '1px solid transparent',
                 }}
                 onMouseEnter={e => {
-                  if (conversaAtiva !== conversa.id)
+                  if (activeConversation !== conversa.id)
                     e.currentTarget.style.background = 'var(--chat-item-hover)'
                 }}
                 onMouseLeave={e => {
-                  if (conversaAtiva !== conversa.id)
+                  if (activeConversation !== conversa.id)
                     e.currentTarget.style.background = 'transparent'
                 }}
               >
@@ -256,12 +587,12 @@ export function ChatIA() {
                     className="w-3.5 h-3.5 mt-0.5 shrink-0"
                     style={{
                       color:
-                        conversaAtiva === conversa.id
+                        activeConversation === conversa.id
                           ? 'var(--chat-accent)'
                           : undefined,
                     }}
                     color={
-                      conversaAtiva === conversa.id
+                      activeConversation === conversa.id
                         ? undefined
                         : 'var(--color-muted-foreground)'
                     }
@@ -271,7 +602,7 @@ export function ChatIA() {
                       className="text-xs font-medium leading-snug text-foreground"
                       style={{
                         color:
-                          conversaAtiva === conversa.id
+                          activeConversation === conversa.id
                             ? 'var(--chat-accent)'
                             : undefined,
                         display: '-webkit-box',
@@ -313,7 +644,7 @@ export function ChatIA() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {mensagens.length === 0 ? (
+          {messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8">
               <div className="w-14 h-14 bg-linear-to-br from-[#1E5EFF] to-[#8B5CF6] rounded-2xl flex items-center justify-center mb-5">
                 <Sparkles className="w-7 h-7 text-white" />
@@ -324,9 +655,8 @@ export function ChatIA() {
               <p className="text-sm text-muted mb-8">
                 Pergunte qualquer coisa sobre seu negócio
               </p>
-
               <div className="grid grid-cols-2 gap-3 w-full max-w-2xl">
-                {suggestions.map((texto, i) => {
+                {initialSuggestions.map((texto, i) => {
                   const Icon = SUGGESTION_ICONS[i % SUGGESTION_ICONS.length]
                   return (
                     <button
@@ -338,12 +668,12 @@ export function ChatIA() {
                         border: '1px solid var(--chat-border)',
                       }}
                       onMouseEnter={e =>
-                      (e.currentTarget.style.borderColor =
-                        'var(--chat-accent)')
+                        (e.currentTarget.style.borderColor =
+                          'var(--chat-accent)')
                       }
                       onMouseLeave={e =>
-                      (e.currentTarget.style.borderColor =
-                        'var(--chat-border)')
+                        (e.currentTarget.style.borderColor =
+                          'var(--chat-border)')
                       }
                     >
                       <div
@@ -365,7 +695,7 @@ export function ChatIA() {
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto themed-scrollbar p-6 space-y-5">
-              {mensagens.map(msg => (
+              {messages.map(msg => (
                 <div
                   key={msg.id}
                   className={`flex gap-3 ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}
@@ -393,18 +723,18 @@ export function ChatIA() {
                       style={
                         msg.type === 'user'
                           ? {
-                            background: '#1E5EFF',
-                            color: 'white',
-                            borderRadius: '1rem',
-                            borderTopRightRadius: '4px',
-                          }
+                              background: '#1E5EFF',
+                              color: 'white',
+                              borderRadius: '1rem',
+                              borderTopRightRadius: '4px',
+                            }
                           : {
-                            background: 'var(--chat-msg-ai-bg)',
-                            border: '1px solid var(--chat-border)',
-                            color: 'var(--color-foreground)',
-                            borderRadius: '1rem',
-                            borderTopLeftRadius: '4px',
-                          }
+                              background: 'var(--chat-msg-ai-bg)',
+                              border: '1px solid var(--chat-border)',
+                              color: 'var(--color-foreground)',
+                              borderRadius: '1rem',
+                              borderTopLeftRadius: '4px',
+                            }
                       }
                     >
                       {msg.type === 'user' ? (
@@ -448,6 +778,32 @@ export function ChatIA() {
                         </div>
                       )}
 
+                      {msg.type === 'assistant' && shouldShowAgentDataTable(msg.chart, msg.data) && (
+                        <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
+                          <button
+                            type="button"
+                            onClick={() => toggleTable(msg.id)}
+                            className="flex items-center gap-1.5 text-xs font-semibold w-full transition-colors"
+                            style={{ color: 'var(--chat-accent)' }}
+                          >
+                            <ChevronDown
+                              className="w-3.5 h-3.5 transition-transform"
+                              style={{
+                                transform: expandedTables.has(msg.id)
+                                  ? 'rotate(180deg)'
+                                  : 'rotate(0deg)',
+                              }}
+                            />
+                            Visualizar tabela
+                          </button>
+                          {expandedTables.has(msg.id) && (
+                            <div className="mt-3">
+                              <AgentDataTable data={msg.data} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {msg.sources_text && (
                         <div className="mt-4 pt-3 border-t border-[var(--chat-border)]">
                           <p
@@ -484,12 +840,12 @@ export function ChatIA() {
                               color: 'var(--color-foreground)',
                             }}
                             onMouseEnter={e =>
-                            (e.currentTarget.style.borderColor =
-                              'var(--chat-accent)')
+                              (e.currentTarget.style.borderColor =
+                                'var(--chat-accent)')
                             }
                             onMouseLeave={e =>
-                            (e.currentTarget.style.borderColor =
-                              'var(--chat-border)')
+                              (e.currentTarget.style.borderColor =
+                                'var(--chat-border)')
                             }
                           >
                             {sug}
@@ -549,6 +905,46 @@ export function ChatIA() {
 
           {/* Input Area */}
           <div className="p-4 shrink-0" style={{ borderTop: '1px solid var(--chat-border)' }}>
+            {pendingQuestions.length > 0 && (
+              <div
+                className="mb-3 rounded-xl px-3 py-2"
+                style={{
+                  background: 'var(--chat-msg-ai-bg)',
+                  border: '1px solid var(--chat-border)',
+                }}
+              >
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <span className="text-[11px] font-semibold text-muted-foreground">
+                    Na fila
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {pendingQuestions.length}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {pendingQuestions.map((question, index) => (
+                    <div
+                      key={`${question}-${index}`}
+                      data-testid="queued-question"
+                      className="flex min-w-0 max-w-full items-center gap-2 rounded-lg px-2 py-1.5"
+                      style={{ background: 'var(--chat-input-bg)' }}
+                    >
+                      <span className="min-w-0 truncate text-xs text-foreground">
+                        {question}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removePendingQuestion(index)}
+                        className="w-6 h-6 rounded-md flex items-center justify-center text-muted hover:text-foreground transition-colors hover:bg-(--chat-item-hover)"
+                        aria-label={`Remover pergunta da fila: ${question}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="relative max-w-full">
               {slashMenuOpen && (
                 <SlashCommandMenu
@@ -574,7 +970,7 @@ export function ChatIA() {
                 />
                 <button
                   onClick={handleEnviar}
-                  disabled={!inputValue.trim() || isTyping}
+                  disabled={!inputValue.trim()}
                   className="flex flex-col items-center gap-0.5 shrink-0 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed text-[#1E5EFF] dark:text-white"
                 >
                   <Send className="w-4 h-4" />
@@ -616,7 +1012,7 @@ export function ChatIA() {
               </button>
               <button
                 type="button"
-                onClick={confirmDeleteConversation}
+                onClick={handleDeleteConversation}
                 disabled={isDeletingConversation}
                 className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 flex items-center gap-2 disabled:opacity-70 transition-colors"
               >

@@ -23,13 +23,19 @@ import { Operadores } from "./pages/Operadores";
 import { CadastroProduto } from "./pages/CadastroProduto";
 import { EditarProduto } from "./pages/EditarProduto";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { ChatProvider, useChat } from "./contexts/ChatContext";
+import {AuthProvider, useAuth} from "./contexts/AuthContext";
+import { AiAgentChatProvider } from "./contexts/AiAgentChatContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { toast, Toaster } from "sonner";
-import { useEffect } from "react";
-import { AUTH_EXPIRED_EVENT } from "@/services/setupFetchInterceptor.ts";
-import { ChatIADrawer } from "@/components/ChatIADrawer.tsx";
+import {toast, Toaster} from "sonner";
+import {useEffect, type ReactNode} from "react";
+import {AUTH_EXPIRED_EVENT} from "@/services/setupFetchInterceptor.ts";
+import {ChatIADrawer} from "@/components/ChatIADrawer.tsx";
+
+const ROUTES_WITHOUT_AI_DRAWER = new Set([
+  '/chat-ia',
+  '/configuracoes',
+  '/operadores',
+])
 
 function AuthExpirationGuard() {
   const navigate = useNavigate()
@@ -49,17 +55,7 @@ function AuthExpirationGuard() {
 
 function AppLayout() {
   const location = useLocation()
-  const { setLastRoute } = useChat()
-  const isChatRoute = location.pathname === '/chat-ia'
-  const isSettingsOrOperators = ['/configuracoes', '/operadores'].includes(location.pathname)
-  const showDrawer = !isChatRoute && !isSettingsOrOperators
-
-  useEffect(() => {
-    if (!isChatRoute) {
-      setLastRoute(location.pathname)
-    }
-  }, [location.pathname, isChatRoute, setLastRoute])
-
+  const showDrawer = !ROUTES_WITHOUT_AI_DRAWER.has(location.pathname)
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -74,14 +70,24 @@ function AppLayout() {
   );
 }
 
+function AuthenticatedAiAgentChatProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth()
+
+  if (!isAuthenticated) {
+    return <>{children}</>
+  }
+
+  return <AiAgentChatProvider>{children}</AiAgentChatProvider>
+}
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ChatProvider>
-          <Toaster position="top-right" richColors />
-          <BrowserRouter>
-            <AuthExpirationGuard />
+        <Toaster position="top-right" richColors />
+        <BrowserRouter>
+          <AuthExpirationGuard />
+          <AuthenticatedAiAgentChatProvider>
             <Routes>
               {/* Redireciona raiz para login */}
               <Route index element={<Navigate to="/login" replace />} />
@@ -125,8 +131,8 @@ function App() {
               {/* Qualquer rota desconhecida redireciona para login */}
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
-          </BrowserRouter>
-        </ChatProvider>
+          </AuthenticatedAiAgentChatProvider>
+        </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
   );

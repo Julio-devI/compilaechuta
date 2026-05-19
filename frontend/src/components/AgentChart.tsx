@@ -183,8 +183,8 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
             Exibindo os primeiros {MAX_CATEGORICAL_ITEMS} de {data.length} registros.
           </p>
         )}
-        <div style={{ height: pieChartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="min-w-0" style={{ height: pieChartHeight }}>
+          <ResponsiveContainer width="100%" height={pieChartHeight}>
             <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
               <Pie
                 data={renderData}
@@ -234,15 +234,17 @@ function AgentChartImpl({ chart, data, height = 240 }: AgentChartProps) {
     )
   }
 
+  const categoricalChartHeight = Math.max(120, height - (shouldCap ? 54 : 30))
+
   return (
-    <div className="w-full" style={{ height: shouldCap ? height + 20 : height }}>
+    <div className="w-full min-w-0" style={{ height: shouldCap ? height + 20 : height }}>
       <p className="text-xs font-semibold mb-1 text-foreground">{chart.title}</p>
       {shouldCap && (
         <p className="text-[10px] text-muted-foreground mb-2">
           Exibindo os primeiros {MAX_CATEGORICAL_ITEMS} de {data.length} registros.
         </p>
       )}
-      <ResponsiveContainer width="100%" height="85%">
+      <ResponsiveContainer width="100%" height={categoricalChartHeight}>
         {chart.type === 'bar' ? (
           <BarChart
             data={renderData}

@@ -50,8 +50,8 @@ export function SatisfactionChart({ dateRange }: Props) {
         </div>
       ) : (
         <>
-          <div className="h-36 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-36 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={144}>
               <BarChart data={barChartData} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
                 <XAxis type="number" tickFormatter={(value) => `${value}%`} domain={[0, 100]} hide />
                 <YAxis type="category" dataKey="category" hide />

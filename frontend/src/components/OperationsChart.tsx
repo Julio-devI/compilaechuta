@@ -48,8 +48,8 @@ export function OperationsChart({ dateRange }: Props) {
         </div>
       ) : (
         <>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="90%">
+          <div className="h-56 min-w-0">
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={data} layout="vertical" margin={{ top: 20, right: 30, left: 10, bottom: -10 }}>
                 <XAxis
                   type="number"

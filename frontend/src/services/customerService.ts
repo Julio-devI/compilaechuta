@@ -54,9 +54,11 @@ export function getClienteStatusStyle(segmento: string | null | undefined): stri
   return 'bg-slate-100 text-slate-600 border border-slate-200'
 }
 
-const API_URL = 'http://localhost:8000/api/v1/clients/'
-const DASHBOARD_URL = 'http://localhost:8000/api/v1/dashboard'
-const TICKETS_URL = 'http://localhost:8000/api/v1/tickets'
+import { apiUrl } from './apiConfig'
+
+const API_URL = apiUrl('/clients/')
+const DASHBOARD_URL = apiUrl('/dashboard')
+const TICKETS_URL = apiUrl('/tickets')
 
 export async function getClientes(
   skip = 0,

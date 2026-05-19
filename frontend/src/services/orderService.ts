@@ -53,7 +53,9 @@ export interface FiltrosPedidos {
   id_cliente?: string;
 }
 
-const API_URL = 'http://localhost:8000/api/v1/orders'
+import { apiUrl } from './apiConfig'
+
+const API_URL = apiUrl('/orders')
 
 export async function getPedidos(
   skip: number = 0,

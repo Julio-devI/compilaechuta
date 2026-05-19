@@ -13,6 +13,7 @@ import { getClientes, getClienteStatusStyle, getClientesKPIs } from '../services
 import { ExportCsvButton, type ClientFilters } from '../components/ExportCsvButton'
 import { Toaster, toast } from 'react-hot-toast'
 import { getPedidos } from '../services/orderService'
+import { apiUrl } from '../services/apiConfig'
 import type { Pedido as PedidoService } from '../services/orderService'
 import { getSupportTickets } from '../services/supportService'
 import type { SupportTicket } from '../services/supportService'
@@ -545,7 +546,7 @@ export function Clientes() {
             ltvCeil: lvtMax < LTV_MAX ? lvtMax : undefined,
             region: filterRegiao !== 'Todos' ? filterRegiao : undefined,
           }}
-          endpoint="http://localhost:8000/api/v1/clients/exportar"
+          endpoint={apiUrl('/clients/exportar')}
           onSuccess={(msg) => toast.success(msg)}
           onError={(err) => toast.error(err)}
         />

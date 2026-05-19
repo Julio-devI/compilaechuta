@@ -1,5 +1,7 @@
-const API_URL = 'http://localhost:8000/api/v1/products/'
-const EVAL_API_URL = 'http://localhost:8000/api/v1/orders-evaluation/'
+import { apiUrl } from './apiConfig'
+
+const API_URL = apiUrl('/products/')
+const EVAL_API_URL = apiUrl('/orders-evaluation/')
 
 // 1. Interface de como o dado CHEGA da sua nova API (Backend)
 export interface ProdutoDaAPI {
@@ -59,7 +61,7 @@ export interface FiltrosProdutos {
 export async function getCategorias(): Promise<string[]> {
   try {
     // Tenta buscar da API (se você tiver criado a rota GET /categorias)
-    const response = await fetch(`http://localhost:8000/api/v1/categories`);
+    const response = await fetch(apiUrl('/categories'));
     if (response.ok) {
       return await response.json();
     }

@@ -233,7 +233,14 @@ def test_list_sessions_returns_authenticated_user_sessions(monkeypatch) -> None:
         SimpleNamespace(
             session_id="session-1",
             history_json=json.dumps(
-                [{"role": "user", "content": "Qual foi a receita?", "sql": None}]
+                [
+                    {"role": "user", "content": "Qual foi a receita?", "sql": None},
+                    {
+                        "role": "assistant",
+                        "content": "A receita foi R$ 10.000.",
+                        "sql": "SELECT SUM(valor_total_venda) FROM fato_vendas",
+                    },
+                ]
             ),
             updated_at=datetime(2026, 5, 17, 12, 30, 0),
         )
@@ -252,6 +259,10 @@ def test_list_sessions_returns_authenticated_user_sessions(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["sessions"][0]["session_id"] == "session-1"
     assert response.json()["sessions"][0]["title"] == "Qual foi a receita?"
+    assert (
+        response.json()["sessions"][0]["last_message_preview"]
+        == "A receita foi R$ 10.000."
+    )
     assert response.json()["sessions"][0]["updated_at"].startswith(
         "2026-05-17T12:30:00"
     )
@@ -1267,6 +1278,7 @@ def test_list_sessions_uses_default_title_for_corrupted_history(monkeypatch) -> 
 
     assert response.status_code == 200
     assert response.json()["sessions"][0]["title"] == "Sessão sem título"
+    assert response.json()["sessions"][0]["last_message_preview"] is None
 
 
 def test_get_session_detail_with_corrupted_history_returns_empty_history(monkeypatch) -> None:

@@ -845,7 +845,14 @@ describe('ChatIADrawer', () => {
       {
         session_id: 'sess-historico',
         title: 'Receita por categoria',
+        last_message_preview: 'A categoria Alpha liderou a receita.',
         updated_at: '2026-05-18T12:30:00.000Z',
+      },
+      {
+        session_id: 'sess-outro',
+        title: 'Pedidos recentes',
+        last_message_preview: 'Resumo de pedidos aprovados.',
+        updated_at: '2026-05-18T12:20:00.000Z',
       },
     ])
     getSessionDetailMock.mockResolvedValueOnce({
@@ -894,7 +901,16 @@ describe('ChatIADrawer', () => {
     await user.click(screen.getAllByRole('button', { name: /Histórico/ })[0])
 
     expect(await screen.findByText('Receita por categoria')).toBeInTheDocument()
+    expect(screen.getByText('Pedidos recentes')).toBeInTheDocument()
     expect(listSessionsMock).toHaveBeenCalledTimes(1)
+
+    await user.type(
+      screen.getByPlaceholderText('Pesquisar...'),
+      'Alpha liderou',
+    )
+
+    expect(screen.getByText('Receita por categoria')).toBeInTheDocument()
+    expect(screen.queryByText('Pedidos recentes')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Receita por categoria/ }))
 

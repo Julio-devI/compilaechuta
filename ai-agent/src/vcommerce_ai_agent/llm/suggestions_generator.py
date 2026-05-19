@@ -19,7 +19,7 @@ _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "suggestions_system
 SUGGESTIONS_COUNT = 5
 INITIAL_SUGGESTIONS: tuple[str, ...] = (
     "Qual é a receita total agrupada por região do país?",
-    "Quais são os principais clientes do segmento 'Campeões' que mais gastaram na loja?",
+    "Quais são os principais clientes do segmento 'Campeão' que mais gastaram na loja?",
     "Qual é o tempo médio de resolução de tickets por tipo de problema?",
     "Quais são os 10 produtos com a melhor média de avaliação dos clientes?",
     "Quais canais de aquisição geram o maior número de compras e adições ao carrinho?",

@@ -194,6 +194,31 @@ def _derive_title(history_json: str | None) -> str:
     return "Sessão sem título"
 
 
+def _derive_last_message_preview(history_json: str | None) -> str | None:
+    """Deriva um trecho seguro da última mensagem exibível da sessão."""
+    if not history_json:
+        return None
+    try:
+        history = json.loads(history_json)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(history, list):
+        return None
+    for entry in reversed(history):
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("role") not in {"user", "assistant"}:
+            continue
+        content = entry.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        stripped = content.strip()
+        if len(stripped) <= 120:
+            return stripped
+        return stripped[:120].rstrip() + "…"
+    return None
+
+
 def _sanitize_history_for_frontend(
     history: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -512,6 +537,7 @@ async def list_user_sessions(
         SessionSummary(
             session_id=row.session_id,
             title=_derive_title(row.history_json),
+            last_message_preview=_derive_last_message_preview(row.history_json),
             updated_at=row.updated_at.replace(tzinfo=timezone.utc) if row.updated_at else None,
         )
         for row in rows

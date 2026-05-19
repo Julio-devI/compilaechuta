@@ -201,6 +201,13 @@ class SessionSummary(BaseModel):
             "quando o histórico está vazio ou corrompido."
         ),
     )
+    last_message_preview: Optional[str] = Field(
+        None,
+        description=(
+            "Trecho seguro da última mensagem exibível da sessão, sem SQL "
+            "ou campos técnicos. Usado apenas para busca no histórico."
+        ),
+    )
     updated_at: datetime = Field(
         ...,
         description="Timestamp da última atualização da sessão (ISO 8601).",

@@ -141,14 +141,24 @@ describe('listSessions', () => {
   it('faz GET em /sessions e retorna apenas o array sessions do envelope', async () => {
     const fetchMock = mockFetchOk({
       sessions: [
-        { session_id: 's1', title: 't1', updated_at: '2026-05-17T12:00:00Z' },
+        {
+          session_id: 's1',
+          title: 't1',
+          last_message_preview: 'ultima mensagem',
+          updated_at: '2026-05-17T12:00:00Z',
+        },
       ],
     })
 
     const result = await listSessions()
 
     expect(result).toEqual([
-      { session_id: 's1', title: 't1', updated_at: '2026-05-17T12:00:00Z' },
+      {
+        session_id: 's1',
+        title: 't1',
+        last_message_preview: 'ultima mensagem',
+        updated_at: '2026-05-17T12:00:00Z',
+      },
     ])
     const [url, options] = fetchMock.mock.calls[0]
     expect(url).toBe(apiUrl('/ai-agent/sessions'))

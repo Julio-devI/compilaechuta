@@ -40,6 +40,7 @@ export interface SuggestionsResponse {
 export interface SessionSummary {
   session_id: string
   title: string
+  last_message_preview?: string | null
   updated_at: string
 }
 

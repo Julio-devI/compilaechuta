@@ -17,6 +17,15 @@ class TicketBase(BaseModel):
     tempo_resolucao_horas: Optional[float] = Field(None, gt=0)
     registro_consistente: Optional[bool] = None
 
+    @field_validator("nota_avaliacao", mode="before")
+    @classmethod
+    def _normaliza_nota(cls, v):
+        if v is None:
+            return None
+        if float(v) < 0:
+            return None
+        return v
+
 
 class TicketCreate(TicketBase):
     pass

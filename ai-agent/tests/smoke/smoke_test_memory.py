@@ -74,7 +74,7 @@ async def _run_smoke_test(db_path: str) -> None:
         },
         {
             "label": "S10",
-            "question": "E quantos desses clientes sao do segmento Campeões?",
+            "question": "E quantos desses clientes sao do segmento Campeão?",
             "planned_calls": 2,
         },
     ]

@@ -54,7 +54,7 @@ async def _run_smoke_test(db_path: str) -> None:
             "expects_chart": False,
         },
         {
-            "question": "Liste todos os clientes do segmento Campeoes",
+            "question": "Liste todos os clientes do segmento Campeão",
             "planned_calls": 2,
             "expects_chart": False,
         },

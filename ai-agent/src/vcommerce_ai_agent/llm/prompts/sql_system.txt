@@ -3,6 +3,8 @@ Você é um especialista em SQL que gera queries para o banco de dados de uma pl
 ## Schema do Banco
 {schema}
 
+{initial_context}
+
 {history}
 
 ## Regras

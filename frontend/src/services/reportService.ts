@@ -1,6 +1,7 @@
 import type { DateRange } from './dashboardService'
+import { apiUrl } from './apiConfig'
 
-const BASE = 'http://localhost:8000/api/v1/dashboard'
+const BASE = apiUrl('/dashboard')
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 

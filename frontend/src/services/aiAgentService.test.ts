@@ -6,12 +6,11 @@ import {
   getSuggestions,
   listSessions,
 } from './aiAgentService'
+import { apiUrl } from './apiConfig'
 
 vi.mock('./authService', () => ({
   getAuthHeaders: () => ({ Authorization: 'Bearer tok' }),
 }))
-
-const API_BASE = 'http://127.0.0.1:8000/api/v1'
 
 function mockFetchOk(body: unknown): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn().mockResolvedValue({
@@ -73,7 +72,7 @@ describe('askAgent', () => {
     expect(result).toEqual(payload)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe(`${API_BASE}/ai-agent/ask`)
+    expect(url).toBe(apiUrl('/ai-agent/ask'))
     expect(options.method).toBe('POST')
     expect(options.headers).toMatchObject({
       'Content-Type': 'application/json',
@@ -82,6 +81,29 @@ describe('askAgent', () => {
     expect(JSON.parse(options.body)).toEqual({
       question: 'Qual?',
       session_id: 's1',
+    })
+  })
+
+  it('envia page_context quando informado', async () => {
+    const fetchMock = mockFetchOk({
+      status: 'success',
+      session_id: 's1',
+      user_response: {
+        answer_text: 'ok',
+        sources_text: null,
+        data: null,
+        chart: null,
+        truncated: false,
+      },
+    })
+
+    await askAgent('Qual?', 's1', 'clientes')
+
+    const [, options] = fetchMock.mock.calls[0]
+    expect(JSON.parse(options.body)).toEqual({
+      question: 'Qual?',
+      session_id: 's1',
+      page_context: 'clientes',
     })
   })
 
@@ -104,7 +126,7 @@ describe('getSuggestions', () => {
 
     expect(result).toEqual({ suggestions: ['a', 'b'] })
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe(`${API_BASE}/ai-agent/suggestions`)
+    expect(url).toBe(apiUrl('/ai-agent/suggestions'))
     expect(options.method).toBe('POST')
     expect(JSON.parse(options.body)).toEqual({ session_id: '' })
   })
@@ -119,17 +141,27 @@ describe('listSessions', () => {
   it('faz GET em /sessions e retorna apenas o array sessions do envelope', async () => {
     const fetchMock = mockFetchOk({
       sessions: [
-        { session_id: 's1', title: 't1', updated_at: '2026-05-17T12:00:00Z' },
+        {
+          session_id: 's1',
+          title: 't1',
+          last_message_preview: 'ultima mensagem',
+          updated_at: '2026-05-17T12:00:00Z',
+        },
       ],
     })
 
     const result = await listSessions()
 
     expect(result).toEqual([
-      { session_id: 's1', title: 't1', updated_at: '2026-05-17T12:00:00Z' },
+      {
+        session_id: 's1',
+        title: 't1',
+        last_message_preview: 'ultima mensagem',
+        updated_at: '2026-05-17T12:00:00Z',
+      },
     ])
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe(`${API_BASE}/ai-agent/sessions`)
+    expect(url).toBe(apiUrl('/ai-agent/sessions'))
     expect(options.method).toBe('GET')
     expect(options.headers).toMatchObject({ Authorization: 'Bearer tok' })
   })
@@ -147,7 +179,7 @@ describe('getSessionDetail', () => {
     await getSessionDetail('a/b c')
 
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toBe(`${API_BASE}/ai-agent/sessions/a%2Fb%20c`)
+    expect(url).toBe(apiUrl('/ai-agent/sessions/a%2Fb%20c'))
   })
 
   it('lanca Error com detail quando o backend responde 404', async () => {
@@ -163,7 +195,7 @@ describe('deleteSession', () => {
     await expect(deleteSession('s 1')).resolves.toBeUndefined()
 
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe(`${API_BASE}/ai-agent/sessions/s%201`)
+    expect(url).toBe(apiUrl('/ai-agent/sessions/s%201'))
     expect(options.method).toBe('DELETE')
   })
 

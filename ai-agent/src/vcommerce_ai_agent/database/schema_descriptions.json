@@ -23,8 +23,8 @@
           "examples": ["SP", "SC", "RJ"]
         },
         "regiao": {
-          "description": "Regiao geografica do Brasil (Norte, Nordeste, Centro-Oeste, Sudeste, Sul).",
-          "examples": ["Sudeste", "Sul", "Nordeste"]
+          "description": "Regiao geografica do Brasil. Valores atuais no banco: 'Centro-Oeste', 'Nordeste', 'Norte', 'Não informado', 'Sudeste', 'Sul'.",
+          "examples": ["Centro-Oeste", "Nordeste", "Norte", "Não informado", "Sudeste", "Sul"]
         },
         "qtd_pedidos_realizados": {
           "description": "Quantidade total de pedidos realizados pelo cliente.",
@@ -47,8 +47,8 @@
           "examples": [3.0, 4.5, 5.0]
         },
         "segmento_rfm": {
-          "description": "Segmento RFM do cliente (ex: Campeoes, Em Risco, Cliente Fiel).",
-          "examples": ["Cliente regular", "Campeão", "Em Risco"]
+          "description": "Segmento RFM do cliente. Valores atuais no banco: 'Campeão', 'Cliente VIP', 'Cliente fiel', 'Cliente regular', 'Em risco', 'Inativo', 'Novo cliente'.",
+          "examples": ["Campeão", "Cliente VIP", "Cliente fiel", "Cliente regular", "Em risco", "Inativo", "Novo cliente"]
         }
       }
     },
@@ -89,12 +89,12 @@
           "examples": [150, 0, 42]
         },
         "ativo": {
-          "description": "Indica se o produto esta ativo no catalogo (Sim/Nao).",
-          "examples": ["Sim", "Nao"]
+          "description": "Indica se o produto esta ativo no catalogo. Valores atuais no banco: 'Sim' ou 'Não'.",
+          "examples": ["Sim", "Não"]
         },
         "precisa_revisao": {
-          "description": "Indica se o produto precisa de revisao em algum de seus dados (Sim/Nao).",
-          "examples": ["Sim", "Nao"]
+          "description": "Indica se o produto precisa de revisao em algum de seus dados. Valores atuais no banco: 'Sim' ou 'Não'.",
+          "examples": ["Sim", "Não"]
         },
         "data_cadastro_produto": {
           "description": "Data de cadastro do produto no sistema.",
@@ -297,8 +297,8 @@
           "examples": ["PIX", "Cartao", "Boleto"]
         },
         "status": {
-          "description": "Status do pedido associado a avaliacao.",
-          "examples": ["Aprovado", "Cancelado", "Pendente"]
+          "description": "Status do pedido associado a avaliacao. Valor atual no banco: 'Aprovado'.",
+          "examples": ["Aprovado"]
         },
         "data_pedido": {
           "description": "Data em que o pedido foi realizado.",
@@ -313,8 +313,8 @@
           "examples": [7, 9, 5]
         },
         "recomenda": {
-          "description": "Indica se o cliente recomendaria o produto (Sim/Nao).",
-          "examples": ["Sim", "Nao"]
+          "description": "Indica se o cliente recomendaria o produto. Valores atuais no banco: 'Sim' ou 'Não'.",
+          "examples": ["Sim", "Não"]
         },
         "comentario": {
           "description": "Texto livre do comentario do cliente na avaliacao.",
@@ -325,7 +325,7 @@
           "examples": ["2025-07-31", "2024-12-31"]
         },
         "categoria_nps": {
-          "description": "Classificacao NPS derivada da nota_nps: Promotor (9-10), Neutro (7-8) ou Detrator (0-6).",
+          "description": "Classificacao NPS derivada da nota_nps. Valores atuais no banco: 'Detrator', 'Neutro', 'Promotor' ou NULL quando nao ha nota NPS.",
           "examples": ["Promotor", "Neutro", "Detrator"]
         },
         "pct_recomendacoes_sim": {
@@ -333,8 +333,8 @@
           "examples": [75.71, 71.22]
         },
         "comentario_consistente": {
-          "description": "Determina a consistencia de um comentario.",
-          "examples": ["True", "False"]
+          "description": "Flag inteiro indicando se o comentario foi avaliado como consistente. Valores atuais no banco: 1 (consistente) ou 0 (inconsistente).",
+          "examples": [0, 1]
         }
       }
     },
@@ -375,8 +375,8 @@
           "examples": ["resolvido", "aberto"]
         },
         "tipo_problema": {
-          "description": "Categoria do problema relatado no ticket.",
-          "examples": ["pagamento", "entrega", "reembolso", "produto", "atraso"]
+          "description": "Categoria do problema relatado no ticket. Valores atuais no banco: 'delay', 'delivery', 'payment', 'product', 'refund'.",
+          "examples": ["delay", "delivery", "payment", "product", "refund"]
         },
         "agente_suporte": {
           "description": "Nome do agente de suporte que atendeu o ticket.",
@@ -387,8 +387,8 @@
           "examples": [4, 5, 2]
         },
         "registro_consistente": {
-          "description": "Determina a consistencia de um ticket, associada ao fato de um usuario conseguir criar tickets nos pedidos de outros usuarios.",
-          "examples": ["True", "False"]
+          "description": "Flag inteiro indicando se o ticket pertence ao cliente que abriu. Valores atuais no banco: 1 (consistente) ou 0 (inconsistente).",
+          "examples": [0, 1]
         }
       }
     },
@@ -429,8 +429,8 @@
           "examples": [0, 5, 20]
         },
         "canal_mais_usado": {
-          "description": "Canal de origem de trafego mais utilizado pelo cliente.",
-          "examples": ["web", "mobile", "app"]
+          "description": "Canal de origem de trafego mais utilizado pelo cliente. Valores atuais no banco: 'app', 'mobile_web', 'web'.",
+          "examples": ["app", "mobile_web", "web"]
         },
         "dispositivo_mais_usado": {
           "description": "Tipo de dispositivo mais utilizado pelo cliente.",
@@ -447,12 +447,12 @@
           "examples": ["CATEG-0001", "CATEG-0005", "CATEG-0007"]
         },
         "nome_categoria": {
-          "description": "Nome da categoria de produto.",
-          "examples": ["Eletronicos", "Moveis", "Acessorios"]
+          "description": "Nome da categoria de produto. Valores atuais no banco: 'Automotivo', 'Beleza', 'Brinquedos', 'Casa', 'Eletrônicos', 'Esportes', 'Móveis', 'Outros', 'Vestuário'.",
+          "examples": ["Automotivo", "Beleza", "Brinquedos", "Casa", "Eletrônicos", "Esportes", "Móveis", "Outros", "Vestuário"]
         },
         "slug_categoria": {
-          "description": "Slug da categoria para URLs.",
-          "examples": ["eletronicos", "moveis", "acessorios"]
+          "description": "Slug da categoria para URLs. Valores atuais no banco: 'automotivo', 'beleza', 'brinquedos', 'casa', 'eletronicos', 'esportes', 'moveis', 'outros', 'vestuario'.",
+          "examples": ["automotivo", "beleza", "brinquedos", "casa", "eletronicos", "esportes", "moveis", "outros", "vestuario"]
         },
         "imagem_url": {
           "description": "URL da imagem representativa da categoria.",
@@ -519,8 +519,8 @@
       "description": "Tabela agregada (gold) com metricas de satisfacao e volume por tipo de problema de suporte. Permite identificar as categorias de problema mais criticas.",
       "columns": {
         "tipo_problema": {
-          "description": "Categoria do problema relatado nos tickets.",
-          "examples": ["pagamento", "entrega", "reembolso", "produto", "atraso"]
+          "description": "Categoria do problema relatado nos tickets. Valores atuais no banco: 'delay', 'delivery', 'payment', 'product', 'refund'.",
+          "examples": ["delay", "delivery", "payment", "product", "refund"]
         },
         "volume_tickets": {
           "description": "Quantidade total de tickets registrados para esse tipo de problema.",

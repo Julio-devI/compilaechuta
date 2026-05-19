@@ -23,6 +23,12 @@ const ROUTE_SUGGESTIONS: Record<string, string[]> = {
     'Qual é a receita total por categoria de produto?',
     'Quais produtos têm a pior avaliação média dos clientes?',
   ],
+  '/categorias': [
+    'Quais categorias têm mais produtos precisando de revisão?',
+    'Quais categorias concentram o maior estoque disponível?',
+    'Qual é o preço médio dos produtos por categoria?',
+    'Quais categorias têm menos produtos ativos no catálogo?',
+  ],
   '/suporte': [
     'Qual é o tempo médio de resolução de tickets por tipo de problema?',
     'Quantos tickets estão abertos atualmente por tipo?',

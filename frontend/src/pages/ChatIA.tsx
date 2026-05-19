@@ -45,6 +45,7 @@ import { shouldShowAgentDataTable } from '@/lib/agentDataDisplay'
 interface ConversaHistorico {
   id: string
   titulo: string
+  lastMessagePreview: string | null
   timestamp: string
 }
 
@@ -87,6 +88,7 @@ function summaryToHistorico(s: SessionSummary): ConversaHistorico {
   return {
     id: s.session_id,
     titulo: s.title,
+    lastMessagePreview: s.last_message_preview ?? null,
     timestamp: formatSessionTimestamp(s.updated_at),
   }
 }
@@ -99,8 +101,13 @@ function buildOptimisticHistorico(
   return {
     id: sessionId,
     titulo: title,
+    lastMessagePreview: question,
     timestamp: nowHHmm(),
   }
+}
+
+function normalizeSearchText(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase()
 }
 
 export function ChatIA() {
@@ -127,12 +134,15 @@ export function ChatIA() {
     setInitialSuggestions,
     isTyping,
     setIsTyping,
+    setSessionTyping,
     pendingQuestions,
     setPendingQuestions,
+    setMessagesForSession,
     nextMessageId,
     resetActiveConversation,
   } = useAiAgentChat()
   const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
+  const sessionIdRef = useRef(sessionId)
   const conversationTokenRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS)
@@ -200,15 +210,23 @@ export function ChatIA() {
     pendingQuestionsRef.current = pendingQuestions
   }, [pendingQuestions])
 
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
+
   const processQuestion = useCallback(async (rawText: string) => {
     const text = rawText.trim()
     if (!text) return
     const requestToken = conversationTokenRef.current
+    const requestSessionId = sessionId
+    const isRequestSessionCurrent = () =>
+      conversationTokenRef.current === requestToken ||
+      sessionIdRef.current === requestSessionId
 
-    setActiveConversation(sessionId)
+    setActiveConversation(requestSessionId)
     setConversasHistorico(prev => [
-      buildOptimisticHistorico(sessionId, text),
-      ...prev.filter(conversa => conversa.id !== sessionId),
+      buildOptimisticHistorico(requestSessionId, text),
+      ...prev.filter(conversa => conversa.id !== requestSessionId),
     ])
     setMessages(prev => [
       ...prev,
@@ -219,11 +237,11 @@ export function ChatIA() {
         timestamp: nowHHmm(),
       },
     ])
-    setIsTyping(true)
+    setSessionTyping(requestSessionId, true)
 
     try {
-      const response = await askAgent(text, sessionId)
-      if (conversationTokenRef.current !== requestToken) return
+      const response = await askAgent(text, requestSessionId)
+      if (!isRequestSessionCurrent()) return
 
       const assistantText =
         response.user_response.answer_text ||
@@ -231,7 +249,7 @@ export function ChatIA() {
           ? 'Não consegui responder a essa pergunta com os dados disponíveis.'
           : 'Ocorreu um erro ao processar a resposta.')
 
-      setMessages(prev => [
+      setMessagesForSession(requestSessionId, prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -248,10 +266,10 @@ export function ChatIA() {
         refreshSessions()
       }
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) return
       const message = (err as Error).message
       toast.error(message)
-      setMessages(prev => [
+      setMessagesForSession(requestSessionId, prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -261,7 +279,10 @@ export function ChatIA() {
         },
       ])
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) {
+        setSessionTyping(requestSessionId, false)
+        return
+      }
 
       const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
       if (nextQuestion) {
@@ -269,7 +290,7 @@ export function ChatIA() {
         setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
-        setIsTyping(false)
+        setSessionTyping(requestSessionId, false)
       }
     }
   }, [
@@ -277,9 +298,10 @@ export function ChatIA() {
     refreshSessions,
     sessionId,
     setActiveConversation,
-    setIsTyping,
     setMessages,
+    setMessagesForSession,
     setPendingQuestions,
+    setSessionTyping,
   ])
 
   const sendQuestion = (rawText: string) => {
@@ -309,6 +331,10 @@ export function ChatIA() {
 
   const runSugestaoCommand = async () => {
     const requestToken = conversationTokenRef.current
+    const requestSessionId = sessionId
+    const isRequestSessionCurrent = () =>
+      conversationTokenRef.current === requestToken ||
+      sessionIdRef.current === requestSessionId
     setMessages(prev => [
       ...prev,
       {
@@ -318,12 +344,12 @@ export function ChatIA() {
         timestamp: nowHHmm(),
       },
     ])
-    setIsTyping(true)
+    setSessionTyping(requestSessionId, true)
     try {
-      const { suggestions: list } = await getSuggestions(sessionId)
-      if (conversationTokenRef.current !== requestToken) return
+      const { suggestions: list } = await getSuggestions(requestSessionId)
+      if (!isRequestSessionCurrent()) return
 
-      setMessages(prev => [
+      setMessagesForSession(requestSessionId, prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -334,10 +360,13 @@ export function ChatIA() {
         },
       ])
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) return
       toast.error((err as Error).message)
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) {
+        setSessionTyping(requestSessionId, false)
+        return
+      }
 
       const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
       if (nextQuestion) {
@@ -345,7 +374,7 @@ export function ChatIA() {
         setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
-        setIsTyping(false)
+        setSessionTyping(requestSessionId, false)
       }
     }
   }
@@ -390,6 +419,7 @@ export function ChatIA() {
 
   const handleNovaConversa = () => {
     conversationTokenRef.current += 1
+    sessionIdRef.current = ''
     pendingQuestionsRef.current = []
     resetActiveConversation()
     setPendingQuestions([])
@@ -436,6 +466,7 @@ export function ChatIA() {
 
       if (deletedActiveConversation) {
         conversationTokenRef.current += 1
+        sessionIdRef.current = ''
         pendingQuestionsRef.current = []
         resetActiveConversation()
         setPendingQuestions([])
@@ -456,11 +487,11 @@ export function ChatIA() {
   const handleConversaHistorico = async (id: string) => {
     const requestToken = conversationTokenRef.current + 1
     conversationTokenRef.current = requestToken
+    sessionIdRef.current = id
     setActiveConversation(id)
     setSessionId(id)
     setInputValue('')
     setSlashMenuOpen(false)
-    setIsTyping(false)
     pendingQuestionsRef.current = []
     setPendingQuestions([])
     try {
@@ -485,9 +516,14 @@ export function ChatIA() {
     }
   }
 
-  const filteredConversas = conversasHistorico.filter(c =>
-    c.titulo.toLowerCase().includes(searchHistorico.toLowerCase()),
-  )
+  const normalizedHistorySearch = normalizeSearchText(searchHistorico)
+  const filteredConversas = normalizedHistorySearch
+    ? conversasHistorico.filter(c =>
+        [c.titulo, c.lastMessagePreview].some(value =>
+          normalizeSearchText(value).includes(normalizedHistorySearch),
+        ),
+      )
+    : conversasHistorico
 
   return (
     <div
@@ -863,7 +899,7 @@ export function ChatIA() {
               ))}
 
               {isTyping && (
-                <div className="flex gap-3">
+                <div className="flex gap-3" data-testid="agent-typing-indicator">
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
                     style={{

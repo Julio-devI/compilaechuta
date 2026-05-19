@@ -50,6 +50,7 @@ const QUICK_ACTION_ICONS: LucideIcon[] = [Zap, FileText, HelpCircle, Lightbulb]
 interface ConversationHistoryItem {
   id: string
   title: string
+  lastMessagePreview: string | null
   timestamp: string
 }
 
@@ -83,6 +84,7 @@ function summaryToHistoryItem(summary: SessionSummary): ConversationHistoryItem 
   return {
     id: summary.session_id,
     title: summary.title,
+    lastMessagePreview: summary.last_message_preview ?? null,
     timestamp: formatSessionTimestamp(summary.updated_at),
   }
 }
@@ -95,8 +97,13 @@ function buildOptimisticHistoryItem(
   return {
     id: sessionId,
     title,
+    lastMessagePreview: question,
     timestamp: nowHHmm(),
   }
+}
+
+function normalizeSearchText(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase()
 }
 
 function getPageContext(pathname: string): AiAgentPageContext | undefined {
@@ -139,12 +146,15 @@ export function ChatIADrawer() {
     setSelectedChatKey,
     isTyping,
     setIsTyping,
+    setSessionTyping,
     pendingQuestions,
     setPendingQuestions,
+    setMessagesForSession,
     nextMessageId,
     resetActiveConversation,
   } = useAiAgentChat(chatKey)
   const pendingQuestionsRef = useRef<string[]>(pendingQuestions)
+  const sessionIdRef = useRef(sessionId)
   const conversationTokenRef = useRef(0)
   const { text: placeholder, opacity: placeholderOpacity } =
     useRotatingPlaceholder(AGENT_PLACEHOLDERS_COMPACT)
@@ -185,6 +195,10 @@ export function ChatIADrawer() {
     pendingQuestionsRef.current = pendingQuestions
   }, [pendingQuestions])
 
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
+
   const refreshHistory = useCallback(async () => {
     setHistoryLoading(true)
     try {
@@ -204,6 +218,7 @@ export function ChatIADrawer() {
 
   const handleNewConversation = () => {
     conversationTokenRef.current += 1
+    sessionIdRef.current = ''
     pendingQuestionsRef.current = []
     resetActiveConversation()
     setPendingQuestions([])
@@ -218,9 +233,11 @@ export function ChatIADrawer() {
   const loadConversationFromHistory = async (id: string) => {
     const requestToken = conversationTokenRef.current + 1
     conversationTokenRef.current = requestToken
+    sessionIdRef.current = id
+    setSessionId(id)
+    setActiveConversation(id)
     setInputValue('')
     setSlashMenuOpen(false)
-    setIsTyping(false)
     pendingQuestionsRef.current = []
     setPendingQuestions([])
 
@@ -238,8 +255,6 @@ export function ChatIADrawer() {
         chart: entry.chart,
       }))
 
-      setSessionId(id)
-      setActiveConversation(id)
       setMessages(mappedMessages)
       setExpandedCharts(new Set())
       setExpandedTables(new Set())
@@ -254,11 +269,15 @@ export function ChatIADrawer() {
     const text = rawText.trim()
     if (!text) return
     const requestToken = conversationTokenRef.current
+    const requestSessionId = sessionId
+    const isRequestSessionCurrent = () =>
+      conversationTokenRef.current === requestToken ||
+      sessionIdRef.current === requestSessionId
 
-    setActiveConversation(sessionId)
+    setActiveConversation(requestSessionId)
     setConversationHistory(prev => [
-      buildOptimisticHistoryItem(sessionId, text),
-      ...prev.filter(item => item.id !== sessionId),
+      buildOptimisticHistoryItem(requestSessionId, text),
+      ...prev.filter(item => item.id !== requestSessionId),
     ])
     setMessages(prev => [
       ...prev,
@@ -269,22 +288,22 @@ export function ChatIADrawer() {
         timestamp: nowHHmm(),
       },
     ])
-    setIsTyping(true)
+    setSessionTyping(requestSessionId, true)
 
     try {
       const response = await askAgent(
         text,
-        sessionId,
+        requestSessionId,
         getPageContext(location.pathname),
       )
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) return
 
       const assistantText =
         response.user_response.answer_text ||
         (response.status === 'out_of_scope'
           ? 'Não consegui responder a essa pergunta com os dados disponíveis.'
           : 'Ocorreu um erro ao processar a resposta.')
-      setMessages(prev => [
+      setMessagesForSession(requestSessionId, prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -300,10 +319,10 @@ export function ChatIADrawer() {
         if (historyOpen) refreshHistory()
       }
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) return
       const message = (err as Error).message
       toast.error(message)
-      setMessages(prev => [
+      setMessagesForSession(requestSessionId, prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -313,7 +332,10 @@ export function ChatIADrawer() {
         },
       ])
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) {
+        setSessionTyping(requestSessionId, false)
+        return
+      }
 
       const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
       if (nextQuestion) {
@@ -321,7 +343,7 @@ export function ChatIADrawer() {
         setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
-        setIsTyping(false)
+        setSessionTyping(requestSessionId, false)
       }
     }
   }, [
@@ -329,9 +351,10 @@ export function ChatIADrawer() {
     location.pathname,
     sessionId,
     setActiveConversation,
-    setIsTyping,
     setMessages,
+    setMessagesForSession,
     setPendingQuestions,
+    setSessionTyping,
     historyOpen,
     refreshHistory,
   ])
@@ -363,6 +386,10 @@ export function ChatIADrawer() {
 
   const runSugestaoCommand = async () => {
     const requestToken = conversationTokenRef.current
+    const requestSessionId = sessionId
+    const isRequestSessionCurrent = () =>
+      conversationTokenRef.current === requestToken ||
+      sessionIdRef.current === requestSessionId
     setMessages(prev => [
       ...prev,
       {
@@ -372,12 +399,12 @@ export function ChatIADrawer() {
         timestamp: nowHHmm(),
       },
     ])
-    setIsTyping(true)
+    setSessionTyping(requestSessionId, true)
     try {
-      const { suggestions: list } = await getSuggestions(sessionId)
-      if (conversationTokenRef.current !== requestToken) return
+      const { suggestions: list } = await getSuggestions(requestSessionId)
+      if (!isRequestSessionCurrent()) return
 
-      setMessages(prev => [
+      setMessagesForSession(requestSessionId, prev => [
         ...prev,
         {
           id: nextMessageId(),
@@ -388,10 +415,13 @@ export function ChatIADrawer() {
         },
       ])
     } catch (err) {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) return
       toast.error((err as Error).message)
     } finally {
-      if (conversationTokenRef.current !== requestToken) return
+      if (!isRequestSessionCurrent()) {
+        setSessionTyping(requestSessionId, false)
+        return
+      }
 
       const [nextQuestion, ...remainingQuestions] = pendingQuestionsRef.current
       if (nextQuestion) {
@@ -399,7 +429,7 @@ export function ChatIADrawer() {
         setPendingQuestions(remainingQuestions)
         processQuestion(nextQuestion)
       } else {
-        setIsTyping(false)
+        setSessionTyping(requestSessionId, false)
       }
     }
   }
@@ -443,9 +473,14 @@ export function ChatIADrawer() {
     sendQuestion(inputValue)
   }
 
-  const filteredConversationHistory = conversationHistory.filter(item =>
-    item.title.toLowerCase().includes(historySearch.toLowerCase()),
-  )
+  const normalizedHistorySearch = normalizeSearchText(historySearch)
+  const filteredConversationHistory = normalizedHistorySearch
+    ? conversationHistory.filter(item =>
+        [item.title, item.lastMessagePreview].some(value =>
+          normalizeSearchText(value).includes(normalizedHistorySearch),
+        ),
+      )
+    : conversationHistory
 
   return (
     <>
@@ -823,7 +858,7 @@ export function ChatIADrawer() {
             ))}
 
             {isTyping && (
-              <div className="flex gap-3">
+              <div className="flex gap-3" data-testid="agent-typing-indicator">
                 <div className="w-7 h-7 rounded-full bg-linear-to-br from-[#1E5EFF] to-[#8B5CF6] flex items-center justify-center shrink-0">
                   <Bot className="w-3.5 h-3.5 text-white" />
                 </div>

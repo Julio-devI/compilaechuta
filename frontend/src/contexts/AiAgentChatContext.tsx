@@ -28,6 +28,7 @@ interface AiAgentChatState {
   activeConversation: string | null
   initialSuggestions: string[]
   isTyping: boolean
+  typingBySessionId: Record<string, boolean>
   pendingQuestions: string[]
 }
 
@@ -37,6 +38,11 @@ interface AiAgentChatContextValue {
   getChatState: (chatKey: string) => AiAgentChatState
   setChatState: (
     chatKey: string,
+    updater: SetStateAction<AiAgentChatState>,
+  ) => void
+  setChatStateForSession: (
+    chatKey: string,
+    sessionId: string,
     updater: SetStateAction<AiAgentChatState>,
   ) => void
   nextMessageId: (chatKey: string) => number
@@ -54,10 +60,18 @@ interface AiAgentChatActions {
   setInitialSuggestions: Dispatch<SetStateAction<string[]>>
   isTyping: boolean
   setIsTyping: Dispatch<SetStateAction<boolean>>
+  setSessionTyping: (
+    sessionId: string,
+    action: SetStateAction<boolean>,
+  ) => void
   pendingQuestions: string[]
   setPendingQuestions: Dispatch<SetStateAction<string[]>>
   selectedChatKey: string
   setSelectedChatKey: Dispatch<SetStateAction<string>>
+  setMessagesForSession: (
+    sessionId: string,
+    action: SetStateAction<AiAgentMessage[]>,
+  ) => void
   nextMessageId: () => number
   resetActiveConversation: () => void
 }
@@ -71,6 +85,7 @@ function createEmptyChatState(): AiAgentChatState {
     activeConversation: null,
     initialSuggestions: [],
     isTyping: false,
+    typingBySessionId: {},
     pendingQuestions: [],
   }
 }
@@ -79,6 +94,10 @@ function applyStateAction<T>(current: T, action: SetStateAction<T>): T {
   return typeof action === 'function'
     ? (action as (value: T) => T)(current)
     : action
+}
+
+function getSessionTyping(state: AiAgentChatState, sessionId = state.sessionId) {
+  return state.typingBySessionId[sessionId] ?? false
 }
 
 export function AiAgentChatProvider({ children }: { children: ReactNode }) {
@@ -113,6 +132,21 @@ export function AiAgentChatProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  const setChatStateForSession = (
+    chatKey: string,
+    sessionId: string,
+    updater: SetStateAction<AiAgentChatState>,
+  ) => {
+    setChats(prev => {
+      const current = prev[chatKey] ?? getInitialChatState(chatKey)
+      if (current.sessionId !== sessionId) return prev
+      return {
+        ...prev,
+        [chatKey]: applyStateAction(current, updater),
+      }
+    })
+  }
+
   const nextMessageId = (chatKey: string) => {
     const next = (messageIdByChatKeyRef.current[chatKey] ?? 0) + 1
     messageIdByChatKeyRef.current[chatKey] = next
@@ -134,6 +168,7 @@ export function AiAgentChatProvider({ children }: { children: ReactNode }) {
         setSelectedChatKey,
         getChatState,
         setChatState,
+        setChatStateForSession,
         nextMessageId,
         resetChat,
       }}
@@ -151,6 +186,7 @@ export function useAiAgentChat(chatKey?: string): AiAgentChatActions {
 
   const resolvedChatKey = chatKey ?? context.selectedChatKey
   const state = context.getChatState(resolvedChatKey)
+  const currentSessionTyping = getSessionTyping(state)
 
   return {
     messages: state.messages,
@@ -161,10 +197,14 @@ export function useAiAgentChat(chatKey?: string): AiAgentChatActions {
       })),
     sessionId: state.sessionId,
     setSessionId: action =>
-      context.setChatState(resolvedChatKey, current => ({
-        ...current,
-        sessionId: applyStateAction(current.sessionId, action),
-      })),
+      context.setChatState(resolvedChatKey, current => {
+        const nextSessionId = applyStateAction(current.sessionId, action)
+        return {
+          ...current,
+          sessionId: nextSessionId,
+          isTyping: getSessionTyping(current, nextSessionId),
+        }
+      }),
     activeConversation: state.activeConversation,
     setActiveConversation: action =>
       context.setChatState(resolvedChatKey, current => ({
@@ -177,12 +217,37 @@ export function useAiAgentChat(chatKey?: string): AiAgentChatActions {
         ...current,
         initialSuggestions: applyStateAction(current.initialSuggestions, action),
       })),
-    isTyping: state.isTyping,
+    isTyping: currentSessionTyping,
     setIsTyping: action =>
-      context.setChatState(resolvedChatKey, current => ({
-        ...current,
-        isTyping: applyStateAction(current.isTyping, action),
-      })),
+      context.setChatState(resolvedChatKey, current => {
+        const nextTyping = applyStateAction(getSessionTyping(current), action)
+        return {
+          ...current,
+          isTyping: nextTyping,
+          typingBySessionId: {
+            ...current.typingBySessionId,
+            [current.sessionId]: nextTyping,
+          },
+        }
+      }),
+    setSessionTyping: (sessionId, action) =>
+      context.setChatState(resolvedChatKey, current => {
+        const nextTyping = applyStateAction(
+          getSessionTyping(current, sessionId),
+          action,
+        )
+        return {
+          ...current,
+          isTyping:
+            current.sessionId === sessionId
+              ? nextTyping
+              : getSessionTyping(current),
+          typingBySessionId: {
+            ...current.typingBySessionId,
+            [sessionId]: nextTyping,
+          },
+        }
+      }),
     pendingQuestions: state.pendingQuestions,
     setPendingQuestions: action =>
       context.setChatState(resolvedChatKey, current => ({
@@ -191,6 +256,11 @@ export function useAiAgentChat(chatKey?: string): AiAgentChatActions {
       })),
     selectedChatKey: context.selectedChatKey,
     setSelectedChatKey: context.setSelectedChatKey,
+    setMessagesForSession: (sessionId, action) =>
+      context.setChatStateForSession(resolvedChatKey, sessionId, current => ({
+        ...current,
+        messages: applyStateAction(current.messages, action),
+      })),
     nextMessageId: () => context.nextMessageId(resolvedChatKey),
     resetActiveConversation: () => context.resetChat(resolvedChatKey),
   }

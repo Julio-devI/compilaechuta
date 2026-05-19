@@ -612,6 +612,66 @@ describe('ChatIADrawer', () => {
     ).toBeInTheDocument()
   })
 
+  it('mantem carregamento quando o drawer desmonta e remonta no mesmo provider', async () => {
+    let resolveQuestion!: (value: unknown) => void
+
+    askAgentMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveQuestion = resolve
+        }),
+    )
+
+    const user = userEvent.setup()
+    const view = renderWithRouter(
+      <AiAgentChatProvider>
+        <ChatIADrawer />
+      </AiAgentChatProvider>,
+    )
+
+    await user.type(findInput(), 'Pergunta lenta')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('Pergunta lenta')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-typing-indicator')).toBeInTheDocument()
+
+    view.rerender(
+      <AiAgentChatProvider>
+        <div>Outra tela</div>
+      </AiAgentChatProvider>,
+    )
+
+    expect(screen.queryByTestId('agent-typing-indicator')).not.toBeInTheDocument()
+
+    view.rerender(
+      <AiAgentChatProvider>
+        <ChatIADrawer />
+      </AiAgentChatProvider>,
+    )
+
+    expect(await screen.findByText('Pergunta lenta')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-typing-indicator')).toBeInTheDocument()
+
+    await act(async () => {
+      resolveQuestion({
+        status: 'success',
+        session_id: 'sess-1',
+        user_response: {
+          answer_text: 'Resposta lenta',
+          sources_text: null,
+          data: null,
+          chart: null,
+          truncated: false,
+        },
+      })
+    })
+
+    expect(await screen.findByText('Resposta lenta')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByTestId('agent-typing-indicator')).not.toBeInTheDocument(),
+    )
+  })
+
   it('mantem uma conversa separada por pagina do drawer', async () => {
     askAgentMock
       .mockResolvedValueOnce({
